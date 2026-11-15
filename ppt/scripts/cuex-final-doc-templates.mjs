@@ -368,7 +368,7 @@ export function renderJobSpecHtml(metrics, assets) {
           </div>
           <div style="background:${C.tint}; padding:5px 8px; border-radius:6px;">
             <div style="font-size:10px; color:${C.subtle};">净效用 V = H − 2I</div>
-            <div class="tabular" style="font-family:'CueXMono',monospace; font-size:13px; font-weight:800; color:${C.violet};">${metrics.eval.utilityV}</div>
+            <div class="tabular" style="font-family:'CueXMono',monospace; font-size:11px; font-weight:800; color:${C.violet}; line-height:1.35; white-space:nowrap;">${metrics.eval.utilityV}</div>
           </div>
         </div>
         <ul>
@@ -451,7 +451,7 @@ export function renderBmcHtml(metrics, assets) {
       items: [
         '拒绝“只算 LLM Token 吹嘘 96% 毛利”，完整核定 10 项全链路成本：',
         '直接算力与声学：① 文档解析、② 流式 ASR（变动成本大头）、③ S1 快判定、④ S2 推理、⑤ 会话内缓存净节省、⑥ 证据检索、⑦ 赛后复盘；',
-        '运营与商业：⑧ Web/WS 云服务基建、⑨ 0.6% 官方支付手续费、⑩ 免费用户体验补贴与客服支持。',
+        '运营与商业：⑧ Web/WS 云服务基建、⑨ 微信/支付宝分渠道费率（0.6%基准，含退款损耗）、⑩ 12:1 算力活跃免费补贴与客服支持。',
       ],
     },
     {
@@ -663,7 +663,7 @@ export function renderUnitEconomicsHtml(metrics, assets) {
                 return `<tr>
                   <td style="font-family:'CueXSans','CueXCJK',sans-serif; font-weight:700;">${c.name}</td>
                   <td style="font-family:'CueXSans','CueXCJK',sans-serif; color:${C.muted}; font-size:10px;">${c.shareNote}</td>
-                  <td style="text-align:right; font-weight:700; color:${c.id === 5 ? C.sage : c.id === 2 || c.id === 10 ? C.rust : C.ink};">${val}</td>
+                  <td style="text-align:right; font-weight:700; white-space:nowrap; color:${c.id === 5 ? C.sage : c.id === 2 || c.id === 10 ? C.rust : C.ink};">${val}</td>
                 </tr>`;
               })
               .join('')}
@@ -743,10 +743,10 @@ export function renderUnitEconomicsHtml(metrics, assets) {
               <td>${optimistic.eventMarginPct.toFixed(1)}%</td>
             </tr>
             <tr>
-              <td style="font-family:'CueXSans','CueXCJK',sans-serif; font-weight:600;">CAC / LTV / 平衡点</td>
-              <td>¥${conservative.cac}/¥${conservative.ltv.toFixed(0)} (${conservative.breakevenSessionsPro}场)</td>
-              <td style="font-weight:700; color:${C.amber};">¥${base.cac}/¥${base.ltv.toFixed(0)} (${base.breakevenSessionsPro}场)</td>
-              <td>¥${optimistic.cac}/¥${optimistic.ltv.toFixed(0)} (${optimistic.breakevenSessionsPro}场)</td>
+              <td style="font-family:'CueXSans','CueXCJK',sans-serif; font-weight:600;">CAC / LTV / 月承受上限</td>
+              <td>¥${conservative.cac}/¥${conservative.ltv.toFixed(0)} (${conservative.maxAffordableSessionsPerProMonth}场)</td>
+              <td style="font-weight:700; color:${C.amber};">¥${base.cac}/¥${base.ltv.toFixed(0)} (${base.maxAffordableSessionsPerProMonth}场)</td>
+              <td>¥${optimistic.cac}/¥${optimistic.ltv.toFixed(0)} (${optimistic.maxAffordableSessionsPerProMonth}场)</td>
             </tr>
           </tbody>
         </table>
@@ -775,11 +775,11 @@ export function renderUnitEconomicsHtml(metrics, assets) {
 
       <div class="card" style="background:${C.tint}; border-left:3.5px solid ${C.sage};">
         <div style="font-size:11.5px; font-weight:800; color:${C.ink}; margin-bottom:4px;">
-          敏感性与防亏损护栏（详细 9 变量测算见 docs/business/UNIT_ECONOMICS.md）
+          敏感性与防亏损护栏（全 ${metrics.sensitivities.length} 项压测见 docs/business/UNIT_ECONOMICS.md）
         </div>
-        <div style="font-size:10.3px; color:${C.muted}; line-height:1.48;">
-          1. <strong>最敏感因子</strong>：免费/付费用户比、流式 ASR 单价、月活跃高时长场次（决定边际上限）。<br/>
-          2. <strong>产品配额止损</strong>：<code>Free</code> 严格限额（月 2 场×10m 云 ASR），<code>Pro</code> 含 240m/月云 ASR（远低于 ${base.breakevenSessionsPro} 场盈亏平衡点）+ 超额切换本地 Sherpa 识别兜底，防止毛利被刷穿。
+        <div style="font-size:10.1px; color:${C.muted}; line-height:1.45;">
+          1. <strong>敏感因子 &amp; 单户上限</strong>：ASR 单价与活跃免费/付费比最敏感；<code>Pro</code> 含 240m/月云 ASR（远低于单户月承受上限 ${base.maxAffordableSessionsPerProMonth} 场）+ 超额切换本地 Sherpa 兜底。<br/>
+          2. <strong>公司级边界</strong>：${metrics.companyBreakeven.statement}；已计提微信/支付宝分渠道费与 ${base.refundRatePct}% 基准退款损耗。
         </div>
       </div>
     </div>
@@ -949,7 +949,7 @@ export function renderTokenProofHtml(metrics, assets) {
   </main>
 
   <footer style="display:flex; justify-content:space-between; border-top:1px solid ${C.hairline}; padding-top:10px; font-size:12.5px; color:${C.subtle};">
-    <span>诚实核算：明确剥离“纯 LLM 估算”与“全链路云端变动成本（含 ASR / 服务器 / 0.6% 支付费 / 免费摊销）”</span>
+    <span>诚实核算：剥离“纯 LLM 估算”与“全链路云端变动成本（含 ASR / 基建 / 微信支付宝分渠道与退款损耗 / 12:1 活跃免费摊销）”</span>
     <span style="font-family:'CueXMono',monospace;">evidence/token-usage-proof.png</span>
   </footer>
 </div>

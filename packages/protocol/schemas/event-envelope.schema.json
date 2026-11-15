@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuex.ai/schemas/event-envelope.v1.schema.json",
+  "title": "EventEnvelope",
+  "description": "CloudEvents 1.0.2-inspired envelope for CueX runtime events and WS correlation.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "specVersion",
+    "eventId",
+    "eventType",
+    "eventVersion",
+    "occurredAt",
+    "correlationId",
+    "producer",
+    "privacyClass",
+    "payload"
+  ],
+  "properties": {
+    "specVersion": { "const": "1.0" },
+    "eventId": { "type": "string", "minLength": 1 },
+    "eventType": { "type": "string", "minLength": 1 },
+    "eventVersion": { "type": "integer", "minimum": 1 },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "sessionId": { "type": "string", "minLength": 1 },
+    "tenantId": { "type": "string", "minLength": 1 },
+    "userId": { "type": "string", "minLength": 1 },
+    "correlationId": { "type": "string", "minLength": 1 },
+    "causationId": { "type": "string", "minLength": 1 },
+    "producer": { "type": "string", "minLength": 1 },
+    "traceId": { "type": "string", "minLength": 1 },
+    "privacyClass": {
+      "type": "string",
+      "enum": ["public", "session", "user_private", "restricted", "billing_audit"]
+    },
+    "idempotencyKey": { "type": "string", "minLength": 1 },
+    "payload": { "type": "object" }
+  }
+}

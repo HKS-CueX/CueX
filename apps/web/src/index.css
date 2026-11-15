@@ -215,4 +215,8 @@ body {
     animation: none;
     opacity: 0.25;
   }
+  .cue-edge-light[data-phase='withdrawn'] > * {
+    animation: none;
+    opacity: 0;
+  }
 }

@@ -2,21 +2,31 @@
  * HTTP REST API Contracts shared between server gateway and web client.
  */
 
-import type { AsrCapabilityStatus } from './audio';
-import type { DataScope, PrivacyLevel } from './common';
-import type { MemoryCategory, MemoryItem } from './entities';
+import type { AsrCapabilityStatus } from '#src/audio';
+import type {
+  AccountUsageSummary,
+  BillingAuditRecord,
+  Entitlement,
+  PlanDefinition,
+  UsageRecord,
+} from '#src/commercial';
+import type { DataScope, PrivacyLevel } from '#src/common';
+import type { MemoryCategory, MemoryItem } from '#src/entities';
 import type {
   PresentationContextPack,
   PresentationPackSummary,
   PresentationReflection,
-} from './presentation';
-import type { ScenarioCapabilityDescriptor, ScenarioId } from './scenario';
+} from '#src/presentation';
+import type { ScenarioCapabilityDescriptor, ScenarioId } from '#src/scenario';
+import type { UtcIso8601 } from '#src/versions';
 
 export interface HealthStatusResponse {
   ok: boolean;
   service: string;
   version: string;
-  timestamp: number;
+  apiVersion: string;
+  wsProtocolVersion: string;
+  timestamp: UtcIso8601;
   asr: AsrCapabilityStatus;
   system1: {
     backend: string;
@@ -72,4 +82,22 @@ export interface MemoryPatchInput {
 
 export interface SessionReflectionResponse {
   reflection: PresentationReflection;
+}
+
+export interface PlansListResponse {
+  plans: PlanDefinition[];
+}
+
+export interface EntitlementsResponse {
+  entitlements: Entitlement[];
+  usageSummary: AccountUsageSummary;
+}
+
+export interface UsageLedgerListResponse {
+  records: UsageRecord[];
+  summary: AccountUsageSummary;
+}
+
+export interface BillingAuditListResponse {
+  records: BillingAuditRecord[];
 }

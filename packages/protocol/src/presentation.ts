@@ -3,9 +3,10 @@
  * Supports pre-session Context Compiler, live Focus/Inspector views, Q&A grounding, and post-session Reflection.
  */
 
-import type { InterventionLevel, TelemetryUsage } from './common';
-import type { WithdrawalReason } from './controller';
-import type { Evidence, InterventionFeedback, MemoryProposal, TranscriptSpeaker } from './entities';
+import type { DocumentExtractionStatus, InterventionLevel, TelemetryUsage } from '#src/common';
+import type { WithdrawalReason } from '#src/controller';
+import type { Evidence, InterventionFeedback, MemoryProposal, TranscriptSpeaker } from '#src/entities';
+import type { UtcIso8601 } from '#src/versions';
 
 export type PresentationMode = 'rehearsal' | 'live';
 
@@ -32,6 +33,9 @@ export interface ExtractedPresentationSection {
 export interface PresentationExtractResult {
   filename: string;
   fileType: 'md' | 'txt' | 'pptx' | 'pdf' | 'unknown';
+  status: DocumentExtractionStatus;
+  sourceDocumentId?: string;
+  contentHash?: string;
   extractedText: string;
   sections: ExtractedPresentationSection[];
   warnings: string[];
@@ -119,6 +123,9 @@ export interface PresentationProgressNode {
 
 export interface PresentationContextPack {
   packId: string;
+  schemaVersion: number;
+  tenantId?: string;
+  userId?: string;
   scenarioId: 'presentation';
   title: string;
   sceneType: PresentationSceneType;
@@ -135,12 +142,13 @@ export interface PresentationContextPack {
   compiledBy: 'local_compiler' | 'llm_compiler';
   warnings: string[];
   isSample?: boolean;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: UtcIso8601;
+  updatedAt: UtcIso8601;
 }
 
 export interface PresentationPackSummary {
   packId: string;
+  schemaVersion?: number;
   title: string;
   sceneType: PresentationSceneType;
   targetDurationSec: number;
@@ -148,7 +156,7 @@ export interface PresentationPackSummary {
   qaCount: number;
   chapterCount: number;
   isSample?: boolean;
-  updatedAt: string;
+  updatedAt: UtcIso8601;
 }
 
 export interface PresentationPackPatchInput {
@@ -263,7 +271,7 @@ export interface PresentationReflection {
   sessionId: string;
   packId: string;
   mode: PresentationMode;
-  generatedAt: string;
+  generatedAt: UtcIso8601;
   durationMs: number;
   timeline: PresentationTimelineEvent[];
   diagnosis: PresentationDiagnosis;

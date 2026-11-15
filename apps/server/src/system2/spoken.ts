@@ -32,7 +32,7 @@ export function bigramDice(a: string, b: string): number {
   return (2 * shared) / (x.length + y.length);
 }
 
-/** TTS pauses on punctuation. A model sometimes leaves the last clause bare, so close it: a question mark for a question, else a full stop. */
+/** Spoken prompts read cleaner with sentence-ending punctuation; close bare final clauses consistently. */
 export function ensureEnding(line: string): string {
   const t = line.trim();
   if (!t || /[。？！?!…]$/.test(t)) return t;

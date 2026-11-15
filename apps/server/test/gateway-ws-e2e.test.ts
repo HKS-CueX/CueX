@@ -81,23 +81,50 @@ test('CueXGatewayServer HTTP API and WebSocket /ws live presentation & rehearsal
       'roadmap',
     );
 
+    // 1b. Protected routes reject unauthenticated access when CUEX_AUTH_REQUIRED=true (default)
+    const unauthRes = await fetch(`${baseUrl}/api/presentation/packs`);
+    assert.equal(unauthRes.status, 401);
+
+    const authRes = await fetch(`${baseUrl}/api/auth/session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ displayName: 'E2E Presenter', email: 'e2e@example.com' }),
+    });
+    assert.equal(authRes.status, 200);
+    const authJson = (await authRes.json()) as {
+      authenticated: boolean;
+      token: string;
+      user: { userId: string };
+    };
+    assert.equal(authJson.authenticated, true);
+    assert.ok(authJson.token);
+    const authHeaders = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${authJson.token}`,
+    };
+
     // 2. Document extract & compile & pack list
     const extRes = await fetch(`${baseUrl}/api/presentation/extract`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
       body: JSON.stringify({
         filename: 'pitch.md',
         textContent: '# 问题定义\n实时演讲打断注意力。\n# 方案核心\nSystem 1 延迟预算 1460 ms。',
       }),
     });
     assert.equal(extRes.status, 200);
-    const extracted = (await extRes.json()) as { unreadable: boolean; sections: unknown[] };
+    const extracted = (await extRes.json()) as {
+      status: string;
+      unreadable: boolean;
+      sections: unknown[];
+    };
+    assert.equal(extracted.status, 'parsed');
     assert.equal(extracted.unreadable, false);
     assert.equal(extracted.sections.length, 2);
 
     const compRes = await fetch(`${baseUrl}/api/presentation/compile`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
       body: JSON.stringify({
         title: 'API 测试演讲包',
         sceneType: 'pitch',
@@ -109,14 +136,17 @@ test('CueXGatewayServer HTTP API and WebSocket /ws live presentation & rehearsal
     });
     assert.equal(compRes.status, 201);
 
-    const packsRes = await fetch(`${baseUrl}/api/presentation/packs`);
+    const packsRes = await fetch(`${baseUrl}/api/presentation/packs`, {
+      headers: { Authorization: `Bearer ${authJson.token}` },
+    });
+    assert.equal(packsRes.status, 200);
     const packsBody = (await packsRes.json()) as { packs: Array<{ packId: string }> };
     assert.ok(packsBody.packs.some((p) => p.packId === 'pack_cuex_demo_01'));
 
     // 3. Memory API rejects userConfirmed !== true, accepts opt-in
     const badMemRes = await fetch(`${baseUrl}/api/memory`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
       body: JSON.stringify({
         scenarioId: 'presentation',
         category: 'preference',
@@ -130,7 +160,7 @@ test('CueXGatewayServer HTTP API and WebSocket /ws live presentation & rehearsal
     assert.equal(badMemRes.status, 400);
 
     // 4. WebSocket /ws Session E2E
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws?token=${encodeURIComponent(authJson.token)}`);
     const queue: ServerMessage[] = [];
     const waiters: Array<() => void> = [];
 
@@ -175,6 +205,8 @@ test('CueXGatewayServer HTTP API and WebSocket /ws live presentation & rehearsal
     });
     const readyMsg = await waitForMessage(queue, waiters, (m) => m.type === 'session.ready');
     assert.equal(readyMsg.type, 'session.ready');
+    assert.equal(typeof readyMsg.serverSeq, 'number');
+    assert.ok(readyMsg.envelope?.eventId);
     const sessionId = readyMsg.payload.session.sessionId;
 
     // TextOnlyAsr rejects audio.chunk cleanly
@@ -246,7 +278,9 @@ test('CueXGatewayServer HTTP API and WebSocket /ws live presentation & rehearsal
     assert.ok(endedMsg.payload.reflection.weakSegments.length >= 1);
 
     // Fetch reflection over HTTP REST
-    const reflRes = await fetch(`${baseUrl}/api/sessions/${encodeURIComponent(sessionId)}/reflection`);
+    const reflRes = await fetch(`${baseUrl}/api/sessions/${encodeURIComponent(sessionId)}/reflection`, {
+      headers: { Authorization: `Bearer ${authJson.token}` },
+    });
     assert.equal(reflRes.status, 200);
     const reflJson = (await reflRes.json()) as { reflection: { sessionId: string } };
     assert.equal(reflJson.reflection.sessionId, sessionId);
@@ -268,7 +302,7 @@ test('CueXGatewayServer HTTP API and WebSocket /ws live presentation & rehearsal
     // Save confirmed session memory then wipe session cleanly
     const okMemRes = await fetch(`${baseUrl}/api/memory`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders,
       body: JSON.stringify({
         scenarioId: 'presentation',
         category: 'pacing_habit',
@@ -284,11 +318,16 @@ test('CueXGatewayServer HTTP API and WebSocket /ws live presentation & rehearsal
 
     const wipeRes = await fetch(`${baseUrl}/api/sessions/${encodeURIComponent(sessionId)}/wipe`, {
       method: 'POST',
+      headers: { Authorization: `Bearer ${authJson.token}` },
     });
     assert.equal(wipeRes.status, 200);
-    const wipeJson = (await wipeRes.json()) as { wiped: boolean; deletedMemoryCount: number };
-    assert.equal(wipeJson.wiped, true);
-    assert.equal(wipeJson.deletedMemoryCount, 1);
+    const wipeJson = (await wipeRes.json()) as {
+      receiptId: string;
+      deletedScopes: Array<{ scope: string; deletedCount: number }>;
+    };
+    assert.ok(wipeJson.receiptId.startsWith('del_'));
+    assert.equal(wipeJson.deletedScopes.find((s) => s.scope === 'memories')?.deletedCount, 1);
+    assert.equal(wipeJson.deletedScopes.find((s) => s.scope === 'sessions')?.deletedCount, 1);
 
     ws.close();
   } finally {
@@ -324,7 +363,13 @@ test('CueXGatewayServer streams PCM16 audio.chunk frames when streaming ASR engi
   const { port } = await server.start();
 
   try {
-    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
+    const authRes = await fetch(`http://127.0.0.1:${port}/api/auth/session`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ displayName: 'ASR Presenter', email: 'asr@example.com' }),
+    });
+    const authJson = (await authRes.json()) as { token: string };
+    const ws = new WebSocket(`ws://127.0.0.1:${port}/ws?token=${encodeURIComponent(authJson.token)}`);
     const queue: ServerMessage[] = [];
     const waiters: Array<() => void> = [];
     ws.on('message', (raw) => {

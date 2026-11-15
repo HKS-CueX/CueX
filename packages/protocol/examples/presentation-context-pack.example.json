@@ -1,0 +1,101 @@
+{
+  "packId": "pack_cuex_demo_01",
+  "schemaVersion": 2,
+  "tenantId": "tenant_local_default",
+  "userId": "usr_local_owner",
+  "scenarioId": "presentation",
+  "title": "CueX · 你的快思考外挂（路演演示包）",
+  "sceneType": "pitch",
+  "goal": "讲清 Universal Cognitive Runtime + CueX Presentation 最小必要干预与自动撤回价值",
+  "audience": "赛道评委与技术投资人",
+  "targetDurationSec": 300,
+  "cueSheet": {
+    "title": "CueX · 你的快思考外挂",
+    "sceneType": "pitch",
+    "oneLineThesis": "在深度思考之外，接住当下——做懂克制的认知外挂。",
+    "audienceHook": "台上讲到关键数据时，传统 AI 聊天框只会让你低头读段落，破坏现场眼神与节奏。",
+    "targetDurationSec": 300,
+    "chapters": [
+      {
+        "chapterId": "ch_1",
+        "title": "问题与定位",
+        "targetDurationSec": 90,
+        "coreMessage": "高风险表达需要 L0 默认沉默与 L1-L3 渐进轻提示。",
+        "transitionCue": "接下来看架构如何落地这一克制原则",
+        "mustMentionFactIds": ["fact_1"]
+      }
+    ],
+    "closingCallToAction": "邀请评委现场体验 CueX Presentation 彩排与 Focus/Inspector 双视图。",
+    "forbiddenClaims": ["禁止声明已经完成大规模商业付费验证"]
+  },
+  "facts": [
+    {
+      "id": "fact_1",
+      "text": "本地离线 6 例确定性评测通过率为 6/6，平均控制器决策延迟 0.69ms。",
+      "category": "metric",
+      "source": "CueX 演示资料包 · 第 3 页",
+      "userConfirmed": true,
+      "locked": true,
+      "verified": true,
+      "evidenceId": "ev_fact_01"
+    }
+  ],
+  "qaCards": [
+    {
+      "id": "qa_1",
+      "question": "如何保证提示不打断流畅表达？",
+      "rationale": "评委关注 L0 静默门控与防误触发策略",
+      "suggestedAnswer": "通过 System 1 多信号判定与独立 InterventionController 的冷却、上下文版本及 7 类自动撤回机制。",
+      "keywords": ["L0 默认沉默", "自动撤回", "Controller"],
+      "evidenceIds": ["ev_fact_01"],
+      "isPrediction": true,
+      "prepared": true
+    }
+  ],
+  "unpreparedGaps": [],
+  "progressNodes": [
+    {
+      "chapterId": "ch_1",
+      "order": 1,
+      "title": "问题与定位",
+      "targetDurationSec": 90,
+      "actualDurationSec": 0,
+      "status": "upcoming",
+      "keyPoints": [
+        {
+          "id": "kp_1",
+          "label": "最小必要干预与自动撤回",
+          "covered": false,
+          "evidenceId": "ev_fact_01"
+        }
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "id": "ev_fact_01",
+      "schemaVersion": 2,
+      "text": "本地离线 6 例确定性评测通过率为 6/6，平均控制器决策延迟 0.69ms。",
+      "source": "CueX 演示资料包 · 第 3 页",
+      "sourceType": "compiler_extracted",
+      "sourceDocumentId": "doc_cuex_pitch_v1",
+      "locationRef": "slide:3#bullet-2",
+      "timestamp": "2026-11-16T04:00:00.000Z",
+      "createdAt": "2026-11-16T04:00:00.000Z",
+      "updatedAt": "2026-11-16T04:00:00.000Z",
+      "confidence": 0.98,
+      "scope": "document",
+      "privacyLevel": "session",
+      "userConfirmed": true,
+      "verified": true,
+      "locked": true,
+      "lifecycle": "active"
+    }
+  ],
+  "forbiddenClaims": ["禁止声明已经完成大规模商业付费验证"],
+  "compiledBy": "local_compiler",
+  "warnings": [],
+  "isSample": true,
+  "createdAt": "2026-11-16T04:00:00.000Z",
+  "updatedAt": "2026-11-16T04:00:00.000Z"
+}

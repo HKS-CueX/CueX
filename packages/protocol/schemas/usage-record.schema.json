@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuex.ai/schemas/usage-record.v1.schema.json",
+  "title": "UsageRecord",
+  "description": "Idempotent usage ledger entry for quota enforcement and cost attribution.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "id",
+    "userId",
+    "usageType",
+    "quantity",
+    "unit",
+    "occurredAt",
+    "idempotencyKey",
+    "source"
+  ],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "userId": { "type": "string", "minLength": 1 },
+    "tenantId": { "type": "string", "minLength": 1 },
+    "sessionId": { "type": "string", "minLength": 1 },
+    "entitlementId": { "type": "string", "minLength": 1 },
+    "usageType": {
+      "type": "string",
+      "enum": [
+        "session_started",
+        "live_audio_ms",
+        "document_extract",
+        "context_compile",
+        "system1_eval",
+        "system2_synthesis",
+        "reflection_generated",
+        "memory_write"
+      ]
+    },
+    "quantity": { "type": "number", "minimum": 0 },
+    "unit": { "type": "string", "enum": ["count", "ms", "tokens", "bytes"] },
+    "occurredAt": { "type": "string", "format": "date-time" },
+    "idempotencyKey": { "type": "string", "minLength": 1 },
+    "source": { "type": "string", "minLength": 1 },
+    "costFen": { "type": "integer", "minimum": 0 },
+    "metadata": { "type": "object" }
+  }
+}

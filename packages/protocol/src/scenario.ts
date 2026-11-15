@@ -3,7 +3,7 @@
  * Defines the universal scenario taxonomy and explicitly separates implemented scenarios from roadmap items.
  */
 
-import type { InterventionLevel } from './common';
+import type { InterventionLevel } from '#src/common';
 
 export type ScenarioId = 'presentation' | 'social' | 'teaching' | 'sales' | 'custom';
 

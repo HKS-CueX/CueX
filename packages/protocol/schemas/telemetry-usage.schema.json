@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuex.ai/schemas/telemetry-usage.v2.schema.json",
+  "title": "TelemetryUsage",
+  "description": "Honest token, cache, latency, retry, ASR, and integer Fen cost attribution.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "sessionId",
+    "updatedAt",
+    "usageSource",
+    "inputTokens",
+    "outputTokens",
+    "cachedInputTokens",
+    "totalTokens",
+    "modelCalls",
+    "retries",
+    "localRuleEvaluations",
+    "latencyMs",
+    "latencyStats",
+    "degraded",
+    "usingLocalFallback",
+    "asrProvider",
+    "asrDurationMs",
+    "costFen",
+    "cost",
+    "estimation"
+  ],
+  "properties": {
+    "sessionId": { "type": "string", "minLength": 1 },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "usageSource": {
+      "type": "string",
+      "enum": ["provider_reported", "local_rule_zero", "estimated"]
+    },
+    "inputTokens": { "type": "integer", "minimum": 0 },
+    "outputTokens": { "type": "integer", "minimum": 0 },
+    "cachedInputTokens": { "type": "integer", "minimum": 0 },
+    "totalTokens": { "type": "integer", "minimum": 0 },
+    "modelCalls": { "type": "integer", "minimum": 0 },
+    "retries": { "type": "integer", "minimum": 0 },
+    "localRuleEvaluations": { "type": "integer", "minimum": 0 },
+    "latencyMs": { "type": "number", "minimum": 0 },
+    "latencyStats": {
+      "type": "object",
+      "required": ["avgMs", "p95Ms", "maxMs"],
+      "properties": {
+        "avgMs": { "type": "number", "minimum": 0 },
+        "p95Ms": { "type": "number", "minimum": 0 },
+        "maxMs": { "type": "number", "minimum": 0 }
+      }
+    },
+    "degraded": { "type": "boolean" },
+    "usingLocalFallback": { "type": "boolean" },
+    "asrProvider": { "type": "string" },
+    "asrDurationMs": { "type": "number", "minimum": 0 },
+    "costFen": { "type": "integer", "minimum": 0 },
+    "cost": {
+      "type": "object",
+      "required": ["amountFen", "currency"],
+      "properties": {
+        "amountFen": { "type": "integer", "minimum": 0 },
+        "currency": { "const": "CNY" }
+      }
+    }
+  }
+}

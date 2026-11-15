@@ -16,6 +16,7 @@ import type {
   ViewMode,
   WithdrawalReason,
 } from '@cuex/protocol';
+import { msToIso } from '../../runtime/time';
 import type {
   PluginSegmentAnalysis,
   PluginTickAnalysis,
@@ -104,10 +105,13 @@ export class PresentationRuntimePlugin
     this.chapterStartedAtMs = now;
     this.activeDriftTopic = undefined;
     this.syncNodeStatuses();
-    return { chapterTitle: this.chapterNodes[idx].title, contextBumped: true };
+    return {
+      chapterTitle: this.chapterNodes[idx].title,
+      contextBumped: true,
+    };
   }
 
-  getActiveChapter(): PresentationProgressNode | undefined {
+  private getActiveChapter(): PresentationProgressNode | undefined {
     return this.chapterNodes[this.activeChapterIndex];
   }
 
@@ -121,15 +125,23 @@ export class PresentationRuntimePlugin
     }));
   }
 
-  getTargetContextSnapshot() {
+  getTargetContextSnapshot(): {
+    goal: string;
+    chapterId?: string;
+    chapterTitle?: string;
+    constraints: string[];
+    forbiddenClaims: string[];
+  } {
     const active = this.getActiveChapter();
+    const cueChapter = this.pack.cueSheet.chapters.find((c) => c.chapterId === active?.chapterId);
     return {
-      goal: this.pack.goal,
+      goal: cueChapter?.coreMessage || this.pack.goal,
       chapterId: active?.chapterId,
       chapterTitle: active?.title,
-      constraints: active
-        ? [`章节目标 ${active.targetDurationSec}s`, this.pack.cueSheet.chapters[this.activeChapterIndex]?.coreMessage ?? '']
-        : [],
+      constraints: [
+        `Target total duration ${this.pack.targetDurationSec}s`,
+        ...(active ? [`Chapter "${active.title}" target ${active.targetDurationSec}s`] : []),
+      ],
       forbiddenClaims: [...this.pack.forbiddenClaims],
     };
   }
@@ -143,51 +155,21 @@ export class PresentationRuntimePlugin
       activeNode.actualDurationSec,
       Math.round((now - this.chapterStartedAtMs) / 1000),
     );
-    this.syncNodeStatuses();
-
-    const nextIdx =
-      segment.speaker !== 'audience'
-        ? detectNextChapterTransition(segment.text, this.chapterNodes, this.activeChapterIndex)
-        : undefined;
-
-    if (nextIdx !== undefined) {
-      const targetNode = this.chapterNodes[nextIdx];
-      this.onChapterChange(targetNode.chapterId, now);
-      observations.push({
-        observationId: `obs_${++this.obsSeq}_${now}`,
-        sessionId: segment.sessionId,
-        kind: 'chapter_transition',
-        summary: `已自然切换至第 ${nextIdx + 1} 章「${targetNode.title}」`,
-        severity: 'low',
-        confidence: 0.9,
-        timestamp: now,
-        contextVersion,
-        relatedSegmentId: segment.segmentId,
-        relatedChapterId: targetNode.chapterId,
-      });
-      const newlyCovered = matchChapterKeyPoints(segment.text, targetNode, now);
-      return {
-        chapterChangedTo: targetNode.chapterId,
-        chapterChangedTitle: targetNode.title,
-        contextBumped: true,
-        newlyCoveredPointIds: newlyCovered,
-        extraObservations: observations,
-      };
-    }
 
     if (segment.speaker === 'audience') {
-      observations.push({
+      const obs: Observation = {
         observationId: `obs_${++this.obsSeq}_${now}`,
         sessionId: segment.sessionId,
         kind: 'audience_question',
-        summary: `收到现场提问：${segment.text}`,
+        summary: `听众/评委提问：${segment.text.slice(0, 60)}`,
         severity: 'high',
         confidence: segment.confidence,
-        timestamp: now,
+        timestamp: msToIso(now),
         contextVersion,
         relatedSegmentId: segment.segmentId,
         relatedChapterId: activeNode.chapterId,
-      });
+      };
+      observations.push(obs);
       return {
         questionText: segment.text,
         extraObservations: observations,
@@ -195,9 +177,47 @@ export class PresentationRuntimePlugin
       };
     }
 
+    const nextIdx = detectNextChapterTransition(segment.text, this.chapterNodes, this.activeChapterIndex);
+    if (nextIdx !== undefined) {
+      const target = this.chapterNodes[nextIdx];
+      this.onChapterChange(target.chapterId, now);
+      const newlyCovered = matchChapterKeyPoints(segment.text, target, now);
+      observations.push({
+        observationId: `obs_${++this.obsSeq}_${now}`,
+        sessionId: segment.sessionId,
+        kind: 'chapter_transition',
+        summary: `自动识别章节推进至「${target.title}」`,
+        severity: 'low',
+        confidence: 0.88,
+        timestamp: msToIso(now),
+        contextVersion: contextVersion + 1,
+        relatedSegmentId: segment.segmentId,
+        relatedChapterId: target.chapterId,
+      });
+      return {
+        chapterChangedTo: target.chapterId,
+        chapterChangedTitle: target.title,
+        contextBumped: true,
+        newlyCoveredPointIds: newlyCovered,
+        extraObservations: observations,
+      };
+    }
+
     const newlyCoveredPointIds = matchChapterKeyPoints(segment.text, activeNode, now);
-    if (newlyCoveredPointIds.length > 0) {
+    if (newlyCoveredPointIds.length > 0 && this.activeDriftTopic) {
       this.activeDriftTopic = undefined;
+      observations.push({
+        observationId: `obs_${++this.obsSeq}_${now}`,
+        sessionId: segment.sessionId,
+        kind: 'recovery',
+        summary: `发言已回到「${activeNode.title}」并覆盖核心要点`,
+        severity: 'low',
+        confidence: 0.9,
+        timestamp: msToIso(now),
+        contextVersion,
+        relatedSegmentId: segment.segmentId,
+        relatedChapterId: activeNode.chapterId,
+      });
     }
 
     return {
@@ -222,7 +242,7 @@ export class PresentationRuntimePlugin
         summary: `「${activeNode.title}」已用时 ${pace.chapterActualSec}s（目标 ${pace.chapterTargetSec}s）`,
         severity: 'medium',
         confidence: 0.95,
-        timestamp: now,
+        timestamp: msToIso(now),
         contextVersion,
         relatedChapterId: activeNode.chapterId,
       };

@@ -18,6 +18,7 @@ import {
   type TranscriptSegment,
   type UtilitySummary,
 } from '@cuex/protocol';
+import { isoToMs, msToIso } from '../../runtime/time';
 
 export interface QuestionRecord {
   segmentId: string;
@@ -135,6 +136,8 @@ export function buildPresentationReflection(params: {
     now,
   } = params;
 
+  const sessionStartedMs = isoToMs(session.startedAt, now);
+  const sessionEndedMs = isoToMs(session.endedAt, now);
   const timeline: PresentationTimelineEvent[] = [];
 
   for (const seg of segments) {
@@ -152,7 +155,7 @@ export function buildPresentationReflection(params: {
   for (const obs of observations) {
     timeline.push({
       id: `tl_${obs.observationId}`,
-      atMs: obs.timestamp,
+      atMs: isoToMs(obs.timestamp, now),
       kind: 'observation',
       chapterId: obs.relatedChapterId,
       text: obs.summary,
@@ -163,7 +166,7 @@ export function buildPresentationReflection(params: {
   for (const item of interventions) {
     timeline.push({
       id: `tl_show_${item.interventionId}`,
-      atMs: item.shownAt,
+      atMs: isoToMs(item.shownAt, now),
       kind: 'intervention_shown',
       chapterId: item.chapterId,
       text: `[${item.level}] ${item.title}: ${item.cueText}`,
@@ -174,7 +177,7 @@ export function buildPresentationReflection(params: {
     if (item.withdrawnAt !== undefined) {
       timeline.push({
         id: `tl_wd_${item.interventionId}`,
-        atMs: item.withdrawnAt,
+        atMs: isoToMs(item.withdrawnAt, now),
         kind: item.dismissedAt ? 'intervention_dismissed' : 'intervention_withdrawn',
         chapterId: item.chapterId,
         text: item.dismissedAt ? `用户关闭了提示：${item.title}` : `自动撤回提示：${item.title}`,
@@ -231,13 +234,16 @@ export function buildPresentationReflection(params: {
 
   const utility = computeUtilitySummary({ interventions, decisions, lambda });
 
-  const overallSummary = [
-    `覆盖率 ${(coverageRatio * 100).toFixed(0)}%（${coveredPoints}/${totalPoints} 个核心要点）`,
-    missedPoints.length ? `遗漏 ${missedPoints.length} 项要点` : '核心要点全部覆盖',
-    overtimeChapters.length ? `${overtimeChapters.length} 个章节超时` : '节奏控时良好',
-    unansweredQuestions.length ? `${unansweredQuestions.length} 个未收录事实的 Q&A 缺口` : 'Q&A 均有核验依据支撑',
-    `净效用 V = ${utility.netUtilityScore}（H=${utility.helpfulCount}, I=${utility.distractingCount}, λ=${utility.lambda}）`,
-  ].join('；') + '。';
+  const overallSummary =
+    [
+      `覆盖率 ${(coverageRatio * 100).toFixed(0)}%（${coveredPoints}/${totalPoints} 个核心要点）`,
+      missedPoints.length ? `遗漏 ${missedPoints.length} 项要点` : '核心要点全部覆盖',
+      overtimeChapters.length ? `${overtimeChapters.length} 个章节超时` : '节奏控时良好',
+      unansweredQuestions.length
+        ? `${unansweredQuestions.length} 个未收录事实的 Q&A 缺口`
+        : 'Q&A 均有核验依据支撑',
+      `净效用 V = ${utility.netUtilityScore}（H=${utility.helpfulCount}, I=${utility.distractingCount}, λ=${utility.lambda}）`,
+    ].join('；') + '。';
 
   const diagnosis: PresentationDiagnosis = {
     overallSummary,
@@ -249,7 +255,6 @@ export function buildPresentationReflection(params: {
     autoWithdrawCount,
   };
 
-  // Assemble targeted Single-Point Rehearsal cards from concrete weak points.
   const weakSegments: PresentationWeakSegment[] = [];
   const evMap = new Map(evidence.map((e) => [e.id, e]));
 
@@ -259,7 +264,7 @@ export function buildPresentationReflection(params: {
     const sup = kp?.evidenceId && evMap.get(kp.evidenceId) ? [evMap.get(kp.evidenceId)!] : [];
     weakSegments.push({
       weakSegmentId: `weak_miss_${missed.chapterId}_${missed.pointId}`,
-      atMs: session.startedAt,
+      atMs: sessionStartedMs,
       chapterId: missed.chapterId,
       chapterTitle: missed.chapterTitle,
       reason: 'missed_key_point',
@@ -295,14 +300,18 @@ export function buildPresentationReflection(params: {
       chapterTitle: ot.title,
       reason: 'overtime',
       promptText: `将「${ot.title}」压缩到 ${ot.targetSec} 秒以内（本次用时 ${ot.actualSec} 秒），突出一句核心结论。`,
-      excerptText: segments.filter((s) => s.chapterId === ot.chapterId).map((s) => s.text).join(' ').slice(0, 120) || ot.title,
+      excerptText:
+        segments
+          .filter((s) => s.chapterId === ot.chapterId)
+          .map((s) => s.text)
+          .join(' ')
+          .slice(0, 120) || ot.title,
       targetPointLabels: ch?.keyPoints.map((k) => k.label) ?? [ot.title],
       supportingEvidence: [],
       recommendedCue: `${ot.targetSec}s 内只留核心结论 + 一组实证数据`,
     });
   }
 
-  // Strictly opt-in MemoryProposals (`status: 'pending'`), never persisted automatically.
   const memoryProposals: MemoryProposal[] = [];
   if (overtimeChapters.length > 0) {
     memoryProposals.push({
@@ -354,8 +363,8 @@ export function buildPresentationReflection(params: {
     sessionId: session.sessionId,
     packId: pack.packId,
     mode: (session.mode as PresentationMode) || 'live',
-    generatedAt: new Date(now).toISOString(),
-    durationMs: Math.max(0, (session.endedAt ?? now) - session.startedAt),
+    generatedAt: msToIso(now),
+    durationMs: Math.max(0, sessionEndedMs - sessionStartedMs),
     timeline,
     diagnosis,
     weakSegments,

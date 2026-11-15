@@ -1,18 +1,20 @@
-import type {
-  AttentionSignal,
-  Candidate,
-  Intervention,
-  InterventionLevel,
-  ModelCallBreakdown,
-  Observation,
-  ProviderUsageRecord,
-  ScenarioId,
-  SessionStatus,
-  SharedCognitiveState,
-  SuppressionEntry,
-  TelemetryUsage,
-  TranscriptSegment,
+import {
+  createMoneyAmount,
+  type AttentionSignal,
+  type Candidate,
+  type Intervention,
+  type InterventionLevel,
+  type ModelCallBreakdown,
+  type Observation,
+  type ProviderUsageRecord,
+  type ScenarioId,
+  type SessionStatus,
+  type SharedCognitiveState,
+  type SuppressionEntry,
+  type TelemetryUsage,
+  type TranscriptSegment,
 } from '@cuex/protocol';
+import { computeLatencyStats, isoToMs, msToIso } from './time';
 
 export interface SharedStateInit {
   sessionId: string;
@@ -23,19 +25,25 @@ export interface SharedStateInit {
   constraints: string[];
   silentMode: boolean;
   maxInterventionLevel: InterventionLevel;
+  asrProvider?: string;
   now: number;
+}
+
+interface InternalSuppressionRecord {
+  entry: SuppressionEntry;
+  untilMs: number;
 }
 
 /**
  * Atomic Shared Cognitive State & Honest Telemetry Store.
  * Tracks monotonic `contextVersion`, Candidate map, cooldowns, suppressions,
- * active/historical interventions, and verified usage tokens (0 for local rules).
+ * active/historical interventions, and verified usage tokens/cost/retries/latency stats.
  */
 export class SharedCognitiveStateStore {
   private readonly sessionId: string;
   private readonly scenarioId: ScenarioId;
   private contextVersion = 1;
-  private updatedAt: number;
+  private updatedAtMs: number;
   private sessionStatus: SessionStatus = 'active';
   private silentMode: boolean;
   private maxInterventionLevel: InterventionLevel;
@@ -51,29 +59,40 @@ export class SharedCognitiveStateStore {
   private readonly candidates = new Map<string, Candidate>();
   private cooldownUntilMs = 0;
   private lastInterventionAtMs?: number;
-  private readonly suppressions = new Map<string, SuppressionEntry>();
+  private readonly suppressions = new Map<string, InternalSuppressionRecord>();
+  private readonly latencySamples: number[] = [];
   private readonly telemetry: TelemetryUsage;
 
   constructor(init: SharedStateInit) {
     this.sessionId = init.sessionId;
     this.scenarioId = init.scenarioId;
-    this.updatedAt = init.now;
+    this.updatedAtMs = init.now;
     this.silentMode = init.silentMode;
     this.maxInterventionLevel = init.maxInterventionLevel;
     this.activeGoal = init.activeGoal;
     this.activeChapterId = init.activeChapterId;
     this.activeChapterTitle = init.activeChapterTitle;
     this.constraints = [...init.constraints];
+    const nowIso = msToIso(init.now);
     this.telemetry = {
       sessionId: init.sessionId,
-      updatedAt: init.now,
+      updatedAt: nowIso,
+      usageSource: 'local_rule_zero',
       inputTokens: 0,
       outputTokens: 0,
       cachedInputTokens: 0,
       totalTokens: 0,
       modelCalls: 0,
+      retries: 0,
       localRuleEvaluations: 0,
       latencyMs: 0,
+      latencyStats: { avgMs: 0, p95Ms: 0, maxMs: 0 },
+      degraded: false,
+      usingLocalFallback: true,
+      asrProvider: init.asrProvider ?? 'text_only_offline',
+      asrDurationMs: 0,
+      costFen: 0,
+      cost: createMoneyAmount(0),
       estimation: {
         isEstimated: false,
         source: 'local_rule_zero',
@@ -88,60 +107,64 @@ export class SharedCognitiveStateStore {
     return this.contextVersion;
   }
 
-  bumpContextVersion(now: number): number {
+  bumpContextVersion(nowMs: number): number {
     this.contextVersion += 1;
-    this.updatedAt = now;
+    this.updatedAtMs = nowMs;
     return this.contextVersion;
   }
 
-  setSessionStatus(status: SessionStatus, now: number): void {
+  setSessionStatus(status: SessionStatus, nowMs: number): void {
     this.sessionStatus = status;
-    this.updatedAt = now;
+    this.updatedAtMs = nowMs;
   }
 
   getSessionStatus(): SessionStatus {
     return this.sessionStatus;
   }
 
-  setSilentMode(silentMode: boolean, now: number): void {
+  setSilentMode(silentMode: boolean, nowMs: number): void {
     this.silentMode = silentMode;
-    this.updatedAt = now;
+    this.updatedAtMs = nowMs;
   }
 
   isSilentMode(): boolean {
     return this.silentMode;
   }
 
-  setMaxInterventionLevel(level: InterventionLevel, now: number): void {
+  setMaxInterventionLevel(level: InterventionLevel, nowMs: number): void {
     this.maxInterventionLevel = level;
-    this.updatedAt = now;
+    this.updatedAtMs = nowMs;
   }
 
   getMaxInterventionLevel(): InterventionLevel {
     return this.maxInterventionLevel;
   }
 
-  setChapter(chapterId: string | undefined, chapterTitle: string | undefined, now: number, bump = true): number {
+  setChapter(chapterId: string | undefined, chapterTitle: string | undefined, nowMs: number, bump = true): number {
     this.activeChapterId = chapterId;
     this.activeChapterTitle = chapterTitle;
-    return bump ? this.bumpContextVersion(now) : this.contextVersion;
+    if (bump) return this.bumpContextVersion(nowMs);
+    this.updatedAtMs = nowMs;
+    return this.contextVersion;
   }
 
-  setGoalAndConstraints(goal: string, constraints: string[], now: number, bump = true): number {
+  setGoalAndConstraints(goal: string, constraints: string[], nowMs: number, bump = true): number {
     this.activeGoal = goal;
     this.constraints = [...constraints];
-    return bump ? this.bumpContextVersion(now) : this.contextVersion;
+    if (bump) return this.bumpContextVersion(nowMs);
+    this.updatedAtMs = nowMs;
+    return this.contextVersion;
   }
 
-  setAttentionAndGaps(signal: AttentionSignal, gapLabels: string[], now: number): void {
+  setAttentionAndGaps(signal: AttentionSignal, gapLabels: string[], nowMs: number): void {
     this.attentionSignal = signal;
     this.openGapLabels = [...gapLabels];
-    this.updatedAt = now;
+    this.updatedAtMs = nowMs;
   }
 
-  upsertCandidate(candidate: Candidate, now: number): void {
+  upsertCandidate(candidate: Candidate, nowMs: number): void {
     this.candidates.set(candidate.candidateId, { ...candidate });
-    this.updatedAt = now;
+    this.updatedAtMs = nowMs;
   }
 
   getCandidate(candidateId: string): Candidate | undefined {
@@ -160,7 +183,7 @@ export class SharedCognitiveStateStore {
   updateCandidateStatus(
     candidateId: string,
     status: Candidate['status'],
-    now: number,
+    nowMs: number,
     meta?: { withdrawalReason?: Candidate['withdrawalReason']; suppressedReason?: string },
   ): void {
     const current = this.candidates.get(candidateId);
@@ -171,15 +194,15 @@ export class SharedCognitiveStateStore {
       ...(meta?.withdrawalReason ? { withdrawalReason: meta.withdrawalReason } : {}),
       ...(meta?.suppressedReason ? { suppressedReason: meta.suppressedReason } : {}),
     });
-    this.updatedAt = now;
+    this.updatedAtMs = nowMs;
   }
 
-  setActiveIntervention(intervention: Intervention, cooldownMs: number, now: number): void {
+  setActiveIntervention(intervention: Intervention, cooldownMs: number, nowMs: number): void {
     this.activeIntervention = { ...intervention };
     this.interventionHistory.push(this.activeIntervention);
-    this.lastInterventionAtMs = now;
-    this.cooldownUntilMs = now + cooldownMs;
-    this.updateCandidateStatus(intervention.candidateId, 'active', now);
+    this.lastInterventionAtMs = nowMs;
+    this.cooldownUntilMs = nowMs + cooldownMs;
+    this.updateCandidateStatus(intervention.candidateId, 'active', nowMs);
   }
 
   getActiveIntervention(): Intervention | null {
@@ -188,35 +211,36 @@ export class SharedCognitiveStateStore {
 
   clearActiveIntervention(
     reason: NonNullable<Intervention['withdrawalReason']>,
-    now: number,
+    nowMs: number,
     dismissed = false,
   ): Intervention | null {
     if (!this.activeIntervention) return null;
+    const nowIso = msToIso(nowMs);
     const current = this.activeIntervention;
-    current.withdrawnAt = now;
+    current.withdrawnAt = nowIso;
     current.withdrawalReason = reason;
     if (dismissed) {
-      current.dismissedAt = now;
+      current.dismissedAt = nowIso;
     }
-    this.updateCandidateStatus(current.candidateId, dismissed ? 'dismissed' : 'withdrawn', now, {
+    this.updateCandidateStatus(current.candidateId, dismissed ? 'dismissed' : 'withdrawn', nowMs, {
       withdrawalReason: reason,
     });
     const closed = { ...current };
     this.activeIntervention = null;
-    this.updatedAt = now;
+    this.updatedAtMs = nowMs;
     return closed;
   }
 
   setInterventionFeedback(
     interventionId: string,
     feedback: NonNullable<Intervention['userFeedback']>,
-    now: number,
+    nowMs: number,
   ): Intervention | undefined {
     const target = this.interventionHistory.find((item) => item.interventionId === interventionId);
     if (!target) return undefined;
     target.userFeedback = feedback;
-    target.feedbackAt = now;
-    this.updatedAt = now;
+    target.feedbackAt = msToIso(nowMs);
+    this.updatedAtMs = nowMs;
     return { ...target };
   }
 
@@ -224,34 +248,52 @@ export class SharedCognitiveStateStore {
     return this.interventionHistory.map((item) => ({ ...item }));
   }
 
-  getCooldownRemainingMs(now: number): number {
-    return Math.max(0, this.cooldownUntilMs - now);
+  getCooldownRemainingMs(nowMs: number): number {
+    return Math.max(0, this.cooldownUntilMs - nowMs);
   }
 
   getCooldownUntilMs(): number {
     return this.cooldownUntilMs;
   }
 
-  addSuppression(entry: SuppressionEntry, now: number): void {
-    this.suppressions.set(entry.key, { ...entry });
-    this.updatedAt = now;
+  addSuppression(
+    params: { key: string; reason: SuppressionEntry['reason']; createdAtMs: number; untilMs: number },
+    nowMs: number,
+  ): void {
+    this.suppressions.set(params.key, {
+      entry: {
+        key: params.key,
+        reason: params.reason,
+        createdAt: msToIso(params.createdAtMs),
+        until: msToIso(params.untilMs),
+      },
+      untilMs: params.untilMs,
+    });
+    this.updatedAtMs = nowMs;
   }
 
-  isSuppressed(key: string, now: number): SuppressionEntry | undefined {
-    const entry = this.suppressions.get(key);
-    if (!entry) return undefined;
-    if (now >= entry.untilMs) {
+  isSuppressed(key: string, nowMs: number): SuppressionEntry | undefined {
+    const record = this.suppressions.get(key);
+    if (!record) return undefined;
+    if (nowMs >= record.untilMs) {
       this.suppressions.delete(key);
       return undefined;
     }
-    return entry;
+    return { ...record.entry };
   }
 
-  getActiveSuppressions(now: number): SuppressionEntry[] {
-    for (const [key, entry] of this.suppressions.entries()) {
-      if (now >= entry.untilMs) this.suppressions.delete(key);
+  getActiveSuppressions(nowMs: number): SuppressionEntry[] {
+    for (const [key, record] of this.suppressions.entries()) {
+      if (nowMs >= record.untilMs) this.suppressions.delete(key);
     }
-    return [...this.suppressions.values()];
+    return [...this.suppressions.values()].map((r) => ({ ...r.entry }));
+  }
+
+  recordAsrMetrics(params: { provider: string; durationMs: number; degraded?: boolean; nowMs: number }): void {
+    this.telemetry.asrProvider = params.provider;
+    this.telemetry.asrDurationMs += Math.max(0, Math.round(params.durationMs));
+    if (params.degraded) this.telemetry.degraded = true;
+    this.telemetry.updatedAt = msToIso(params.nowMs);
   }
 
   recordTelemetry(
@@ -259,11 +301,17 @@ export class SharedCognitiveStateStore {
     latencyMs: number,
     usage: ProviderUsageRecord | undefined,
     providerLabel: string,
-    now: number,
+    nowMs: number,
   ): TelemetryUsage {
     const cleanLatency = Math.max(0, Math.round(latencyMs));
-    this.telemetry.updatedAt = now;
+    this.latencySamples.push(cleanLatency);
+    if (this.latencySamples.length > 250) {
+      this.latencySamples.splice(0, this.latencySamples.length - 250);
+    }
+
+    this.telemetry.updatedAt = msToIso(nowMs);
     this.telemetry.latencyMs = cleanLatency;
+    this.telemetry.latencyStats = computeLatencyStats(this.latencySamples);
     if (tier === 'system1') this.telemetry.lastSystem1LatencyMs = cleanLatency;
     if (tier === 'system2') this.telemetry.lastSystem2LatencyMs = cleanLatency;
 
@@ -273,19 +321,30 @@ export class SharedCognitiveStateStore {
       provider: providerLabel,
       model: usage?.model,
       calls: 0,
+      retries: 0,
       inputTokens: 0,
       outputTokens: 0,
       cachedInputTokens: 0,
       latencyMsTotal: 0,
       latencyMsAvg: 0,
-      measurementSource: usage?.measurementSource ?? 'local_rule_zero',
+      usageSource: usage?.usageSource ?? 'local_rule_zero',
+      degraded: Boolean(usage?.degraded),
+      costFen: 0,
     };
 
     const calls = usage?.modelCalls ?? 0;
+    const retries = usage?.retries ?? 0;
     const inputTokens = usage?.inputTokens ?? 0;
     const outputTokens = usage?.outputTokens ?? 0;
     const cachedInputTokens = usage?.cachedInputTokens ?? 0;
-    const isLocalRule = !usage || usage.measurementSource === 'local_rule_zero' || calls === 0;
+    const costFen = Math.max(0, Math.round(usage?.costFen ?? 0));
+    const degraded = Boolean(usage?.degraded);
+    const isLocalRule = !usage || usage.usageSource === 'local_rule_zero' || calls === 0;
+
+    this.telemetry.retries += retries;
+    if (degraded) {
+      this.telemetry.degraded = true;
+    }
 
     if (isLocalRule) {
       this.telemetry.localRuleEvaluations += 1;
@@ -295,6 +354,8 @@ export class SharedCognitiveStateStore {
       this.telemetry.outputTokens += outputTokens;
       this.telemetry.cachedInputTokens += cachedInputTokens;
       this.telemetry.totalTokens = this.telemetry.inputTokens + this.telemetry.outputTokens;
+      this.telemetry.costFen += costFen;
+      this.telemetry.cost = createMoneyAmount(this.telemetry.costFen);
     }
 
     const totalTierOps = prev.calls + (isLocalRule ? 1 : calls);
@@ -303,28 +364,39 @@ export class SharedCognitiveStateStore {
       provider: usage?.provider ?? providerLabel,
       model: usage?.model ?? prev.model,
       calls: prev.calls + calls,
+      retries: prev.retries + retries,
       inputTokens: prev.inputTokens + inputTokens,
       outputTokens: prev.outputTokens + outputTokens,
       cachedInputTokens: prev.cachedInputTokens + cachedInputTokens,
       latencyMsTotal: prev.latencyMsTotal + cleanLatency,
       latencyMsAvg: Math.round((prev.latencyMsTotal + cleanLatency) / Math.max(1, totalTierOps)),
-      measurementSource: isLocalRule ? prev.measurementSource : usage.measurementSource,
+      usageSource: isLocalRule ? prev.usageSource : usage.usageSource,
+      degraded: prev.degraded || degraded,
+      costFen: prev.costFen + (isLocalRule ? 0 : costFen),
     };
     byTier[tier] = updatedTier;
 
+    const usingFallback = this.telemetry.localRuleEvaluations > 0;
+    this.telemetry.usingLocalFallback = usingFallback;
+
     if (this.telemetry.modelCalls > 0) {
+      const source = usage?.usageSource === 'estimated' ? 'estimated' : 'provider_reported';
+      this.telemetry.usageSource = source;
       this.telemetry.estimation = {
-        isEstimated: usage?.measurementSource === 'estimated',
-        source: usage?.measurementSource === 'estimated' ? 'estimated' : 'provider_reported',
-        usingLocalFallback: this.telemetry.localRuleEvaluations > 0,
+        isEstimated: source === 'estimated',
+        source,
+        usingLocalFallback: usingFallback,
         notes: 'Exact provider-reported tokens for model calls; 0 tokens for deterministic local rule steps.',
       };
     } else {
+      this.telemetry.usageSource = 'local_rule_zero';
       this.telemetry.estimation = {
         isEstimated: false,
         source: 'local_rule_zero',
         usingLocalFallback: true,
-        notes: 'Deterministic local rule execution (0 LLM tokens consumed).',
+        notes: this.telemetry.degraded
+          ? 'Degraded to local deterministic rule fallback after provider unavailability (0 LLM tokens consumed).'
+          : 'Deterministic local rule execution (0 LLM tokens consumed).',
       };
     }
 
@@ -334,8 +406,10 @@ export class SharedCognitiveStateStore {
   getTelemetry(): TelemetryUsage {
     return {
       ...this.telemetry,
+      cost: { ...this.telemetry.cost },
+      latencyStats: { ...this.telemetry.latencyStats },
       estimation: { ...this.telemetry.estimation },
-      byTier: this.telemetry.byTier ? { ...this.telemetry.byTier } : undefined,
+      byTier: this.telemetry.byTier ? structuredClone(this.telemetry.byTier) : undefined,
     };
   }
 
@@ -349,7 +423,7 @@ export class SharedCognitiveStateStore {
       sessionId: this.sessionId,
       scenarioId: this.scenarioId,
       contextVersion: this.contextVersion,
-      updatedAt: this.updatedAt,
+      updatedAt: msToIso(this.updatedAtMs),
       sessionStatus: this.sessionStatus,
       silentMode: this.silentMode,
       maxInterventionLevel: this.maxInterventionLevel,
@@ -364,11 +438,15 @@ export class SharedCognitiveStateStore {
       queuedCandidates: this.getPendingCandidates().map((c) => ({ ...c })),
       recentObservations: params.recentObservations,
       recentSegments: params.recentSegments,
-      cooldownUntilMs: this.cooldownUntilMs,
-      lastInterventionAtMs: this.lastInterventionAtMs,
+      ...(this.cooldownUntilMs > 0 ? { cooldownUntil: msToIso(this.cooldownUntilMs) } : {}),
+      ...(this.lastInterventionAtMs !== undefined
+        ? { lastInterventionAt: msToIso(this.lastInterventionAtMs) }
+        : {}),
       suppressions: this.getActiveSuppressions(params.now),
       ...(params.scenarioState ? { scenarioState: params.scenarioState } : {}),
       telemetry: this.getTelemetry(),
     };
   }
 }
+
+export { isoToMs };

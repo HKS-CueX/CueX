@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type {
   InterventionLevel,
   PresentationContextPack,
@@ -22,6 +22,7 @@ import {
   Lock,
   Mic,
   Plus,
+  RotateCcw,
   Save,
   ShieldAlert,
   ShieldCheck,
@@ -29,6 +30,7 @@ import {
   Trash2,
   Unlock,
   Upload,
+  XCircle,
 } from 'lucide-react';
 import {
   compilePresentationPack,
@@ -37,7 +39,8 @@ import {
   listPresentationPacks,
   patchPresentationPack,
 } from '@/lib/api';
-import { formatDuration, SCENE_TYPE_LABELS } from '@/lib/format';
+import { formatApiError, formatDuration, SCENE_TYPE_LABELS } from '@/lib/format';
+import { validatePresentationUploadFile } from '@/lib/validation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -93,8 +96,13 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
   const [extracting, setExtracting] = useState(false);
   const [compiling, setCompiling] = useState(false);
   const [savingPatch, setSavingPatch] = useState(false);
+  const [fileValidationError, setFileValidationError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [canRetryCompile, setCanRetryCompile] = useState(false);
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
+
+  const extractAbortRef = useRef<AbortController | null>(null);
+  const compileAbortRef = useRef<AbortController | null>(null);
 
   // Editable FactWhitelist & CueSheet states
   const [editingFactId, setEditingFactId] = useState<string | null>(null);
@@ -132,26 +140,48 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
+
+    const validation = validatePresentationUploadFile({ name: file.name, size: file.size });
+    if (!validation.ok) {
+      setFileValidationError(validation.message);
+      setError(validation.message);
+      setStatusMessage(null);
+      event.target.value = '';
+      return;
+    }
+
+    extractAbortRef.current?.abort();
+    const controller = new AbortController();
+    extractAbortRef.current = controller;
+
     setExtracting(true);
+    setFileValidationError(null);
     setError(null);
+    setCanRetryCompile(false);
     setStatusMessage(null);
     try {
       const lower = file.name.toLowerCase();
       let result: PresentationExtractResult;
       if (lower.endsWith('.md') || lower.endsWith('.txt')) {
         const textContent = await file.text();
-        result = await extractPresentationDoc({
-          filename: file.name,
-          mimeType: file.type,
-          textContent,
-        });
+        result = await extractPresentationDoc(
+          {
+            filename: file.name,
+            mimeType: file.type,
+            textContent,
+          },
+          { signal: controller.signal }
+        );
       } else {
         const buffer = await file.arrayBuffer();
-        result = await extractPresentationDoc({
-          filename: file.name,
-          mimeType: file.type,
-          contentBase64: arrayBufferToBase64(buffer),
-        });
+        result = await extractPresentationDoc(
+          {
+            filename: file.name,
+            mimeType: file.type,
+            contentBase64: arrayBufferToBase64(buffer),
+          },
+          { signal: controller.signal }
+        );
       }
       setExtractInfo(result);
       if (result.extractedText.trim()) {
@@ -164,17 +194,35 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
           setTitle(file.name.replace(/\.(pptx|pdf|md|txt)$/i, ''));
         }
       }
-      setStatusMessage(
-        result.unreadable
-          ? `已读取 ${file.name}，但存在解析限制，请查看警告并补充文本。`
-          : `已成功解析 ${file.name}（${result.characterCount} 字符，${result.sections.length} 个片段）。`
-      );
+      if (result.status === 'rejected') {
+        setStatusMessage(null);
+        setError(result.warnings[0] || `文档 ${file.name} 未能通过格式或内容校验 (rejected)。`);
+      } else if (result.status === 'unreadable' || result.unreadable) {
+        setStatusMessage(
+          `已读取 ${file.name}，但状态为 ${result.status}，请查看警告并补充文本。`
+        );
+      } else {
+        setStatusMessage(
+          `已成功解析 ${file.name}（${result.characterCount} 字符，${result.sections.length} 个片段）。`
+        );
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : '文档解析失败');
+      if ((err as Error)?.name === 'AbortError') {
+        setStatusMessage('已取消文档提取。');
+      } else {
+        setError(formatApiError(err));
+      }
     } finally {
+      if (extractAbortRef.current === controller) {
+        extractAbortRef.current = null;
+      }
       setExtracting(false);
       event.target.value = '';
     }
+  };
+
+  const handleCancelExtract = () => {
+    extractAbortRef.current?.abort();
   };
 
   const handleLoadSamplePack = async () => {
@@ -222,14 +270,18 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
     }
   };
 
-  const handleCompile = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const runCompile = async () => {
     if (!title.trim()) {
       setError('请填写演讲主题。');
       return;
     }
+    compileAbortRef.current?.abort();
+    const controller = new AbortController();
+    compileAbortRef.current = controller;
+
     setCompiling(true);
     setError(null);
+    setCanRetryCompile(false);
     setStatusMessage(null);
     try {
       const keyFactsInput = keyFactsText
@@ -240,25 +292,45 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
         .split('\n')
         .map((s) => s.trim())
         .filter(Boolean);
-      const pack = await compilePresentationPack({
-        packId: activePack?.packId,
-        title: title.trim(),
-        sceneType,
-        goal: goal.trim() || `清晰完成「${title.trim()}」核心表达与现场问答`,
-        audience: audience.trim() || '现场听众与评审',
-        targetDurationSec: Math.max(60, Number(targetDurationSec) || 300),
-        rawMaterials: rawMaterials.trim() || keyFactsInput.join('\n'),
-        sourceFilenames: extractInfo ? [extractInfo.filename] : undefined,
-        keyFactsInput,
-        forbiddenClaims,
-      });
+      const pack = await compilePresentationPack(
+        {
+          packId: activePack?.packId,
+          title: title.trim(),
+          sceneType,
+          goal: goal.trim() || `清晰完成「${title.trim()}」核心表达与现场问答`,
+          audience: audience.trim() || '现场听众与评审',
+          targetDurationSec: Math.max(60, Number(targetDurationSec) || 300),
+          rawMaterials: rawMaterials.trim() || keyFactsInput.join('\n'),
+          sourceFilenames: extractInfo ? [extractInfo.filename] : undefined,
+          keyFactsInput,
+          forbiddenClaims,
+        },
+        { signal: controller.signal }
+      );
       onPackChange(pack);
       setStatusMessage('ContextPack 编译完成！请校准右侧事实白名单后即可进入场中协同。');
     } catch (err) {
-      setError(err instanceof Error ? err.message : '编译失败，请确认服务端运行中。');
+      if ((err as Error)?.name === 'AbortError') {
+        setStatusMessage('已取消本次 ContextPack 编译。');
+      } else {
+        setCanRetryCompile(true);
+        setError(formatApiError(err));
+      }
     } finally {
+      if (compileAbortRef.current === controller) {
+        compileAbortRef.current = null;
+      }
       setCompiling(false);
     }
+  };
+
+  const handleCompile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await runCompile();
+  };
+
+  const handleCancelCompile = () => {
+    compileAbortRef.current?.abort();
   };
 
   const persistPatch = async (updated: Partial<PresentationContextPack>) => {
@@ -314,6 +386,12 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
 
   const saveFactEdit = (factId: string) => {
     if (!activePack || !editingFactText.trim()) return;
+    const target = activePack.facts.find((f) => f.id === factId);
+    if (target?.locked) {
+      setError('该条事实已锁定，请先解锁后再编辑。');
+      setEditingFactId(null);
+      return;
+    }
     const nextFacts = activePack.facts.map((f) =>
       f.id === factId
         ? { ...f, text: editingFactText.trim(), userConfirmed: true, verified: true }
@@ -404,11 +482,26 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
         {error && (
           <div
             role="alert"
-            className="flex items-center gap-2 border border-amber/40 bg-amber-tint text-amber-ink px-4 py-2.5 rounded text-xs"
+            className="flex flex-wrap items-center justify-between gap-2 border border-amber/40 bg-amber-tint text-amber-ink px-4 py-2.5 rounded text-xs"
             data-testid="compiler-error"
           >
-            <AlertTriangle className="w-4 h-4 shrink-0" />
-            <span>{error}</span>
+            <div className="flex items-center gap-2 min-w-0">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              <span className="break-words">{error}</span>
+            </div>
+            {canRetryCompile && !compiling && (
+              <Button
+                type="button"
+                variant="quiet"
+                size="sm"
+                onClick={() => void runCompile()}
+                data-testid="retry-compile-btn"
+                className="h-7 text-[11px]"
+              >
+                <RotateCcw className="w-3 h-3 mr-1" />
+                重试编译
+              </Button>
+            )}
           </div>
         )}
 
@@ -435,40 +528,109 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
               <span className="text-[11px] font-mono text-ink-3">.pptx / .pdf / .md / .txt</span>
             </div>
 
-            {/* File Drop / Upload Box */}
-            <label
-              className={cn(
-                'block border border-dashed border-line-strong rounded p-4 bg-ground/60 hover:bg-ground-2/60 transition-colors cursor-pointer text-center space-y-1.5',
-                extracting && 'opacity-60 pointer-events-none'
+            <div className="space-y-2">
+              <label
+                className={cn(
+                  'block border border-dashed border-line-strong rounded p-4 bg-ground/60 hover:bg-ground-2/60 transition-colors cursor-pointer text-center space-y-1.5',
+                  extracting && 'opacity-60 pointer-events-none'
+                )}
+              >
+                <input
+                  type="file"
+                  accept=".pptx,.pdf,.md,.txt,text/markdown,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                  onChange={(e) => void handleFileUpload(e)}
+                  className="sr-only"
+                  data-testid="file-upload-input"
+                />
+                <FileText className="w-5 h-5 text-ink-2 mx-auto" />
+                <div className="text-xs font-medium text-ink">
+                  {extracting ? '正在提取文档正文与演讲备注...' : '点击上传讲稿 / PPTX / PDF / Markdown'}
+                </div>
+                <div className="text-[11px] text-ink-3">
+                  支持 .pptx / .pdf / .md / .txt（单文件上限 15 MB）；扫描版 PDF 将诚实提示无法提取。
+                </div>
+              </label>
+
+              {extracting && (
+                <div className="flex justify-end">
+                  <Button
+                    type="button"
+                    variant="quiet"
+                    size="sm"
+                    onClick={handleCancelExtract}
+                    data-testid="cancel-extract-btn"
+                    className="h-7 text-[11px]"
+                  >
+                    <XCircle className="w-3.5 h-3.5 mr-1" />
+                    取消提取
+                  </Button>
+                </div>
               )}
-            >
-              <input
-                type="file"
-                accept=".pptx,.pdf,.md,.txt,text/markdown,text/plain,application/pdf,application/vnd.openxmlformats-officedocument.presentationml.presentation"
-                onChange={(e) => void handleFileUpload(e)}
-                className="sr-only"
-                data-testid="file-upload-input"
-              />
-              <FileText className="w-5 h-5 text-ink-2 mx-auto" />
-              <div className="text-xs font-medium text-ink">
-                {extracting ? '正在提取文档正文与演讲备注...' : '点击上传讲稿 / PPTX / PDF / Markdown'}
-              </div>
-              <div className="text-[11px] text-ink-3">
-                支持自动提取 PPT 幻灯片正文与备注；扫描版 PDF 将诚实提示无法提取。
-              </div>
-            </label>
+
+              {fileValidationError && (
+                <div
+                  role="alert"
+                  className="border border-danger/35 bg-danger-soft text-danger rounded px-3 py-2 text-[11px] flex items-start gap-2"
+                  data-testid="file-validation-error"
+                >
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>{fileValidationError}</span>
+                </div>
+              )}
+            </div>
 
             {extractInfo && (
               <div
-                className="border border-line bg-ground rounded p-3 space-y-1.5 text-xs"
+                className={cn(
+                  'border rounded p-3 space-y-2 text-xs',
+                  extractInfo.status === 'rejected'
+                    ? 'border-danger/40 bg-danger-soft/50'
+                    : extractInfo.status === 'unreadable' || extractInfo.unreadable
+                      ? 'border-amber/45 bg-amber-soft/50'
+                      : 'border-line bg-ground'
+                )}
                 data-testid="extract-result"
               >
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-semibold text-ink truncate">{extractInfo.filename}</span>
-                  <Badge variant={extractInfo.unreadable ? 'amber' : 'resolved'}>
-                    {extractInfo.fileType.toUpperCase()} · {extractInfo.characterCount} 字符
+                  <Badge
+                    variant={
+                      extractInfo.status === 'rejected'
+                        ? 'amber'
+                        : extractInfo.unreadable
+                          ? 'amber'
+                          : 'resolved'
+                    }
+                  >
+                    {extractInfo.fileType.toUpperCase()} · {extractInfo.status} ·{' '}
+                    {extractInfo.characterCount} 字符
                   </Badge>
                 </div>
+                {(extractInfo.sourceDocumentId || extractInfo.contentHash) && (
+                  <div className="text-[10px] font-mono text-ink-3 flex flex-wrap gap-3">
+                    {extractInfo.sourceDocumentId && <span>doc: {extractInfo.sourceDocumentId}</span>}
+                    {extractInfo.contentHash && (
+                      <span>sha256: {extractInfo.contentHash.slice(0, 12)}…</span>
+                    )}
+                  </div>
+                )}
+                {(extractInfo.status === 'unreadable' ||
+                  extractInfo.status === 'rejected' ||
+                  extractInfo.unreadable) && (
+                  <div
+                    className="rounded border border-amber/40 bg-surface px-2.5 py-2 text-[11px] text-amber-ink space-y-0.5"
+                    data-testid="extract-status-warning"
+                  >
+                    <strong className="block font-semibold">
+                      {extractInfo.status === 'rejected'
+                        ? '文档未通过校验 (rejected)'
+                        : '文档不可自动解析或为扫描版 (unreadable)'}
+                    </strong>
+                    <span>
+                      CueX 不会伪造文档正文。请直接粘贴文字讲稿、Markdown 大纲或关键事实后继续编译。
+                    </span>
+                  </div>
+                )}
                 {extractInfo.warnings.length > 0 && (
                   <ul className="text-[11px] text-amber-ink space-y-0.5 list-disc pl-4">
                     {extractInfo.warnings.map((w, idx) => (
@@ -607,14 +769,26 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                 />
               </div>
 
-              <Button
-                type="submit"
-                disabled={compiling}
-                className="w-full"
-                data-testid="compile-submit-btn"
-              >
-                {compiling ? '正在编译 ContextPack...' : '编译演讲上下文包 (Compile ContextPack)'}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  type="submit"
+                  disabled={compiling}
+                  className="flex-1"
+                  data-testid="compile-submit-btn"
+                >
+                  {compiling ? '正在编译 ContextPack...' : '编译演讲上下文包 (Compile ContextPack)'}
+                </Button>
+                {compiling && (
+                  <Button
+                    type="button"
+                    variant="quiet"
+                    onClick={handleCancelCompile}
+                    data-testid="cancel-compile-btn"
+                  >
+                    取消
+                  </Button>
+                )}
+              </div>
             </form>
           </section>
 
@@ -791,6 +965,9 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                       <div className="space-y-2">
                         {activePack.facts.map((fact) => {
                           const isEditing = editingFactId === fact.id;
+                          const matchedEvidence = activePack.evidence.find(
+                            (ev) => ev.id === fact.evidenceId
+                          );
                           return (
                             <div
                               key={fact.id}
@@ -851,7 +1028,22 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                                     <p className="text-ink font-medium leading-relaxed break-words">
                                       {fact.text}
                                     </p>
-                                    <p className="text-[11px] text-ink-3">来源：{fact.source}</p>
+                                    <div
+                                      className="flex flex-wrap items-center gap-2 text-[11px] text-ink-3"
+                                      data-testid={`fact-provenance-${fact.id}`}
+                                    >
+                                      <span>来源：{fact.source}</span>
+                                      {matchedEvidence?.locationRef && (
+                                        <span className="font-mono px-1.5 py-0.5 rounded bg-ground border border-line text-[10px]">
+                                          位置：{matchedEvidence.locationRef}
+                                        </span>
+                                      )}
+                                      {matchedEvidence?.contentHash && (
+                                        <span className="font-mono px-1.5 py-0.5 rounded bg-ground border border-line text-[10px]">
+                                          摘要：{matchedEvidence.contentHash.slice(0, 10)}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
 
                                   <div className="flex items-center gap-1 shrink-0">
@@ -886,11 +1078,15 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                                       variant="ghost"
                                       size="icon"
                                       className="h-7 w-7"
+                                      disabled={fact.locked}
                                       onClick={() => {
+                                        if (fact.locked) return;
                                         setEditingFactId(fact.id);
                                         setEditingFactText(fact.text);
                                       }}
+                                      data-testid={`fact-edit-${fact.id}`}
                                       aria-label="编辑事实"
+                                      title={fact.locked ? '已锁定，请先解锁后再编辑' : '编辑事实'}
                                     >
                                       <Edit3 className="w-3.5 h-3.5 text-ink-2" />
                                     </Button>
@@ -901,7 +1097,9 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                                       className="h-7 w-7"
                                       onClick={() => deleteFact(fact.id)}
                                       disabled={fact.locked}
+                                      data-testid={`fact-delete-${fact.id}`}
                                       aria-label="删除事实"
+                                      title={fact.locked ? '已锁定，请先解锁后再删除' : '删除事实'}
                                     >
                                       <Trash2 className="w-3.5 h-3.5 text-amber-ink" />
                                     </Button>

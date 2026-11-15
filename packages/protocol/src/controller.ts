@@ -3,8 +3,9 @@
  * Enforces minimum necessary intervention, TTL, contextVersion gating, grounding verification, and automatic withdrawal.
  */
 
-import type { InterventionLevel } from './common';
-import type { Intervention } from './entities';
+import type { InterventionLevel } from '#src/common';
+import type { Intervention } from '#src/entities';
+import type { UtcIso8601 } from '#src/versions';
 
 export type WithdrawalReason =
   | 'user_recovered'
@@ -37,7 +38,7 @@ export type ControllerSuppressReason =
   | 'lower_priority';
 
 export interface ControllerInspectionTrace {
-  evaluatedAt: number;
+  evaluatedAt: UtcIso8601;
   contextVersion: number;
   candidateId?: string;
   candidateContextVersion?: number;
@@ -62,7 +63,7 @@ export interface ControllerInspectionTrace {
 export interface ControllerDecision {
   decisionId: string;
   sessionId: string;
-  timestamp: number;
+  timestamp: UtcIso8601;
   contextVersion: number;
   selectedAction: ControllerAction;
   level: InterventionLevel;

@@ -2,16 +2,20 @@
  * Model-Agnostic Decision (System 1) and Slow Reasoning (System 2) Contracts.
  */
 
-import type { InterventionLevel, TelemetryMeasurementSource } from './common';
-import type { Candidate, Evidence, Intervention, TranscriptSegment } from './entities';
-import type { ScenarioId } from './scenario';
+import type { InterventionLevel, TelemetryUsageSource } from '#src/common';
+import type { Candidate, Evidence, Intervention, TranscriptSegment } from '#src/entities';
+import type { ScenarioId } from '#src/scenario';
+import type { UtcIso8601 } from '#src/versions';
 
 export interface ProviderUsageRecord {
   inputTokens: number;
   outputTokens: number;
   cachedInputTokens: number;
   modelCalls: number;
-  measurementSource: TelemetryMeasurementSource;
+  retries?: number;
+  usageSource: TelemetryUsageSource;
+  degraded?: boolean;
+  costFen?: number;
   provider?: string;
   model?: string;
 }
@@ -20,7 +24,7 @@ export interface FastDecisionInput {
   sessionId: string;
   scenarioId: ScenarioId;
   contextVersion: number;
-  timestamp: number;
+  timestamp: UtcIso8601;
   activeGoal: string;
   activeChapterId?: string;
   activeChapterTitle?: string;
@@ -74,7 +78,7 @@ export interface FastDecisionVerdict {
   requestId: string;
   sessionId: string;
   contextVersion: number;
-  timestamp: number;
+  timestamp: UtcIso8601;
   cognitiveState: CognitiveAttentionState;
   speakerIntent: SpeakerIntent;
   interventionNeed: InterventionNeed;
@@ -111,7 +115,7 @@ export interface SlowReasoningCandidateRequest {
   sessionId: string;
   scenarioId: ScenarioId;
   contextVersion: number;
-  timestamp: number;
+  timestamp: UtcIso8601;
   triggerKind: SlowReasoningTriggerKind;
   requestedLevel: InterventionLevel;
   activeGoal: string;
@@ -130,7 +134,7 @@ export interface SlowReasoningCandidateResult {
   requestId: string;
   sessionId: string;
   contextVersion: number;
-  timestamp: number;
+  timestamp: UtcIso8601;
   status: 'synthesized' | 'insufficient_evidence' | 'no_action_needed' | 'aborted' | 'error';
   candidate?: Candidate;
   evidenceIds: string[];

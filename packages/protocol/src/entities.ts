@@ -10,20 +10,23 @@ import type {
   InterventionLevel,
   PrivacyLevel,
   TelemetryUsage,
-} from './common';
-import type { WithdrawalReason } from './controller';
-import type { ScenarioId } from './scenario';
+} from '#src/common';
+import type { WithdrawalReason } from '#src/controller';
+import type { ScenarioId } from '#src/scenario';
+import type { UtcIso8601 } from '#src/versions';
 
 export type SessionStatus = 'initializing' | 'active' | 'paused' | 'ended';
 
 export interface Session {
   sessionId: string;
+  tenantId?: string;
+  userId?: string;
   scenarioId: ScenarioId;
   status: SessionStatus;
   mode: string;
   viewMode: 'focus' | 'inspector';
-  startedAt: number;
-  endedAt?: number;
+  startedAt: UtcIso8601;
+  endedAt?: UtcIso8601;
   contextPackId?: string;
   silentMode: boolean;
   maxInterventionLevel: InterventionLevel;
@@ -44,7 +47,7 @@ export interface TaskContext {
   constraints: string[];
   forbiddenClaims?: string[];
   contextVersion: number;
-  updatedAt: number;
+  updatedAt: UtcIso8601;
 }
 
 export interface ContextPackChapter {
@@ -61,6 +64,9 @@ export interface ContextPackChapter {
 
 export interface ContextPack {
   packId: string;
+  schemaVersion: number;
+  tenantId?: string;
+  userId?: string;
   scenarioId: ScenarioId;
   title: string;
   description?: string;
@@ -71,27 +77,32 @@ export interface ContextPack {
   forbiddenClaims: string[];
   chapters: ContextPackChapter[];
   evidence: Evidence[];
-  createdAt: string;
-  updatedAt: string;
+  createdAt: UtcIso8601;
+  updatedAt: UtcIso8601;
   metadata?: Record<string, unknown>;
 }
 
 export interface Evidence {
   id: string;
+  schemaVersion: number;
   text: string;
   source: string;
-  timestamp: number;
+  sourceType?: EvidenceSourceType;
+  sourceDocumentId?: string;
+  locationRef?: string;
+  contentHash?: string;
+  title?: string;
+  tags?: string[];
+  timestamp: UtcIso8601;
+  createdAt: UtcIso8601;
+  updatedAt: UtcIso8601;
   confidence: number;
   scope: DataScope;
   privacyLevel: PrivacyLevel;
   userConfirmed: boolean;
   verified: boolean;
+  locked: boolean;
   lifecycle: EvidenceLifecycle;
-  sourceType?: EvidenceSourceType;
-  title?: string;
-  tags?: string[];
-  locked?: boolean;
-  locationRef?: string;
 }
 
 export type CognitiveEventType =
@@ -118,7 +129,7 @@ export interface CognitiveEvent<TPayload = Record<string, unknown>> {
   event_id: string;
   session_id: string;
   event_type: CognitiveEventType;
-  timestamp: number;
+  timestamp: UtcIso8601;
   source: string;
   payload: TPayload;
   confidence: number;
@@ -144,7 +155,7 @@ export interface Observation {
   summary: string;
   severity: 'low' | 'medium' | 'high';
   confidence: number;
-  timestamp: number;
+  timestamp: UtcIso8601;
   contextVersion: number;
   relatedSegmentId?: string;
   relatedChapterId?: string;
@@ -171,6 +182,7 @@ export interface TranscriptSegment {
   confidence: number;
   startMs: number;
   endMs: number;
+  occurredAt?: UtcIso8601;
   source?: TranscriptSource;
   chapterId?: string;
 }
@@ -200,13 +212,13 @@ export interface Candidate {
   bullets?: string[];
   priority: number;
   ttlMs: number;
-  expiresAt: number;
+  expiresAt: UtcIso8601;
+  createdAt?: UtcIso8601;
   contextVersion: number;
   evidenceIds: string[];
   basedOnSegmentId: string;
   status: CandidateStatus;
   withdrawalReason?: WithdrawalReason;
-  createdAt?: number;
   kind?: CandidateKind;
   grounded?: boolean;
   missingEvidenceNotice?: string;
@@ -231,12 +243,12 @@ export interface Intervention {
   missingEvidenceNotice?: string;
   basedOnSegmentId?: string;
   contextVersion: number;
-  shownAt: number;
-  withdrawnAt?: number;
+  shownAt: UtcIso8601;
+  withdrawnAt?: UtcIso8601;
   withdrawalReason?: WithdrawalReason;
-  dismissedAt?: number;
+  dismissedAt?: UtcIso8601;
   userFeedback?: InterventionFeedback;
-  feedbackAt?: number;
+  feedbackAt?: UtcIso8601;
   chapterId?: string;
 }
 
@@ -250,6 +262,9 @@ export type MemoryCategory =
 
 export interface MemoryItem {
   memoryId: string;
+  schemaVersion: number;
+  tenantId?: string;
+  userId?: string;
   scenarioId: ScenarioId | 'universal';
   category: MemoryCategory;
   title: string;
@@ -259,8 +274,8 @@ export interface MemoryItem {
   userConfirmed: boolean;
   privacyLevel: PrivacyLevel;
   scope: DataScope;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: UtcIso8601;
+  updatedAt: UtcIso8601;
 }
 
 export interface MemoryProposal {
@@ -280,7 +295,7 @@ export interface Outcome {
   outcomeId: string;
   sessionId: string;
   scenarioId: ScenarioId;
-  completedAt: number;
+  completedAt: UtcIso8601;
   durationMs: number;
   utilityScore: number;
   helpfulCount: number;
@@ -295,7 +310,7 @@ export interface Reflection {
   reflectionId: string;
   sessionId: string;
   scenarioId: ScenarioId;
-  generatedAt: string;
+  generatedAt: UtcIso8601;
   outcome: Outcome;
   interventions: Intervention[];
   observations: Observation[];

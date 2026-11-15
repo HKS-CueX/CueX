@@ -10,15 +10,23 @@ if (config.asrMode === 'real') {
 }
 
 const { host, port } = await server.start();
-console.log(`[cuex-server] Listening at http://${host}:${port} (WS /ws)`);
-console.log(
-  `[cuex-server] Modes: S1=${config.system1Mode} S2=${config.system2Mode} ASR=${config.asrMode} (runtimeDir=${config.runtimeDir})`,
-);
+server.logger.info('server.started', {
+  host,
+  port,
+  env: config.environment,
+  authRequired: config.authRequired,
+  system1Mode: config.system1Mode,
+  system2Mode: config.system2Mode,
+  asrMode: config.asrMode,
+  sqlitePath: config.sqlitePath,
+});
 
-const shutdown = async () => {
+const shutdown = async (signalName: string) => {
+  server.logger.info('server.stopping', { signal: signalName });
   await server.stop();
+  server.logger.info('server.stopped', {});
   process.exit(0);
 };
 
-process.once('SIGINT', () => void shutdown());
-process.once('SIGTERM', () => void shutdown());
+process.once('SIGINT', () => void shutdown('SIGINT'));
+process.once('SIGTERM', () => void shutdown('SIGTERM'));

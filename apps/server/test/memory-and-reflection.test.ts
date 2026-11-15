@@ -3,16 +3,18 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { MemoryStore } from '../src/runtime';
+import { MemoryStore, msToIso } from '../src/runtime';
 import { computeUtilitySummary } from '../src/scenarios';
 
 test('MemoryStore enforces explicit userConfirmed opt-in and supports CRUD and session wipe', () => {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'cuex-mem-test-'));
+  let store: MemoryStore | undefined;
+  let reloaded: MemoryStore | undefined;
   try {
-    const store = new MemoryStore(dir);
+    store = new MemoryStore(dir);
 
     assert.throws(() => {
-      store.create({
+      store!.create({
         scenarioId: 'presentation',
         category: 'preference',
         title: '未确认记忆',
@@ -62,9 +64,11 @@ test('MemoryStore enforces explicit userConfirmed opt-in and supports CRUD and s
     assert.equal(store.list().length, 0);
 
     // Reloading from disk confirms durable empty state.
-    const reloaded = new MemoryStore(dir);
+    reloaded = new MemoryStore(dir);
     assert.equal(reloaded.list().length, 0);
   } finally {
+    reloaded?.close();
+    store?.close();
     rmSync(dir, { recursive: true, force: true });
   }
 });
@@ -83,8 +87,8 @@ test('computeUtilitySummary computes V = H - λI honestly for explicit feedback,
         evidenceIds: ['ev1'],
         grounded: true,
         contextVersion: 1,
-        shownAt: 1000,
-        withdrawnAt: 3000,
+        shownAt: msToIso(1_700_000_001_000),
+        withdrawnAt: msToIso(1_700_000_003_000),
         withdrawalReason: 'user_recovered',
         userFeedback: 'helpful',
       },
@@ -98,8 +102,8 @@ test('computeUtilitySummary computes V = H - λI honestly for explicit feedback,
         evidenceIds: [],
         grounded: true,
         contextVersion: 1,
-        shownAt: 4000,
-        withdrawnAt: 4500,
+        shownAt: msToIso(1_700_000_004_000),
+        withdrawnAt: msToIso(1_700_000_004_500),
         withdrawalReason: 'user_recovered',
       },
       {
@@ -112,24 +116,24 @@ test('computeUtilitySummary computes V = H - λI honestly for explicit feedback,
         evidenceIds: [],
         grounded: true,
         contextVersion: 1,
-        shownAt: 6000,
-        withdrawnAt: 6200,
+        shownAt: msToIso(1_700_000_006_000),
+        withdrawnAt: msToIso(1_700_000_006_200),
         withdrawalReason: 'user_dismissed',
-        dismissedAt: 6200,
+        dismissedAt: msToIso(1_700_000_006_200),
       },
     ],
     decisions: [
       {
         decisionId: 'd1',
         sessionId: 's',
-        timestamp: 2000,
+        timestamp: msToIso(1_700_000_002_000),
         contextVersion: 1,
         selectedAction: 'stay_silent',
         level: 'L0',
         suppressReason: 'pause_only_without_gap',
         reason: 'suppressed',
         trace: {
-          evaluatedAt: 2000,
+          evaluatedAt: msToIso(1_700_000_002_000),
           contextVersion: 1,
           groundedChecked: false,
           evidenceCount: 0,

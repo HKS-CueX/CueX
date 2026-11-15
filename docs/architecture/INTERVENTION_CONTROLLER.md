@@ -55,7 +55,7 @@ Whenever speech, silence ticks, chapter transitions, dismissals, or context upda
 
 1. **`chapter_changed`**: `active.chapterId !== context.taskContext.activeChapterId`.
 2. **`context_invalidated`**: `active.contextVersion !== state.getContextVersion()`.
-3. **`candidate_expired`**: `now >= sourceCandidate.expiresAt` or active display elapsed `>= maxDisplayMs`.
+3. **`candidate_expired`**: `Date.parse(sourceCandidate.expiresAt)` elapsed (`now >= expiresAtMs`) or active display elapsed `>= maxDisplayMs`.
 4. **`user_recovered`**: `signals.recovery`, `verdict.recoveryDetected`, `verdict.interventionNeed === 'withdraw_active'`, or `targetKeyPointId` appears in `coveredPointIds`.
 5. **`topic_changed`**: `signals.topicChanged` indicates clean shift to another focus.
 6. **`user_dismissed`**: Triggered immediately via `InterventionController.dismiss()`, also opening a `dismissSuppressionMs` (`45_000 ms`) suppression entry.

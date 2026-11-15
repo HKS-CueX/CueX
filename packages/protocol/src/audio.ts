@@ -3,7 +3,7 @@
  * Honestly exposes ASR capability status without synthetic playback claims.
  */
 
-import type { TranscriptSegment, TranscriptSpeaker } from './entities';
+import type { TranscriptSegment, TranscriptSpeaker } from '#src/entities';
 
 export interface AudioChunkPayload {
   sessionId?: string;
@@ -12,6 +12,7 @@ export interface AudioChunkPayload {
   channels: number;
   /** Base64-encoded audio frame bytes. */
   data: string;
+  /** Client capture offset or epoch ms timestamp on streaming binary frame. */
   timestamp: number;
   speaker?: TranscriptSpeaker;
 }

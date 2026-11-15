@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuex.ai/schemas/api-error.v1.schema.json",
+  "title": "ApiErrorResponse",
+  "description": "Unified CueX REST error response envelope.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["ok", "error"],
+  "properties": {
+    "ok": { "const": false },
+    "error": {
+      "type": "object",
+      "required": ["code", "message", "httpStatus", "retryable", "timestamp"],
+      "properties": {
+        "code": {
+          "type": "string",
+          "enum": [
+            "VALIDATION_ERROR",
+            "UNAUTHORIZED",
+            "FORBIDDEN",
+            "NOT_FOUND",
+            "RATE_LIMITED",
+            "PROVIDER_TIMEOUT",
+            "PROVIDER_UNAVAILABLE",
+            "QUOTA_EXCEEDED",
+            "SCHEMA_VERSION_UNSUPPORTED",
+            "SESSION_EXPIRED",
+            "ASR_UNAVAILABLE",
+            "INSUFFICIENT_EVIDENCE",
+            "PAYMENT_NOT_CONFIGURED",
+            "INTERNAL_ERROR"
+          ]
+        },
+        "message": { "type": "string", "minLength": 1 },
+        "httpStatus": { "type": "integer", "minimum": 400, "maximum": 599 },
+        "retryable": { "type": "boolean" },
+        "correlationId": { "type": "string" },
+        "requestId": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "message"],
+            "properties": {
+              "path": { "type": "string" },
+              "message": { "type": "string" },
+              "code": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

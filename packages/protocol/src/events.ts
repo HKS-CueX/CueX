@@ -1,10 +1,11 @@
 /**
  * Full-Duplex Client/Server WebSocket Protocol for CueX Cognitive Runtime.
+ * Backward-compatible with optional EventEnvelope metadata, idempotency keys, correlation IDs, and monotonic serverSeq.
  */
 
-import type { AsrCapabilityStatus, AsrTranscriptEvent, AudioChunkPayload } from './audio';
-import type { InterventionLevel, TelemetryUsage } from './common';
-import type { ControllerDecision, WithdrawalReason } from './controller';
+import type { AsrCapabilityStatus, AsrTranscriptEvent, AudioChunkPayload } from '#src/audio';
+import type { InterventionLevel, TelemetryUsage } from '#src/common';
+import type { ControllerDecision, WithdrawalReason } from '#src/controller';
 import type {
   CognitiveEvent,
   ContextPack,
@@ -14,7 +15,9 @@ import type {
   Outcome,
   Session,
   TranscriptSpeaker,
-} from './entities';
+} from '#src/entities';
+import type { EventEnvelopeMeta } from '#src/envelope';
+import type { ApiErrorCode } from '#src/errors';
 import type {
   PresentationContextPack,
   PresentationLiveState,
@@ -22,10 +25,11 @@ import type {
   PresentationReflection,
   PresentationWeakSegment,
   ViewMode,
-} from './presentation';
-import type { FastDecisionVerdict, SlowReasoningCandidateResult } from './reasoning';
-import type { ScenarioCapabilityDescriptor, ScenarioId } from './scenario';
-import type { SharedCognitiveState } from './state';
+} from '#src/presentation';
+import type { FastDecisionVerdict, SlowReasoningCandidateResult } from '#src/reasoning';
+import type { ScenarioCapabilityDescriptor, ScenarioId } from '#src/scenario';
+import type { SharedCognitiveState } from '#src/state';
+import type { UtcIso8601 } from '#src/versions';
 
 export interface SessionStartRehearsalTarget {
   weakSegmentId: string;
@@ -34,7 +38,23 @@ export interface SessionStartRehearsalTarget {
   targetPointLabels?: string[];
 }
 
-export type ClientMessage =
+export interface ClientMessageEnvelopeFields {
+  envelope?: EventEnvelopeMeta;
+  idempotencyKey?: string;
+  correlationId?: string;
+  clientSeq?: number;
+}
+
+export interface ServerMessageEnvelopeFields {
+  envelope?: EventEnvelopeMeta;
+  correlationId?: string;
+  /** Monotonic per-connection/session server sequence number for reconnect deduplication. */
+  serverSeq?: number;
+}
+
+type DistributeFields<TUnion, TExtra> = TUnion extends unknown ? TUnion & TExtra : never;
+
+export type ClientMessagePayloadUnion =
   | {
       type: 'session.start';
       payload: {
@@ -112,12 +132,14 @@ export type ClientMessage =
   | { type: 'view.mode'; payload: { sessionId: string; viewMode: ViewMode } }
   | { type: 'ping'; payload: { t: number } };
 
-export type ServerMessage =
+export type ClientMessage = DistributeFields<ClientMessagePayloadUnion, ClientMessageEnvelopeFields>;
+
+export type ServerMessagePayloadUnion =
   | {
       type: 'session.ready';
       payload: {
         session: Session;
-        serverTime: number;
+        serverTime: UtcIso8601;
         scenario: ScenarioCapabilityDescriptor;
         asrStatus: AsrCapabilityStatus;
         initialState: SharedCognitiveState;
@@ -128,14 +150,14 @@ export type ServerMessage =
       type: 'session.state';
       payload: {
         session: Session;
-        serverTime: number;
+        serverTime: UtcIso8601;
       };
     }
   | {
       type: 'session.ended';
       payload: {
         sessionId: string;
-        endedAt: number;
+        endedAt: UtcIso8601;
         durationMs: number;
         outcome: Outcome;
         reflection?: PresentationReflection;
@@ -145,7 +167,7 @@ export type ServerMessage =
       type: 'session.wiped';
       payload: {
         sessionId: string;
-        wipedAt: number;
+        wipedAt: UtcIso8601;
       };
     }
   | { type: 'asr.status'; payload: AsrCapabilityStatus }
@@ -171,7 +193,7 @@ export type ServerMessage =
         candidateId?: string;
         reason: WithdrawalReason;
         decision: ControllerDecision;
-        withdrawnAt: number;
+        withdrawnAt: UtcIso8601;
       };
     }
   | { type: 'presentation.progress'; payload: PresentationLiveState }
@@ -185,5 +207,15 @@ export type ServerMessage =
       };
     }
   | { type: 'telemetry.updated'; payload: TelemetryUsage }
-  | { type: 'pong'; payload: { t: number; serverTime: number } }
-  | { type: 'session.error'; payload: { code: string; message: string; sessionId?: string } };
+  | { type: 'pong'; payload: { t: number; serverTime: UtcIso8601 } }
+  | {
+      type: 'session.error';
+      payload: {
+        code: ApiErrorCode | string;
+        message: string;
+        sessionId?: string;
+        retryable?: boolean;
+      };
+    };
+
+export type ServerMessage = DistributeFields<ServerMessagePayloadUnion, ServerMessageEnvelopeFields>;

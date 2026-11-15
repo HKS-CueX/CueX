@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import {
   SCENARIO_CAPABILITY_DESCRIPTORS,
+  type AuthSessionResponse,
   type HealthStatusResponse,
   type ScenarioCapabilityDescriptor,
 } from '@cuex/protocol';
@@ -24,8 +25,10 @@ import { cn } from '@/lib/utils';
 interface HomeViewProps {
   scenarios: ScenarioCapabilityDescriptor[];
   health: HealthStatusResponse | null;
+  authSession?: AuthSessionResponse | null;
   onNavigate: (view: ViewKey) => void;
   onLoadDemoPack: () => Promise<void>;
+  onOpenAccount?: () => void;
   loadingDemo: boolean;
 }
 
@@ -87,8 +90,10 @@ const PREVIEW_STATES: Record<
 export const HomeView: React.FC<HomeViewProps> = ({
   scenarios,
   health,
+  authSession = null,
   onNavigate,
   onLoadDemoPack,
+  onOpenAccount,
   loadingDemo,
 }) => {
   const [previewState, setPreviewState] = useState<PreviewCueState>('l2');
@@ -365,7 +370,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-line pb-5">
                 <div className="space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="resolved">已实机上线 · Implemented</Badge>
+                    <Badge variant="resolved">Available · 已实机上线</Badge>
                     <Badge variant="amber">Rehearsal &amp; Live 双模式</Badge>
                     <Badge variant="violet">L0–L3 分级介入</Badge>
                   </div>
@@ -443,7 +448,8 @@ export const HomeView: React.FC<HomeViewProps> = ({
               <div
                 key={item.id}
                 data-testid={`scenario-card-${item.id}`}
-                className="border border-line bg-surface/65 rounded-md p-5 flex flex-col justify-between space-y-4 opacity-90"
+                aria-disabled="true"
+                className="border border-dashed border-line bg-surface/65 rounded-md p-5 flex flex-col justify-between space-y-4 opacity-90 select-none"
               >
                 <div className="space-y-2.5">
                   <div className="flex items-center justify-between gap-2">
@@ -452,14 +458,14 @@ export const HomeView: React.FC<HomeViewProps> = ({
                     </span>
                     <Badge variant="secondary" className="text-[10px]">
                       <Clock className="w-2.5 h-2.5" />
-                      路线图规划中 · 暂未开放实机
+                      Planned · 路线图规划中 · 暂未开放实机
                     </Badge>
                   </div>
                   <h3 className="text-base font-semibold text-ink">{item.displayName}</h3>
                   <p className="text-xs text-ink-2 leading-relaxed">{item.description}</p>
                 </div>
 
-                <div className="pt-3 border-t border-line/70 space-y-2">
+                <div className="pt-3 border-t border-line/70 space-y-2.5">
                   {item.roadmapSummary && (
                     <p className="text-[11px] text-ink-3 leading-relaxed">{item.roadmapSummary}</p>
                   )}
@@ -473,6 +479,15 @@ export const HomeView: React.FC<HomeViewProps> = ({
                       </span>
                     ))}
                   </div>
+                  <button
+                    type="button"
+                    disabled
+                    aria-disabled="true"
+                    data-testid={`scenario-disabled-${item.id}`}
+                    className="w-full py-1.5 px-2.5 rounded border border-line bg-ground text-[11px] text-ink-3 cursor-not-allowed text-center"
+                  >
+                    暂不可启动实机（Planned）
+                  </button>
                 </div>
               </div>
             ))}
@@ -497,12 +512,25 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   {health.system2.mode === 'real' ? '真实模型' : '本地规则引擎'}）
                 </span>
               )}
+              {authSession && (
+                <span className="text-ink-2 block" data-testid="home-auth-strip">
+                  当前身份：{authSession.user.displayName}（租户 {authSession.user.tenantId}）· 方案{' '}
+                  <span className="font-mono uppercase">{authSession.usageSummary.activePlanId}</span>
+                </span>
+              )}
             </div>
           </div>
 
-          <Button type="button" variant="quiet" size="sm" onClick={() => onNavigate('compiler')}>
-            进入工作流
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            {onOpenAccount && (
+              <Button type="button" variant="quiet" size="sm" onClick={onOpenAccount}>
+                账户与套餐
+              </Button>
+            )}
+            <Button type="button" variant="quiet" size="sm" onClick={() => onNavigate('compiler')}>
+              进入工作流
+            </Button>
+          </div>
         </section>
       </main>
     </div>

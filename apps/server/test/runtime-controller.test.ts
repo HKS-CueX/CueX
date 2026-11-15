@@ -12,6 +12,7 @@ import {
   LocalSlowReasoningProvider,
   ManualClock,
   MemoryStore,
+  msToIso,
 } from '../src/runtime';
 import {
   PresentationRuntimePlugin,
@@ -31,6 +32,7 @@ function buildTestSession(ceiling: 'L0' | 'L1' | 'L2' | 'L3' = 'L2') {
     pack,
     startedAt: clock.now(),
   });
+  const memoryStore = new MemoryStore(path.join(dir, 'memory'));
   const runtime = new CognitiveRuntimeSession({
     sessionId: 'test_sess',
     mode: 'live',
@@ -62,12 +64,15 @@ function buildTestSession(ceiling: 'L0' | 'L1' | 'L2' | 'L3' = 'L2') {
       candidateTtlMs: 5_000,
       dismissSuppressionMs: 30_000,
     }),
-    memoryStore: new MemoryStore(path.join(dir, 'memory')),
+    memoryStore,
     clock,
     emitMessage: (msg) => emitted.push(msg),
   });
 
-  const cleanup = () => rmSync(dir, { recursive: true, force: true });
+  const cleanup = () => {
+    memoryStore.close();
+    rmSync(dir, { recursive: true, force: true });
+  };
   return { runtime, clock, emitted, cleanup };
 }
 
@@ -100,7 +105,7 @@ test('Controller blocks ungrounded fabricated numbers and forbidden claims', () 
       cueText: '实测可提高转化率 88.5%，营收突破 2000 万元。',
       priority: 95,
       ttlMs: 5_000,
-      expiresAt: clock.now() + 5_000,
+      expiresAt: msToIso(clock.now() + 5_000),
       contextVersion: runtime.state.getContextVersion(),
       evidenceIds: ['ev_sample_1'],
       basedOnSegmentId: 'seg_init',
@@ -121,7 +126,7 @@ test('Controller blocks ungrounded fabricated numbers and forbidden claims', () 
       cueText: '禁止宣称 100% 识别准确或零幻觉保证。',
       priority: 95,
       ttlMs: 5_000,
-      expiresAt: clock.now() + 5_000,
+      expiresAt: msToIso(clock.now() + 5_000),
       contextVersion: runtime.state.getContextVersion(),
       evidenceIds: [],
       basedOnSegmentId: 'seg_init',
@@ -148,7 +153,7 @@ test('Controller enforces TTL expiry, contextVersion mismatch, L0-L3 ceiling, an
       cueText: '总结三点核心观点。',
       priority: 90,
       ttlMs: 5_000,
-      expiresAt: clock.now() + 5_000,
+      expiresAt: msToIso(clock.now() + 5_000),
       contextVersion: runtime.state.getContextVersion(),
       evidenceIds: [],
       basedOnSegmentId: 'seg_init',
@@ -163,7 +168,7 @@ test('Controller enforces TTL expiry, contextVersion mismatch, L0-L3 ceiling, an
       ...tooHigh,
       candidateId: 'cand_expired',
       level: 'L1',
-      expiresAt: clock.now() - 10,
+      expiresAt: msToIso(clock.now() - 10),
     };
     const expRes = runtime.submitExternalCandidate(expired, { semanticGap: true });
     assert.equal(expRes.decision.suppressReason, 'candidate_expired');
@@ -222,7 +227,7 @@ test('Controller executes automatic withdrawal across user_recovered, context_in
       cueText: '补提核心要点。',
       priority: 80,
       ttlMs: 12_000,
-      expiresAt: clock.now() + 12_000,
+      expiresAt: msToIso(clock.now() + 12_000),
       contextVersion: runtime.state.getContextVersion(),
       evidenceIds: [],
       basedOnSegmentId: 'seg_init',
@@ -242,7 +247,7 @@ test('Controller executes automatic withdrawal across user_recovered, context_in
 
     // Re-submitting same targetKeyPointId inside suppression window must be suppressed.
     const repeat = runtime.submitExternalCandidate(
-      { ...cand, candidateId: 'cand_dismiss_2', expiresAt: clock.now() + 12_000 },
+      { ...cand, candidateId: 'cand_dismiss_2', expiresAt: msToIso(clock.now() + 12_000) },
       { semanticGap: true },
     );
     assert.equal(repeat.decision.suppressReason, 'user_dismissed_suppression');
@@ -254,7 +259,7 @@ test('Controller executes automatic withdrawal across user_recovered, context_in
         ...cand,
         candidateId: 'cand_ctx_inv',
         targetKeyPointId: 'kp_other',
-        expiresAt: clock.now() + 20_000,
+        expiresAt: msToIso(clock.now() + 20_000),
       },
       { semanticGap: true },
     );
@@ -274,7 +279,7 @@ test('Controller executes automatic withdrawal across user_recovered, context_in
         candidateId: 'cand_ttl_wd',
         targetKeyPointId: 'kp_ttl',
         ttlMs: 4_000,
-        expiresAt: clock.now() + 4_000,
+        expiresAt: msToIso(clock.now() + 4_000),
         contextVersion: runtime.state.getContextVersion(),
       },
       { semanticGap: true },

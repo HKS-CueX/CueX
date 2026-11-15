@@ -1,6 +1,6 @@
 {
   "schemaVersion": "cuex-final-verification-v1",
-  "generatedAt": "2026-11-15T18:38:22.363Z",
+  "generatedAt": "2026-11-15T21:10:50.239Z",
   "dataStatus": "EVAL_LOCKED",
   "evalSource": "[本地实测 Eval (local_rule_zero) + 云端公开费率建模]",
   "tokenProofEmbedded": true,
@@ -36,6 +36,8 @@
   "checks": {
     "strictPageCountsPassed": true,
     "allArtifactsGenerated": true,
-    "noExternalMockConsoleScreenshot": true
+    "noExternalMockConsoleScreenshot": true,
+    "metricsSyncPassed": true,
+    "scannedFiles": 20
   }
 }

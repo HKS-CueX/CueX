@@ -2,7 +2,13 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { ControllerDecision, ServerMessage, TelemetryUsage } from '@cuex/protocol';
+import {
+  createMoneyAmount,
+  type ControllerDecision,
+  type ServerMessage,
+  type TelemetryUsage,
+  type TelemetryUsageSource,
+} from '@cuex/protocol';
 import { loadServerConfig } from '../src/config';
 import {
   CognitiveRuntimeSession,
@@ -12,6 +18,7 @@ import {
   MemoryStore,
   createFastDecisionProvider,
   createSlowReasoningProvider,
+  msToIso,
 } from '../src/runtime';
 import {
   PresentationRuntimePlugin,
@@ -100,22 +107,32 @@ async function main() {
     };
 
     const outcomes: EvalCaseOutcome[] = [];
+    const observedSources = new Set<TelemetryUsageSource>();
     const aggregateTelemetry = {
       inputTokens: 0,
       outputTokens: 0,
       cachedInputTokens: 0,
       totalTokens: 0,
       modelCalls: 0,
+      retries: 0,
       localRuleEvaluations: 0,
+      costFen: 0,
+      degradedSessions: 0,
     };
 
     const accumulateTelemetry = (t: TelemetryUsage) => {
+      observedSources.add(t.usageSource);
       aggregateTelemetry.inputTokens += t.inputTokens;
       aggregateTelemetry.outputTokens += t.outputTokens;
       aggregateTelemetry.cachedInputTokens += t.cachedInputTokens;
       aggregateTelemetry.totalTokens += t.totalTokens;
       aggregateTelemetry.modelCalls += t.modelCalls;
+      aggregateTelemetry.retries += t.retries;
       aggregateTelemetry.localRuleEvaluations += t.localRuleEvaluations;
+      aggregateTelemetry.costFen += t.costFen;
+      if (t.degraded) {
+        aggregateTelemetry.degradedSessions += 1;
+      }
     };
 
     // Case 1: Fluent normal speech covering chapter 1 -> must stay L0 silent.
@@ -328,7 +345,7 @@ async function main() {
           cueText: '系统可将幻觉率直接降低 99.8% 并提升收入 300 万元。',
           priority: 99,
           ttlMs: 10_000,
-          expiresAt: clock.now() + 10_000,
+          expiresAt: msToIso(clock.now() + 10_000),
           contextVersion: runtime.state.getContextVersion(),
           evidenceIds: ['ev_sample_1'],
           basedOnSegmentId: 'seg_init',
@@ -382,6 +399,8 @@ async function main() {
     const avgLatencyMs = Number(
       (allLatencies.reduce((s, v) => s + v, 0) / Math.max(1, allLatencies.length)).toFixed(2),
     );
+    const p50LatencyMs =
+      allLatencies[Math.floor(Math.max(0, allLatencies.length - 1) * 0.5)] ?? 0;
     const p95LatencyMs =
       allLatencies[Math.min(allLatencies.length - 1, Math.ceil(allLatencies.length * 0.95) - 1)] ?? 0;
 
@@ -401,6 +420,12 @@ async function main() {
       outcomes.reduce((s, o) => s + o.netUtilityV, 0).toFixed(2),
     );
 
+    const measurementSource: TelemetryUsageSource = observedSources.has('provider_reported')
+      ? 'provider_reported'
+      : observedSources.has('estimated')
+        ? 'estimated'
+        : 'local_rule_zero';
+
     const summary = {
       generatedAt: new Date().toISOString(),
       mode: {
@@ -412,7 +437,14 @@ async function main() {
         passedCases,
         passRate: Number((passedCases / totalCases).toFixed(4)),
         avgLatencyMs,
+        p50LatencyMs,
         p95LatencyMs,
+        latencyStats: {
+          avgMs: avgLatencyMs,
+          p50Ms: p50LatencyMs,
+          p95Ms: p95LatencyMs,
+          sampleCount: allLatencies.length,
+        },
         precision,
         falseInterventionRate,
         withdrawalAccuracy,
@@ -421,12 +453,15 @@ async function main() {
       },
       telemetry: {
         ...aggregateTelemetry,
-        measurementSource:
-          aggregateTelemetry.modelCalls > 0 ? 'provider_reported' : 'local_rule_zero',
+        cost: createMoneyAmount(aggregateTelemetry.costFen),
+        measurementSource,
+        observedSources: Array.from(observedSources),
         note:
-          aggregateTelemetry.modelCalls === 0
+          measurementSource === 'local_rule_zero'
             ? 'Offline deterministic evaluation used local heuristic & grounded rules (0 LLM tokens consumed).'
-            : 'Exact tokens reported by configured models.',
+            : measurementSource === 'estimated'
+              ? 'Estimated token counts derived from provider characters because raw usage metadata was unavailable.'
+              : 'Exact tokens reported by configured models.',
       },
       cases: outcomes,
     };
@@ -449,13 +484,14 @@ async function main() {
       '| Metric | Value |',
       '| --- | --- |',
       `| Cases Passed | ${summary.metrics.passedCases} / ${summary.metrics.totalCases} (${(summary.metrics.passRate * 100).toFixed(1)}%) |`,
-      `| Avg / P95 Case Latency | ${summary.metrics.avgLatencyMs} ms / ${summary.metrics.p95LatencyMs} ms |`,
+      `| Avg / P50 / P95 Case Latency | ${summary.metrics.avgLatencyMs} ms / ${summary.metrics.p50LatencyMs} ms / ${summary.metrics.p95LatencyMs} ms |`,
       `| Intervention Precision | ${(summary.metrics.precision * 100).toFixed(1)}% |`,
       `| False Intervention Rate (Quiet/Pause) | ${(summary.metrics.falseInterventionRate * 100).toFixed(1)}% |`,
       `| Automatic Withdrawal Accuracy | ${(summary.metrics.withdrawalAccuracy * 100).toFixed(1)}% |`,
       `| Aggregate Net Utility (${summary.metrics.utilityFormula}) | ${summary.metrics.totalNetUtilityV} |`,
       `| LLM Tokens (Input / Output / Cached / Total) | ${summary.telemetry.inputTokens} / ${summary.telemetry.outputTokens} / ${summary.telemetry.cachedInputTokens} / ${summary.telemetry.totalTokens} |`,
-      `| Model Calls / Local Rule Evals | ${summary.telemetry.modelCalls} / ${summary.telemetry.localRuleEvaluations} |`,
+      `| Model Calls / Retries / Local Rule Evals | ${summary.telemetry.modelCalls} / ${summary.telemetry.retries} / ${summary.telemetry.localRuleEvaluations} |`,
+      `| Total Cost / Degraded Sessions | ¥${(summary.telemetry.cost.amountFen / 100).toFixed(2)} (${summary.telemetry.costFen} fen) / ${summary.telemetry.degradedSessions} |`,
       '',
       '## Scenario Breakdown',
       '',

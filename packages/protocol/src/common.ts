@@ -2,6 +2,8 @@
  * Shared domain-agnostic primitives for CueX Universal Cognitive Runtime.
  */
 
+import type { MoneyAmount, UtcIso8601 } from '#src/versions';
+
 export type InterventionLevel = 'L0' | 'L1' | 'L2' | 'L3';
 
 export const INTERVENTION_LEVEL_RANK: Record<InterventionLevel, number> = {
@@ -27,47 +29,70 @@ export type EvidenceSourceType =
   | 'live_transcript'
   | 'system_rule';
 
-export type TelemetryMeasurementSource = 'provider_reported' | 'local_rule_zero' | 'estimated';
+export type DocumentExtractionStatus = 'parsed' | 'unreadable' | 'rejected';
+
+export type TelemetryUsageSource = 'provider_reported' | 'local_rule_zero' | 'estimated';
+
+/** Compatibility alias for TelemetryUsageSource. */
+export type TelemetryMeasurementSource = TelemetryUsageSource;
 
 export interface ModelCallBreakdown {
   tier: 'asr' | 'system1' | 'system2' | 'compiler' | 'reflection' | 'retrieval';
   provider: string;
   model?: string;
   calls: number;
+  retries: number;
   inputTokens: number;
   outputTokens: number;
   cachedInputTokens: number;
   latencyMsTotal: number;
   latencyMsAvg: number;
-  measurementSource: TelemetryMeasurementSource;
+  usageSource: TelemetryUsageSource;
+  degraded: boolean;
+  costFen: number;
+}
+
+export interface TelemetryLatencyStats {
+  avgMs: number;
+  p95Ms: number;
+  maxMs: number;
 }
 
 export interface TelemetryEstimationMetadata {
   /** True only when exact provider usage headers were unavailable and an explicit estimation method was used. */
   isEstimated: boolean;
-  source: TelemetryMeasurementSource;
+  source: TelemetryUsageSource;
   /** True when local deterministic rules/heuristics ran with 0 LLM tokens. */
   usingLocalFallback: boolean;
   notes?: string;
-  estimatedCostCny?: number;
 }
 
 /**
- * Honest runtime token, cache, latency, and call accounting.
- * Local deterministic rule evaluations record 0 tokens and set `usingLocalFallback: true`.
+ * Honest runtime token, cache, latency, retry, ASR, and cost attribution accounting.
+ * Local deterministic rule evaluations record 0 tokens, `usageSource: 'local_rule_zero'`, and `costFen: 0`.
  */
 export interface TelemetryUsage {
   sessionId: string;
-  updatedAt: number;
+  updatedAt: UtcIso8601;
+  usageSource: TelemetryUsageSource;
   inputTokens: number;
   outputTokens: number;
   cachedInputTokens: number;
   totalTokens: number;
   modelCalls: number;
+  retries: number;
   localRuleEvaluations: number;
   latencyMs: number;
+  latencyStats: TelemetryLatencyStats;
   lastSystem1LatencyMs?: number;
   lastSystem2LatencyMs?: number;
+  degraded: boolean;
+  usingLocalFallback: boolean;
+  asrProvider: string;
+  asrDurationMs: number;
+  /** Integer minor units in CNY Fen (Number.isSafeInteger). */
+  costFen: number;
+  cost: MoneyAmount;
   estimation: TelemetryEstimationMetadata;
   byTier?: Partial<Record<ModelCallBreakdown['tier'], ModelCallBreakdown>>;
 }

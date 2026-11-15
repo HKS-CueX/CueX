@@ -11,9 +11,10 @@ import {
   type InterventionLevel,
   type WithdrawalReason,
 } from '@cuex/protocol';
-import { verifyCandidateGrounding } from './RetrievalProvider';
 import type { ContextStore } from './ContextStore';
+import { verifyCandidateGrounding } from './RetrievalProvider';
 import type { SharedCognitiveStateStore } from './SharedCognitiveStateStore';
+import { isoToMs, msToIso } from './time';
 
 export interface InterventionControllerConfig {
   cooldownMs: number;
@@ -62,26 +63,27 @@ export class InterventionController {
     return this.decisionHistory.map((d) => ({ ...d, trace: { ...d.trace } }));
   }
 
-  private nextDecisionId(now: number): string {
-    return `dec_${++this.decisionSeq}_${now}`;
+  private nextDecisionId(nowMs: number): string {
+    return `dec_${++this.decisionSeq}_${nowMs}`;
   }
 
   private buildTrace(
     state: SharedCognitiveStateStore,
     signals: ControllerSignalContext,
-    now: number,
+    nowMs: number,
     rulesApplied: string[],
     candidate?: Candidate | null,
     grounding?: { checked: boolean; evidenceCount: number },
   ): ControllerInspectionTrace {
+    const expiresAtMs = candidate ? isoToMs(candidate.expiresAt, 0) : 0;
     return {
-      evaluatedAt: now,
+      evaluatedAt: msToIso(nowMs),
       contextVersion: state.getContextVersion(),
       ...(candidate ? { candidateId: candidate.candidateId, candidateContextVersion: candidate.contextVersion } : {}),
-      ...(candidate ? { ttlRemainingMs: Math.max(0, candidate.expiresAt - now) } : {}),
+      ...(candidate ? { ttlRemainingMs: Math.max(0, expiresAtMs - nowMs) } : {}),
       groundedChecked: grounding?.checked ?? false,
       evidenceCount: grounding?.evidenceCount ?? candidate?.evidenceIds.length ?? 0,
-      cooldownRemainingMs: state.getCooldownRemainingMs(now),
+      cooldownRemainingMs: state.getCooldownRemainingMs(nowMs),
       ceilingLevel: state.getMaxInterventionLevel(),
       silentMode: state.isSilentMode(),
       paused: state.getSessionStatus() === 'paused',
@@ -137,10 +139,10 @@ export class InterventionController {
     } else if (active.contextVersion !== currentVersion) {
       reason = 'context_invalidated';
       explanation = `Context version changed from v${active.contextVersion} to v${currentVersion}.`;
-    } else if (sourceCandidate && now >= sourceCandidate.expiresAt) {
+    } else if (sourceCandidate && now >= isoToMs(sourceCandidate.expiresAt, 0)) {
       reason = 'candidate_expired';
       explanation = 'Source candidate TTL expired.';
-    } else if (now - active.shownAt >= this.maxDisplayMs) {
+    } else if (now - isoToMs(active.shownAt, now) >= this.maxDisplayMs) {
       reason = 'candidate_expired';
       explanation = 'Intervention exceeded maximum display horizon.';
     } else if (
@@ -165,7 +167,7 @@ export class InterventionController {
     return this.recordDecision({
       decisionId: this.nextDecisionId(now),
       sessionId,
-      timestamp: now,
+      timestamp: msToIso(now),
       contextVersion: currentVersion,
       selectedAction: 'withdraw',
       level: 'L0',
@@ -216,7 +218,7 @@ export class InterventionController {
         const decision = this.recordDecision({
           decisionId: this.nextDecisionId(now),
           sessionId,
-          timestamp: now,
+          timestamp: msToIso(now),
           contextVersion: state.getContextVersion(),
           selectedAction: 'withdraw',
           level: 'L0',
@@ -254,7 +256,7 @@ export class InterventionController {
     const decision = this.recordDecision({
       decisionId: this.nextDecisionId(now),
       sessionId,
-      timestamp: now,
+      timestamp: msToIso(now),
       contextVersion: state.getContextVersion(),
       selectedAction: 'stay_silent',
       level: 'L0',
@@ -303,7 +305,6 @@ export class InterventionController {
     );
     const forbiddenClaims = context.getContextPack()?.forbiddenClaims ?? [];
 
-    // First expire stale/expired pending candidates cleanly.
     const currentVersion = state.getContextVersion();
     const validRanked: Array<{ candidate: Candidate; grounded: boolean }> = [];
     let lastRejectReason: ControllerSuppressReason | undefined;
@@ -345,7 +346,7 @@ export class InterventionController {
         );
         continue;
       }
-      if (now >= candidate.expiresAt) {
+      if (now >= isoToMs(candidate.expiresAt, 0)) {
         reject(candidate, 'candidate_expired', 'Candidate TTL expired before display.', 'expired');
         continue;
       }
@@ -404,7 +405,7 @@ export class InterventionController {
         reject(
           candidate,
           'user_dismissed_suppression',
-          `Suppressed until ${dismissedEntry.untilMs} after dismissal.`,
+          `Suppressed until ${dismissedEntry.until} after dismissal.`,
         );
         continue;
       }
@@ -441,7 +442,7 @@ export class InterventionController {
         decision: this.recordDecision({
           decisionId: this.nextDecisionId(now),
           sessionId,
-          timestamp: now,
+          timestamp: msToIso(now),
           contextVersion: currentVersion,
           selectedAction: 'stay_silent',
           level: 'L0',
@@ -478,7 +479,7 @@ export class InterventionController {
         supersededDecision = this.recordDecision({
           decisionId: this.nextDecisionId(now),
           sessionId,
-          timestamp: now,
+          timestamp: msToIso(now),
           contextVersion: currentVersion,
           selectedAction: 'withdraw',
           level: 'L0',
@@ -510,19 +511,20 @@ export class InterventionController {
         : {}),
       basedOnSegmentId: chosen.candidate.basedOnSegmentId,
       contextVersion: currentVersion,
-      shownAt: now,
+      shownAt: msToIso(now),
       chapterId: chosen.candidate.targetChapterId ?? context.taskContext.activeChapterId,
     };
 
-    const effectiveCooldown = chosen.candidate.level === 'L1'
-      ? Math.round(this.config.cooldownMs * 0.7)
-      : this.config.cooldownMs;
+    const effectiveCooldown =
+      chosen.candidate.level === 'L1'
+        ? Math.round(this.config.cooldownMs * 0.7)
+        : this.config.cooldownMs;
     state.setActiveIntervention(intervention, effectiveCooldown, now);
 
     const decision = this.recordDecision({
       decisionId: this.nextDecisionId(now),
       sessionId,
-      timestamp: now,
+      timestamp: msToIso(now),
       contextVersion: currentVersion,
       selectedAction: ACTION_BY_LEVEL[chosen.candidate.level],
       level: chosen.candidate.level,

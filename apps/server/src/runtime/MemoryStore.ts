@@ -1,146 +1,132 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import type { MemoryCreateInput, MemoryItem, MemoryPatchInput, ScenarioId } from '@cuex/protocol';
+import path from 'node:path';
+import {
+  MEMORY_SCHEMA_VERSION,
+  nowUtcIso8601,
+  type MemoryCreateInput,
+  type MemoryItem,
+  type MemoryPatchInput,
+  type ScenarioId,
+} from '@cuex/protocol';
+import { SqliteRepository, type StorageRepository } from '../storage';
 
-interface PersistedMemoryFile {
-  version: 1;
-  items: MemoryItem[];
-}
+let memSeq = 0;
 
 /**
- * Persistent opt-in MemoryStore.
- * Strictly requires `userConfirmed === true` before saving any MemoryItem.
- * Supports full inspection, edit, individual deletion, and single-session wipe.
+ * Persistent opt-in Memory Store backed by StorageRepository (SQLite in Phase 2).
+ * NEVER writes memories automatically unless `userConfirmed === true`.
  */
 export class MemoryStore {
-  private readonly filePath: string;
-  private items: MemoryItem[] = [];
-  private seq = 0;
+  private readonly repo: StorageRepository;
+  private readonly ownsRepo: boolean;
 
-  constructor(memoryDir: string) {
-    this.filePath = join(memoryDir, 'items.json');
-    this.load();
-  }
-
-  private load(): void {
-    if (!existsSync(this.filePath)) {
-      this.items = [];
-      return;
-    }
-    try {
-      const parsed = JSON.parse(readFileSync(this.filePath, 'utf8')) as PersistedMemoryFile;
-      if (Array.isArray(parsed.items)) {
-        this.items = parsed.items.filter((item) => item && item.userConfirmed === true);
-        this.seq = this.items.length;
+  constructor(dirOrRepo: string | StorageRepository) {
+    if (typeof dirOrRepo === 'string') {
+      const dbPath =
+        dirOrRepo === ':memory:' ? ':memory:' : path.join(dirOrRepo, 'cuex-memory.sqlite');
+      const sqlite = new SqliteRepository(dbPath);
+      sqlite.init();
+      if (dirOrRepo !== ':memory:') {
+        sqlite.migrateLegacyJsonFiles({
+          runtimeDir: dirOrRepo,
+          memoryDir: dirOrRepo,
+        });
       }
-    } catch {
-      this.items = [];
+      this.repo = sqlite;
+      this.ownsRepo = true;
+    } else {
+      this.repo = dirOrRepo;
+      this.ownsRepo = false;
     }
   }
 
-  private persist(): void {
-    mkdirSync(dirname(this.filePath), { recursive: true });
-    const payload: PersistedMemoryFile = { version: 1, items: this.items };
-    const tmpPath = `${this.filePath}.${process.pid}.${Date.now()}.tmp`;
-    writeFileSync(tmpPath, JSON.stringify(payload, null, 2), 'utf8');
-    renameSync(tmpPath, this.filePath);
+  close(): void {
+    if (this.ownsRepo) {
+      this.repo.close();
+    }
   }
 
-  list(filter?: { scenarioId?: ScenarioId | 'universal'; sessionId?: string }): MemoryItem[] {
-    return this.items
-      .filter((item) => {
-        if (filter?.scenarioId && item.scenarioId !== filter.scenarioId && item.scenarioId !== 'universal') {
-          return false;
-        }
-        if (filter?.sessionId && item.sourceSessionId !== filter.sessionId) {
-          return false;
-        }
-        return true;
-      })
-      .map((item) => ({ ...item }));
+  list(filter?: {
+    userId?: string;
+    scenarioId?: ScenarioId | 'universal';
+    sourceSessionId?: string;
+  }): MemoryItem[] {
+    return this.repo.listMemories({
+      userId: filter?.userId,
+      scenarioId: filter?.scenarioId,
+      sessionId: filter?.sourceSessionId,
+    });
   }
 
-  getConfirmedForScenario(scenarioId: ScenarioId): MemoryItem[] {
-    return this.items
+  getConfirmedForScenario(scenarioId: ScenarioId, userId?: string): MemoryItem[] {
+    return this.repo
+      .listMemories({ userId })
       .filter(
         (item) =>
-          item.userConfirmed === true &&
-          (item.scenarioId === scenarioId || item.scenarioId === 'universal') &&
-          item.privacyLevel !== 'ephemeral',
-      )
-      .map((item) => ({ ...item }));
+          item.userConfirmed &&
+          (item.scenarioId === scenarioId || item.scenarioId === 'universal' || item.scope === 'global'),
+      );
   }
 
   get(memoryId: string): MemoryItem | undefined {
-    const found = this.items.find((item) => item.memoryId === memoryId);
-    return found ? { ...found } : undefined;
+    return this.repo.getMemory(memoryId);
   }
 
-  create(input: MemoryCreateInput): MemoryItem {
+  create(
+    input: MemoryCreateInput & { userId?: string; tenantId?: string },
+  ): MemoryItem {
     if (input.userConfirmed !== true) {
-      throw new Error('MemoryStore requires explicit userConfirmed === true before saving.');
+      throw new Error('Privacy rule: MemoryItem can only be persisted when userConfirmed === true.');
     }
-    if (!input.title.trim() || !input.content.trim()) {
-      throw new Error('MemoryItem title and content must be non-empty.');
-    }
-    const nowIso = new Date().toISOString();
+    const now = nowUtcIso8601();
     const item: MemoryItem = {
-      memoryId: `mem_${Date.now()}_${++this.seq}`,
+      memoryId: `mem_${Date.now()}_${++memSeq}`,
+      schemaVersion: MEMORY_SCHEMA_VERSION,
+      ...(input.tenantId ? { tenantId: input.tenantId } : {}),
+      ...(input.userId ? { userId: input.userId } : {}),
       scenarioId: input.scenarioId,
       category: input.category,
       title: input.title.trim(),
       content: input.content.trim(),
-      tags: input.tags?.map((t) => t.trim()).filter(Boolean),
+      tags: input.tags?.map((t) => t.trim()).filter(Boolean) ?? [],
       sourceSessionId: input.sourceSessionId,
       userConfirmed: true,
       privacyLevel: input.privacyLevel,
       scope: input.scope,
-      createdAt: nowIso,
-      updatedAt: nowIso,
+      createdAt: now,
+      updatedAt: now,
     };
-    this.items.push(item);
-    this.persist();
-    return { ...item };
+    return this.repo.saveMemory(item);
   }
 
   patch(memoryId: string, patch: MemoryPatchInput): MemoryItem | undefined {
-    const idx = this.items.findIndex((item) => item.memoryId === memoryId);
-    if (idx < 0) return undefined;
+    const current = this.repo.getMemory(memoryId);
+    if (!current) return undefined;
+
     if (patch.userConfirmed === false) {
-      this.items.splice(idx, 1);
-      this.persist();
+      this.repo.deleteMemory(memoryId);
       return undefined;
     }
-    const current = this.items[idx];
+
     const updated: MemoryItem = {
       ...current,
+      schemaVersion: MEMORY_SCHEMA_VERSION,
       ...(patch.title !== undefined ? { title: patch.title.trim() } : {}),
       ...(patch.content !== undefined ? { content: patch.content.trim() } : {}),
       ...(patch.category !== undefined ? { category: patch.category } : {}),
-      ...(patch.tags !== undefined ? { tags: patch.tags.map((t) => t.trim()).filter(Boolean) } : {}),
+      ...(patch.tags !== undefined ? { tags: patch.tags } : {}),
       ...(patch.privacyLevel !== undefined ? { privacyLevel: patch.privacyLevel } : {}),
       ...(patch.scope !== undefined ? { scope: patch.scope } : {}),
       userConfirmed: true,
-      updatedAt: new Date().toISOString(),
+      updatedAt: nowUtcIso8601(),
     };
-    this.items[idx] = updated;
-    this.persist();
-    return { ...updated };
+    return this.repo.saveMemory(updated);
   }
 
   delete(memoryId: string): boolean {
-    const prevLen = this.items.length;
-    this.items = this.items.filter((item) => item.memoryId !== memoryId);
-    if (this.items.length === prevLen) return false;
-    this.persist();
-    return true;
+    return this.repo.deleteMemory(memoryId);
   }
 
-  wipeSession(sessionId: string): number {
-    const prevLen = this.items.length;
-    this.items = this.items.filter((item) => item.sourceSessionId !== sessionId);
-    const removed = prevLen - this.items.length;
-    if (removed > 0) this.persist();
-    return removed;
+  wipeSession(sessionId: string, userId?: string): number {
+    return this.repo.wipeSessionMemories(sessionId, userId);
   }
 }

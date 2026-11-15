@@ -6,9 +6,12 @@ import type {
   InterventionNeed,
   SpeakerIntent,
 } from '@cuex/protocol';
+import { wrapUntrustedPromptBlock } from '../../security';
 import { LlamaSystemOne, type TokenDecisionClient } from '../../system1';
 import { computeTermOverlap, tokenizeBilingual } from '../RetrievalProvider';
+import { isoToMs } from '../time';
 import type { FastDecisionProvider } from '../types';
+import { ProviderResilience } from './ProviderResilience';
 
 const RECOVERY_CUE_RE =
   /(?:回到|刚才(?:那|这|提到)|补充(?:一下|说明)?|具体(?:来说|数据是|表现为)|先回答|关于刚才|回到主线|接下来看核心|总结一下刚才)/;
@@ -41,6 +44,7 @@ export class HeuristicFastDecisionProvider implements FastDecisionProvider {
   async evaluate(input: FastDecisionInput, signal?: AbortSignal): Promise<FastDecisionVerdict> {
     signal?.throwIfAborted();
     const start = performance.now();
+    const timestampMs = isoToMs(input.timestamp, Date.now());
     const latest = input.recentSegments.at(-1);
     const presenterRecent = input.recentSegments
       .filter((s) => s.speaker !== 'audience')
@@ -101,7 +105,7 @@ export class HeuristicFastDecisionProvider implements FastDecisionProvider {
       missingPointIds.length > 0;
     const stalledSilenceWithGap =
       input.silenceDurationMs >= 1_600 &&
-      (hesitationPhrase || missingPointIds.length > 0 && latestText.length > 0 && latestText.length < 18);
+      (hesitationPhrase || (missingPointIds.length > 0 && latestText.length > 0 && latestText.length < 18));
 
     const semanticOmission =
       wrappingWithGaps ||
@@ -179,7 +183,6 @@ export class HeuristicFastDecisionProvider implements FastDecisionProvider {
       confidence = 0.84;
       reason = 'Speaker is moving on or stalling while required chapter points remain uncovered.';
     } else if (input.silenceDurationMs > 0) {
-      // Non-pause-only principle: natural pause with no semantic gap stays L0.
       cognitiveState = 'on_track';
       speakerIntent = 'pausing_for_effect';
       interventionNeed = 'none';
@@ -189,7 +192,7 @@ export class HeuristicFastDecisionProvider implements FastDecisionProvider {
     }
 
     return {
-      requestId: `s1_${++heuristicSeq}_${input.timestamp}`,
+      requestId: `s1_${++heuristicSeq}_${timestampMs}`,
       sessionId: input.sessionId,
       contextVersion: input.contextVersion,
       timestamp: input.timestamp,
@@ -218,59 +221,101 @@ export class HeuristicFastDecisionProvider implements FastDecisionProvider {
         outputTokens: 0,
         cachedInputTokens: 0,
         modelCalls: 0,
-        measurementSource: 'local_rule_zero',
+        retries: 0,
+        usageSource: 'local_rule_zero',
+        degraded: false,
+        costFen: 0,
         provider: this.backend,
       },
     };
   }
 }
 
+export interface LlamaFastDecisionOptions {
+  resilience?: ProviderResilience;
+  timeoutMs?: number;
+  maxRetries?: number;
+  baseDelayMs?: number;
+}
+
 /**
  * LlamaSystemOne-backed Fast Decision provider (`CUEX_SYSTEM1=real`),
- * combined with deterministic fallback on network or timeout errors.
+ * guarded with prompt delimiters, bounded retries, timeout AbortController, and circuit breaker.
  */
 export class LlamaFastDecisionProvider implements FastDecisionProvider {
   readonly backend: string;
   readonly mode = 'real' as const;
   private readonly heuristic = new HeuristicFastDecisionProvider();
+  private readonly resilience: ProviderResilience;
+  private readonly timeoutMs: number;
+  private readonly maxRetries: number;
+  private readonly baseDelayMs: number;
 
-  constructor(private readonly client: TokenDecisionClient = new LlamaSystemOne()) {
+  constructor(
+    private readonly client: TokenDecisionClient = new LlamaSystemOne(),
+    opts: LlamaFastDecisionOptions = {},
+  ) {
     this.backend = client.backend;
+    this.resilience = opts.resilience ?? new ProviderResilience({ failureThreshold: 3, cooldownMs: 15_000 });
+    this.timeoutMs = opts.timeoutMs ?? Number(process.env.CUEX_S1_TIMEOUT_MS ?? 2_500);
+    this.maxRetries = opts.maxRetries ?? 1;
+    this.baseDelayMs = opts.baseDelayMs ?? 40;
   }
 
   async health(): Promise<{ ok: boolean; detail?: string }> {
+    const circuit = this.resilience.getCircuitState(`s1:${this.backend}`);
+    if (circuit.isOpen) {
+      return { ok: false, detail: `Circuit breaker open after repeated S1 failures (${this.backend})` };
+    }
     if (this.client.health) return this.client.health();
     return { ok: true, detail: this.backend };
   }
 
   async evaluate(input: FastDecisionInput, signal?: AbortSignal): Promise<FastDecisionVerdict> {
     const base = await this.heuristic.evaluate(input, signal);
-    const statePayload = JSON.stringify({
-      goal: input.activeGoal,
-      chapter: input.activeChapterTitle ?? input.activeChapterId ?? '',
-      missingPoints: base.missingPointIds,
-      recentSpeech: input.recentSegments.at(-1)?.text.slice(-160) ?? '',
-      silenceMs: input.silenceDurationMs,
-      hasActiveIntervention: Boolean(input.activeIntervention),
+    const statePayload = [
+      JSON.stringify({
+        goal: input.activeGoal,
+        chapter: input.activeChapterTitle ?? input.activeChapterId ?? '',
+        missingPoints: base.missingPointIds,
+        silenceMs: input.silenceDurationMs,
+        hasActiveIntervention: Boolean(input.activeIntervention),
+      }),
+      wrapUntrustedPromptBlock('recent_speech', input.recentSegments.at(-1)?.text ?? '', 240),
+    ].join('\n');
+
+    const outcome = await this.resilience.execute({
+      breakerKey: `s1:${this.backend}`,
+      timeoutMs: this.timeoutMs,
+      maxRetries: this.maxRetries,
+      baseDelayMs: this.baseDelayMs,
+      signal,
+      operation: (attemptSignal) =>
+        this.client.decide(
+          statePayload,
+          {
+            need_help: {
+              kind: 'noul',
+              question:
+                'Given the current presentation state and missing points, does the speaker need a real-time cue right now (omission, drift, hesitation, or open audience question)? Answer false for fluent delivery or intentional dramatic pause.',
+            },
+            recovery: {
+              kind: 'noul',
+              question:
+                'If there is an active cue, has the latest speech started recovering back on track or answering the missing point?',
+            },
+          },
+          attemptSignal,
+        ),
     });
 
-    const tokenResult = await this.client.decide(
-      statePayload,
-      {
-        need_help: {
-          kind: 'noul',
-          question:
-            'Given the current presentation state and missing points, does the speaker need a real-time cue right now (omission, drift, hesitation, or open audience question)? Answer false for fluent delivery or intentional dramatic pause.',
-        },
-        recovery: {
-          kind: 'noul',
-          question:
-            'If there is an active cue, has the latest speech started recovering back on track or answering the missing point?',
-        },
-      },
-      signal,
-    );
+    if (!outcome.ok) {
+      const err = new Error(`[${outcome.errorCode}] ${outcome.message} (retries=${outcome.retries})`);
+      (err as Error & { retries?: number }).retries = outcome.retries;
+      throw err;
+    }
 
+    const tokenResult = outcome.value;
     const needScore = tokenResult.answers.need_help?.value ?? 0;
     const recoverScore = tokenResult.answers.recovery?.value ?? 0;
     const llmRecovery = Boolean(input.activeIntervention && recoverScore >= 0.68);
@@ -286,6 +331,8 @@ export class LlamaFastDecisionProvider implements FastDecisionProvider {
       interventionNeed = 'trigger_l1';
     }
 
+    const hasTokens = tokenResult.usage.inputTokens > 0 || tokenResult.usage.modelCalls > 0;
+
     return {
       ...base,
       recoveryDetected: base.recoveryDetected || llmRecovery,
@@ -298,10 +345,10 @@ export class LlamaFastDecisionProvider implements FastDecisionProvider {
         outputTokens: tokenResult.usage.outputTokens,
         cachedInputTokens: tokenResult.usage.cachedInputTokens,
         modelCalls: tokenResult.usage.modelCalls,
-        measurementSource:
-          tokenResult.usage.inputTokens > 0 || tokenResult.usage.modelCalls > 0
-            ? 'provider_reported'
-            : 'local_rule_zero',
+        retries: outcome.retries,
+        usageSource: hasTokens ? 'provider_reported' : 'local_rule_zero',
+        degraded: false,
+        costFen: 0,
         provider: tokenResult.backend,
       },
     };
@@ -311,6 +358,8 @@ export class LlamaFastDecisionProvider implements FastDecisionProvider {
 export class FallbackFastDecisionProvider implements FastDecisionProvider {
   private lastMode: 'real' | 'local_fallback' = 'real';
   private lastBackend: string;
+  private lastDegraded = false;
+  private lastErrorMessage?: string;
 
   constructor(
     private readonly primary: FastDecisionProvider,
@@ -329,10 +378,10 @@ export class FallbackFastDecisionProvider implements FastDecisionProvider {
 
   async health(): Promise<{ ok: boolean; detail?: string }> {
     const primaryHealth = await this.primary.health();
-    if (primaryHealth.ok) return primaryHealth;
+    if (primaryHealth.ok && !this.lastDegraded) return primaryHealth;
     return {
-      ok: true,
-      detail: `Primary (${primaryHealth.detail ?? 'unavailable'}) down; using ${this.fallback.backend}.`,
+      ok: false,
+      detail: `Degraded to ${this.fallback.backend}: ${primaryHealth.detail ?? this.lastErrorMessage ?? 'primary unavailable'}`,
     };
   }
 
@@ -341,17 +390,65 @@ export class FallbackFastDecisionProvider implements FastDecisionProvider {
       const verdict = await this.primary.evaluate(input, signal);
       this.lastMode = this.primary.mode;
       this.lastBackend = this.primary.backend;
+      this.lastDegraded = Boolean(verdict.usage?.degraded);
+      this.lastErrorMessage = undefined;
       return verdict;
     } catch (error) {
       if (signal?.aborted) throw error;
       this.lastMode = 'local_fallback';
       this.lastBackend = this.fallback.backend;
+      this.lastDegraded = true;
+      const errMsg = error instanceof Error ? error.message : 'primary failure';
+      this.lastErrorMessage = errMsg;
+      const primaryRetries = (error as { retries?: number })?.retries ?? 0;
       const verdict = await this.fallback.evaluate(input, signal);
       return {
         ...verdict,
-        reason: `${verdict.reason} [fallback after ${error instanceof Error ? error.message : 'primary failure'}]`,
+        reason: `${verdict.reason} [degraded fallback after ${errMsg}]`,
+        usage: {
+          inputTokens: 0,
+          outputTokens: 0,
+          cachedInputTokens: 0,
+          modelCalls: 0,
+          retries: (verdict.usage?.retries ?? 0) + primaryRetries,
+          usageSource: 'local_rule_zero',
+          degraded: true,
+          costFen: 0,
+          provider: this.fallback.backend,
+        },
       };
     }
+  }
+}
+
+class DegradedConfigFastDecisionProvider implements FastDecisionProvider {
+  readonly backend = 'local-heuristic-s1 (degraded-unconfigured)';
+  readonly mode = 'local_fallback' as const;
+  private readonly fallback = new HeuristicFastDecisionProvider();
+
+  constructor(private readonly missingDetail: string) {}
+
+  async health(): Promise<{ ok: boolean; detail?: string }> {
+    return { ok: false, detail: this.missingDetail };
+  }
+
+  async evaluate(input: FastDecisionInput, signal?: AbortSignal): Promise<FastDecisionVerdict> {
+    const verdict = await this.fallback.evaluate(input, signal);
+    return {
+      ...verdict,
+      reason: `${verdict.reason} [${this.missingDetail}]`,
+      usage: {
+        inputTokens: 0,
+        outputTokens: 0,
+        cachedInputTokens: 0,
+        modelCalls: 0,
+        retries: 0,
+        usageSource: 'local_rule_zero',
+        degraded: true,
+        costFen: 0,
+        provider: this.backend,
+      },
+    };
   }
 }
 
@@ -359,8 +456,13 @@ export function createFastDecisionProvider(
   mode: 'fake' | 'real',
   env: NodeJS.ProcessEnv = process.env,
 ): FastDecisionProvider {
-  if (mode === 'fake' || !env.CUEX_S1_URL?.trim()) {
+  if (mode === 'fake') {
     return new HeuristicFastDecisionProvider();
+  }
+  if (!env.CUEX_S1_URL?.trim()) {
+    return new DegradedConfigFastDecisionProvider(
+      'CUEX_SYSTEM1=real requested without CUEX_S1_URL; degraded to local heuristic.',
+    );
   }
   return new FallbackFastDecisionProvider(
     new LlamaFastDecisionProvider(new LlamaSystemOne()),

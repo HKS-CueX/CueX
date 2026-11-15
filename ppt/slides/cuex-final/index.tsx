@@ -1189,7 +1189,7 @@ const Page5BusinessModel: Page = () => (
               <span style={{ fontFamily: FF.mono, fontSize: 12.5, fontWeight: 700, color: C.violet }}>
                 PRICING HYPOTHESES · 分层商业定价假设
               </span>
-              <Tag label="商业假设 · 尚未上线计费" tone="violet" />
+              <Tag label="商业假设 · 沙盒契约尚未收单" tone="violet" />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
               {[
@@ -1203,21 +1203,21 @@ const Page5BusinessModel: Page = () => (
                 {
                   tier: metricsData.pricing.event.name,
                   price: metricsData.pricing.event.price,
-                  sub: '锚点 ¥29 · 单场包',
-                  desc: '14 天单事件有效期：120m 云端 ASR 彩排 + 正式临场高精度引导 + V = H − λI 复盘报告',
+                  sub: `锚点 ¥${metricsData.pricing.event.anchor} · 单场包`,
+                  desc: '14 天单事件有效期：120m 云端 ASR 彩排 + 正式临场高精度引导 + 复盘报告',
                   highlight: true,
                 },
                 {
                   tier: metricsData.pricing.pro.name,
                   price: metricsData.pricing.pro.price,
-                  sub: '年付 ¥499/年',
+                  sub: `年付 ${metricsData.pricing.pro.annual}`,
                   desc: '每月 240m 云端 ASR + 无限次讲稿编译 + 审批个人记忆库长期沉淀与跨场对比',
                   highlight: true,
                 },
                 {
                   tier: metricsData.pricing.team.name,
-                  price: '¥199/席/月',
-                  sub: '规划中 Planned',
+                  price: metricsData.pricing.team.price,
+                  sub: metricsData.pricing.team.tag,
                   desc: '共享产品/学术口径包 + 团队管理员复盘统计 + 多场景适配器（Teaching/Sales）',
                   highlight: false,
                 },
@@ -1250,7 +1250,7 @@ const Page5BusinessModel: Page = () => (
             </div>
           </div>
           <div style={{ background: C.tintViolet, borderRadius: 10, padding: '10px 14px', fontSize: 13, color: C.ink }}>
-            <strong>转换引擎：</strong>单月内连续购买 2 次 <code>Event</code>（¥29×2）即可无痛引导升级至 <code>Pro（¥59/月）</code>，提升留存。
+            <strong>转化与沙盒边界：</strong>月购 2 次 <code>Event</code> 即可平滑升级 <code>Pro</code>；服务端已建 <code>UsageLedger / Entitlement</code> 沙盒契约，暂未接入实单支付。
           </div>
         </Card>
       </div>
@@ -1267,7 +1267,7 @@ const Page5BusinessModel: Page = () => (
             { k: '3. 价值主张', v: '最小必要干预（L0–L3）+ 原文 Evidence 防幻觉 + 接回即自动撤回' },
             { k: '4. 交付成果', v: '讲前文档编译包 + 台上 Focus/Inspector 视图 + 赛后 V=H−λI 复盘与审批记忆' },
             { k: '5. 定价假设', v: 'Free ¥0 限额体验 → Event ¥19–39 单场破冰 → Pro ¥59/月主力 → Team 规划' },
-            { k: '6. 成本结构', v: '完整计入文档/ASR/S1/S2/Cache/检索/复盘/基建/0.6%支付/免费补贴 10 项' },
+            { k: '6. 成本结构', v: '完整计入文档/ASR/S1/S2/Cache/检索/复盘/基建/微信支付宝分渠道与退款/活跃免费补贴 10 项' },
             { k: '7. 获客渠道', v: '路演与黑客松现场实机传播切片 + 答辩季高校与 OPC 社群模板包分发' },
             { k: '8. 竞争壁垒', v: '抑制型认知门控 + 讲前原文绑定闭环 + 人工审批个人表达记忆飞轮' },
           ].map((item) => (
@@ -1407,7 +1407,7 @@ const Page6UnitEconomics: Page = () => {
                   ['Pro 直接贡献率 (含免费摊销)', `${conservative.proDirectMarginPct.toFixed(1)}%`, `${base.proDirectMarginPct.toFixed(1)}%`, `${optimistic.proDirectMarginPct.toFixed(1)}%`],
                   ['Pro SaaS 毛利率 (不含CAC补贴)', `${conservative.proSaasMarginPct.toFixed(1)}%`, `${base.proSaasMarginPct.toFixed(1)}%`, `${optimistic.proSaasMarginPct.toFixed(1)}%`],
                   ['Event ¥29 单场直接毛利率', `${conservative.eventMarginPct.toFixed(1)}%`, `${base.eventMarginPct.toFixed(1)}%`, `${optimistic.eventMarginPct.toFixed(1)}%`],
-                  ['LTV / CAC 与盈亏平衡场次', `${conservative.ltvCac.toFixed(1)}x / ${conservative.breakevenSessionsPro}场`, `${base.ltvCac.toFixed(1)}x / ${base.breakevenSessionsPro}场`, `${optimistic.ltvCac.toFixed(1)}x / ${optimistic.breakevenSessionsPro}场`],
+                  ['LTV / CAC 与月可承受上限', `${conservative.ltvCac.toFixed(2)}x / ${conservative.maxAffordableSessionsPerProMonth}场`, `${base.ltvCac.toFixed(2)}x / ${base.maxAffordableSessionsPerProMonth}场`, `${optimistic.ltvCac.toFixed(2)}x / ${optimistic.maxAffordableSessionsPerProMonth}场`],
                 ].map((r, i) => (
                   <tr
                     key={r[0]}
@@ -1455,7 +1455,7 @@ const Page6UnitEconomics: Page = () => {
                 color: C.muted,
               }}
             >
-              <strong>毛利护栏结论：</strong>在配额封顶（Pro 月上限 240 分钟云 ASR ≈ 9–10 场，远低于 {base.breakevenSessionsPro} 场盈亏平衡点）与本地端侧识别分流保护下，即使在保守高费率情景下，直接贡献毛利率仍保持健康正向，详见 <code>UNIT_ECONOMICS.md</code> 9 变量敏感性矩阵。
+              <strong>护栏与未测算声明：</strong><code>Pro</code> 月限 240m 云 ASR（远低于单户月可承受上限 {base.maxAffordableSessionsPerProMonth} 场）+ 超额切本地 Sherpa 兜底；{metricsData.companyBreakeven.statement}，全 {metricsData.sensitivities.length} 项压测见 <code>UNIT_ECONOMICS.md</code>。
             </div>
           </div>
         </Card>
@@ -1614,9 +1614,9 @@ const Page8TeamAndStatus: Page = () => {
               {[
                 ['@cuex/protocol & Universal Runtime', '彻底剥离历史窄领域代码；实现 ContextStore 版本管理、EventBus、SharedCognitiveStateStore 与独立门控 InterventionController。'],
                 ['CueX Presentation 编译器与双视图', '打通 .pptx/.pdf/.md/.txt 提取 -> Evidence[] 编译 -> Focus（极简）/ Inspector（透视）双视图与单点彩排闭环。'],
-                ['L0–L3 自动撤回 + V = H − λI 复盘', '实装 7 类触发与自动撤回状态机、PresentationReflection（λ=2 量化评估）与人工审批/一键擦除 MemoryStore。'],
-                ['自动化评测管线 eval-presentation.ts', `真实跑通 ${ev.datasetCases} 组演讲/答辩场景用例，完整输出精度 ${ev.precision}、撤回率 ${ev.withdrawalAccuracy} 与实测 Token 账本。`],
-                ['统一品牌、8要素画布与 10 项全成本审计', '废弃互相冲突的双版旧材料，交付全同源 8 页 BP、A4 说明书、真实评测成本图与透明商业假设体系。'],
+                ['L0–L3 自动撤回 + 探索性复盘与审批记忆', '实装 7 类触发与自动撤回状态机、探索性效用指标 V = H − λI（λ=2 待实测校准）及人工审批/一键擦除 MemoryStore。'],
+                ['自动化评测与沙盒计费契约', `eval-presentation.ts 跑通 ${ev.datasetCases}/${ev.datasetCases} 组用例（${ev.precision} 精度 / ${ev.avgLatencyMs}ms）；已落 UsageLedger / Entitlement / PaymentAdapter 沙盒。`],
+                ['统一商业源、8要素画布与 10 项审计', `由 cuex-final-metrics.json 单一来源驱动 8 页 BP、A4 说明书、5 态 ASR / 分渠道支付与 ${metricsData.sensitivities.length} 项敏感性验证。`],
               ].map(([k, v]) => (
                 <div key={k} style={{ background: C.tint, borderRadius: 10, padding: '12px 15px', border: `1px solid ${C.hairline}` }}>
                   <div style={{ fontSize: 14.5, fontWeight: 700, color: C.ink }}>✓ {k}</div>
@@ -1654,13 +1654,13 @@ const Page8TeamAndStatus: Page = () => {
                 <div style={{ background: C.tint, borderRadius: 8, padding: '9px 12px' }}>
                   <strong style={{ color: C.ink }}>1. 当前明确未完成边界：</strong>
                   <span style={{ color: C.muted }}>
-                    尚无付费商业营收与线上微信/支付宝计费对接；多场景（Social/Teaching/Sales/Custom）仅协议注册尚未开发上线。
+                    {metricsData.phase2Boundaries.meteringAndBilling} 多场景（Social/Teaching/Sales/Custom）仅协议注册尚未开发上线。
                   </span>
                 </div>
                 <div style={{ background: C.tint, borderRadius: 8, padding: '9px 12px' }}>
-                  <strong style={{ color: C.ink }}>2. D1–D30（种子盲测）：</strong>
+                  <strong style={{ color: C.ink }}>2. D1–D30（两轮种子验证）：</strong>
                   <span style={{ color: C.muted }}>
-                    招募 30–50 位 OPC 创始人与答辩研究生实机测试 Focus 模式干预打扰率与 Event 定价支付意愿。
+                    按 {metricsData.seedCohort.shortLabel} 递进招募 OPC 创始人与答辩生，实测打扰率、V = H − λI 校准与 Event 支付意愿。
                   </span>
                 </div>
                 <div style={{ background: C.tint, borderRadius: 8, padding: '9px 12px' }}>
@@ -1701,7 +1701,7 @@ export const notes: (string | undefined)[] = [
   '【1:10-2:15 P3 首切场景演示】切入 CueX Presentation 三段式：讲前多格式提取 Evidence[] 防幻觉 -> 临场 Focus/Inspector 双视图（平时静默、卡壳锚点、接回即撤回）-> 散场 V = H - λI 复盘与审批记忆。',
   '【2:15-3:00 P4 运行时底座】解释底层 Universal Cognitive Runtime：EventBus + ContextStore + 独立门控 InterventionController，诚实交代不虚构跨槽 KV 共享与三态 ASR 识别标注。',
   '【3:00-3:40 P5 商业模式】P1 OPC 创业者 -> P2 硕博答辩 -> P3 专业团队；说明 Event（¥19-39/场）消除低频包月抗拒、Pro（¥59/月）锁住高频用户及 8 要素画布闭环。',
-  '【3:40-4:15 P6 单位经济】主动纠偏过去只算 token 的 95.9% 虚高毛利，展示包含 ASR、基建、支付 0.6% 与免费摊销的 10 项全成本三情景与配额盈亏护栏。',
+  '【3:40-4:15 P6 单位经济】主动纠偏过去只算 token 的 95.9% 虚高毛利，展示包含 ASR、基建、微信/支付宝分渠道与退款损耗、活跃免费摊销的 10 项全成本三情景及单户月承受上限（不虚报公司盈亏点）。',
   '【4:15-4:40 P7 长期愿景】说明 X 代表从演讲台向教学、销售、社交扩展，交互从 Web 演进向桌面浮窗与轻量智能眼镜低分心 HUD。',
   '【4:40-5:00 P8 完成度与致谢】坦诚区分 11.01 单领域语音对练基础与本次通用+演讲全链条重构交付，明确未上线营收与计费边界，欢迎评委提问。',
 ];

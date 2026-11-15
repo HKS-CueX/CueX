@@ -87,7 +87,10 @@ test('DocumentExtractor extracts .pptx slides, speaker notes, .md, and marks unr
     contentBase64: pptxBuf.toString('base64'),
   });
   assert.equal(pptxRes.fileType, 'pptx');
+  assert.equal(pptxRes.status, 'parsed');
   assert.equal(pptxRes.unreadable, false);
+  assert.equal(pptxRes.contentHash?.length, 64);
+  assert.ok(pptxRes.sourceDocumentId?.startsWith('doc_'));
   assert.equal(pptxRes.sections.length, 2);
   assert.match(pptxRes.sections[0].content, /1460 ms/);
   assert.match(pptxRes.sections[0].notes ?? '', /不做每秒全量轮询/);
@@ -98,6 +101,7 @@ test('DocumentExtractor extracts .pptx slides, speaker notes, .md, and marks unr
     textContent: '# 开场问题\n现场演示需要低打扰。\n# 技术核心\n检索只引用已核验事实。',
   });
   assert.equal(mdRes.fileType, 'md');
+  assert.equal(mdRes.status, 'parsed');
   assert.equal(mdRes.sections.length, 2);
   assert.equal(mdRes.unreadable, false);
 
@@ -107,6 +111,7 @@ test('DocumentExtractor extracts .pptx slides, speaker notes, .md, and marks unr
     contentBase64: scannedPdfStub.toString('base64'),
   });
   assert.equal(pdfRes.fileType, 'pdf');
+  assert.equal(pdfRes.status, 'unreadable');
   assert.equal(pdfRes.unreadable, true);
   assert.ok(pdfRes.warnings.length >= 1);
 });
@@ -137,8 +142,9 @@ test('PresentationCompiler preserves grounded facts without fabricating numbers 
   assert.ok(compiled.qaCards.every((q) => q.isPrediction === true));
 
   const dir = mkdtempSync(path.join(os.tmpdir(), 'cuex-packstore-'));
+  let store: PresentationPackStore | undefined;
   try {
-    const store = new PresentationPackStore(dir);
+    store = new PresentationPackStore(dir);
     store.save(compiled);
 
     const lockedFact = compiled.facts[0];
@@ -152,7 +158,25 @@ test('PresentationCompiler preserves grounded facts without fabricating numbers 
     });
     assert.ok(patched);
     assert.equal(patched.facts[0].text, lockedFact.text);
+
+    // Re-compiling the same packId must also preserve existing locked facts.
+    const recompiled = compilePresentationPack(
+      {
+        packId: compiled.packId,
+        title: '端侧语音检索方案答辩（修订版）',
+        sceneType: 'defense',
+        goal: '阐述低延迟端侧检索系统设计',
+        audience: '毕业答辩委员会',
+        targetDurationSec: 300,
+        rawMaterials: '## 新稿件\n新稿件移除了测试集样本数。',
+        keyFactsInput: [],
+      },
+      Date.now(),
+      { existingPack: patched },
+    );
+    assert.ok(recompiled.facts.some((f) => f.id === lockedFact.id && f.text === lockedFact.text));
   } finally {
+    store?.close();
     rmSync(dir, { recursive: true, force: true });
   }
 });

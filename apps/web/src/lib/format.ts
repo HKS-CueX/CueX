@@ -1,11 +1,17 @@
 import type {
+  ApiErrorCode,
   AsrBackendMode,
   AttentionSignal,
   ControllerAction,
   ControllerSuppressReason,
   InterventionLevel,
   MemoryCategory,
+  MoneyAmount,
+  PlanDefinition,
   PresentationSceneType,
+  TelemetryUsageSource,
+  UsageType,
+  UtcIso8601,
   WithdrawalReason,
 } from '@cuex/protocol';
 
@@ -18,6 +24,106 @@ export function formatDuration(seconds: number): string {
 
 export function formatMs(ms: number): string {
   return formatDuration(ms / 1000);
+}
+
+/**
+ * Formats a UTC ISO-8601 timestamp into the user's local browser timezone.
+ */
+export function formatDateTime(iso?: UtcIso8601 | null): string {
+  if (!iso) return '—';
+  const parsed = Date.parse(iso);
+  if (!Number.isFinite(parsed)) return iso;
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    }).format(new Date(parsed));
+  } catch {
+    return new Date(parsed).toLocaleString();
+  }
+}
+
+export function formatTime(iso?: UtcIso8601 | null): string {
+  if (!iso) return '—';
+  const parsed = Date.parse(iso);
+  if (!Number.isFinite(parsed)) return iso;
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    }).format(new Date(parsed));
+  } catch {
+    return new Date(parsed).toLocaleTimeString();
+  }
+}
+
+/**
+ * Display-only formatting for integer minor-unit MoneyAmount / CNY Fen.
+ */
+export function formatMoneyFen(input?: MoneyAmount | number | null): string {
+  if (input === null || input === undefined) return '¥0.00';
+  const fen = typeof input === 'number' ? input : input.amountFen;
+  if (!Number.isFinite(fen)) return '¥0.00';
+  const sign = fen < 0 ? '-' : '';
+  const absFen = Math.round(Math.abs(fen));
+  const yuan = Math.floor(absFen / 100);
+  const remFen = absFen % 100;
+  return `${sign}¥${yuan}.${String(remFen).padStart(2, '0')}`;
+}
+
+export function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 B';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+export const API_ERROR_LABELS: Record<ApiErrorCode, string> = {
+  VALIDATION_ERROR: '请求参数校验未通过',
+  UNAUTHORIZED: '当前认证凭据无效或已过期，请刷新会话或重新登录',
+  FORBIDDEN: '无权访问其他用户或租户的资源',
+  NOT_FOUND: '请求的资源不存在或已被清除',
+  RATE_LIMITED: '请求过于频繁，触发限流保护，请稍后重试',
+  PROVIDER_TIMEOUT: '推理或外部服务超时，可重试或降级使用本地规则模式',
+  PROVIDER_UNAVAILABLE: '外部推理或识别服务暂不可用',
+  QUOTA_EXCEEDED: '当前套餐可用会话或实时时长额度已耗尽',
+  SCHEMA_VERSION_UNSUPPORTED: '数据 Schema 版本不受支持',
+  SESSION_EXPIRED: '会话已过期或已结束',
+  ASR_UNAVAILABLE: '语音识别引擎暂不可用，请切换浏览器 Web Speech 或文本仿真',
+  INSUFFICIENT_EVIDENCE: '已确认资料不足以支持该回答，禁止无依据编造',
+  PAYMENT_NOT_CONFIGURED: '尚未接入真实商业支付商户（当前仅沙盒预览）',
+  INTERNAL_ERROR: '服务端内部处理异常',
+};
+
+export function formatApiError(err: unknown): string {
+  if (err && typeof err === 'object' && 'code' in err && 'message' in err) {
+    const typed = err as {
+      code?: string;
+      message: string;
+      requestId?: string;
+      retryable?: boolean;
+    };
+    const codeLabel =
+      typed.code && typed.code in API_ERROR_LABELS
+        ? API_ERROR_LABELS[typed.code as ApiErrorCode]
+        : typed.code;
+    const parts = [typed.message || codeLabel || '请求失败'];
+    if (codeLabel && typed.message && !typed.message.includes(codeLabel)) {
+      parts.unshift(`[${typed.code}]`);
+    }
+    if (typed.retryable) parts.push('（可重试）');
+    if (typed.requestId) parts.push(`· 请求追踪 ${typed.requestId}`);
+    return parts.join(' ');
+  }
+  if (err instanceof Error) return err.message;
+  return '未知请求错误';
 }
 
 export const SCENE_TYPE_LABELS: Record<PresentationSceneType, string> = {
@@ -101,4 +207,28 @@ export const MEMORY_CATEGORY_LABELS: Record<MemoryCategory, string> = {
   pacing_habit: '节奏习惯',
   qa_pattern: '问答策略',
   style: '风格约束',
+};
+
+export const USAGE_SOURCE_LABELS: Record<TelemetryUsageSource, string> = {
+  provider_reported: '模型商实报 (provider_reported)',
+  local_rule_zero: '本地规则零 Token (local_rule_zero)',
+  estimated: '显式估算 (estimated)',
+};
+
+export const PLAN_CYCLE_LABELS: Record<PlanDefinition['billingCycle'], string> = {
+  none: '免费永久',
+  one_time_14d: '14 天单场有效',
+  monthly: '按月订阅',
+  annual: '按年订阅',
+};
+
+export const USAGE_TYPE_LABELS: Record<UsageType, string> = {
+  session_started: '开启会话',
+  live_audio_ms: '实时音频时长',
+  document_extract: '文档解析',
+  context_compile: '上下文编译',
+  system1_eval: 'System 1 评估',
+  system2_synthesis: 'System 2 候选合成',
+  reflection_generated: '场后复盘生成',
+  memory_write: '个人记忆写入',
 };

@@ -1,6 +1,6 @@
 # Universal Cognitive Runtime Architecture
 
-> Package & Module Boundary: `@cuex/protocol` (`packages/protocol/src/`) + `apps/server/src/runtime/`  
+> Package & Module Boundary: `@cuex/protocol` v2 (`packages/protocol/src/`) + `apps/server/src/runtime/` + Stage B `storage/` & `billing/` ([ADR-001](../engineering/DECISIONS/ADR-001-modular-monolith-and-sqlite-repository.md))  
 > First Implemented Scenario Plugin: `apps/server/src/scenarios/presentation/` (`CueX Presentation`)
 
 ## 1. Architectural Layering
@@ -12,20 +12,23 @@ CueX strictly decouples domain-agnostic cognitive orchestration (`apps/server/sr
 │ Web Client (apps/web/src/) — Warm-Light CueX Editorial UI               │
 │  HomeView │ CompilerView │ StageView (Focus / Inspector) │ Reflection   │
 └───────────────────────────────▲───────────────────────┬─────────────────┘
-                                │ REST (/api/*,/health) │ WS (/ws, /ws/session)
+                                │ REST (/api/*,/health) │ WS (/ws)
 ┌───────────────────────────────┴───────────────────────▼─────────────────┐
-│ Gateway Layer (apps/server/src/gateway/GatewayServer.ts)                │
-│  CueXGatewayServer + healthProbe.ts                                     │
+│ Gateway & Auth Layer (apps/server/src/gateway/GatewayServer.ts)         │
+│  AuthService │ RateLimiter │ OriginGuard │ Validate* │ OpenAPI/AsyncAPI │
+├─────────────────────────────────────────────────────────────────────────┤
+│ Persistence, Pipeline & Commercial (storage/, pipeline/, commercial/)    │
+│  SqliteStorageRepository (cuex.db WAL) │ PipelineTracker │ Commercial   │
 ├─────────────────────────────────────────────────────────────────────────┤
 │ Scenario Adapter Layer (apps/server/src/scenarios/)                     │
 │  ScenarioRegistry (`presentation`=implemented; others=roadmap)          │
-│  Presentation: DocumentExtractor │ PresentationCompiler │ PackStore     │
+│  Presentation: DocumentExtractor (bounded) │ Compiler │ PackStore       │
 │                PresentationRuntimePlugin │ Policies │ Reflection        │
 ├─────────────────────────────────────────────────────────────────────────┤
 │ Universal Cognitive Runtime (apps/server/src/runtime/)                  │
 │  ├── CognitiveRuntimeSession (CognitiveRuntime.ts)                      │
 │  ├── ContextStore (ContextStore.ts)                                     │
-│  ├── CognitiveEventBus (EventBus.ts)                                    │
+│  ├── CognitiveEventBus (EventBus.ts — EventEnvelope<TPayload>)          │
 │  ├── SharedCognitiveStateStore (SharedCognitiveStateStore.ts)           │
 │  ├── FastDecisionAdapter / SlowReasoningAdapter / LexicalBm25Retrieval  │
 │  ├── InterventionController (InterventionController.ts)                 │
@@ -44,22 +47,16 @@ CueX strictly decouples domain-agnostic cognitive orchestration (`apps/server/sr
 - Evaluates withdrawal rules *before* waking System 2 when recovery or chapter transitions occur.
 
 ### 2.2 `ContextStore` (`ContextStore.ts`)
-- Holds active `TaskContext`, bound `ContextPack`, `Evidence[]`, real-time `Observation[]`, and `TranscriptSegment[]`.
-- Enforces provenance (`source`, `sourceType`), verification flags (`userConfirmed`, `verified`, `locked`), `lifecycle` (`draft | active | superseded | archived | revoked`), `scope`, and `privacyLevel`.
+- Holds active `TaskContext`, bound `ContextPack`, `Evidence[]` (`EVIDENCE_SCHEMA_VERSION = 2`), real-time `Observation[]`, and `TranscriptSegment[]`.
+- Enforces provenance (`source`, `sourceType`, `sourceDocumentId`, `contentHash`, `locationRef`), verification flags (`userConfirmed`, `verified`, `locked`), `lifecycle` (`draft | active | superseded | archived | revoked`), `scope`, and `privacyLevel`.
 - Automatically ingests scenario/universal confirmed `MemoryItem` records whose `category === 'fact'` as verified active `Evidence` (`mem_ev_<memoryId>`).
 
 ### 2.3 `CognitiveEventBus` (`EventBus.ts`)
-- Event-driven dispatch over typed `CognitiveEvent` payloads (`session.lifecycle`, `speech.partial`, `speech.final`, `silence.tick`, `chapter.change`, `question.detected`, `omission.detected`, `drift.detected`, `recovery.detected`, `user.manual_help`, `user.dismiss_hint`, `user.feedback`, `user.mode_change`, `candidate.prepared`, `intervention.shown`, `intervention.withdrawn`, `context.updated`).
+- Event-driven dispatch over typed `EventEnvelope<TPayload>` payloads (`CloudEvents 1.0.2`-inspired correlation, causation, `UtcIso8601` `occurredAt`, `privacyClass`, and `idempotencyKey`; see [EVENT_CATALOG.md](../data/EVENT_CATALOG.md)).
 - Avoids periodic blind full-history LLM polling; System 1/Retrieval/System 2 execute only when concrete transcript/state signals arrive.
 
 ### 2.4 `SharedCognitiveStateStore` (`SharedCognitiveStateStore.ts`)
-- Atomic truth store maintaining:
-  - Monotonic `contextVersion` (`bumpContextVersion`)
-  - `activeGoal`, `activeChapterId`, `activeChapterTitle`, `constraints[]`
-  - `attentionSignal` & `openGapLabels[]`
-  - Active `Intervention` & pending/historical `Candidate` map
-  - `cooldownUntilMs` and keyed `SuppressionEntry[]`
-  - Per-tier cumulative `TelemetryUsage` (`asr`, `system1`, `system2`, `compiler`, `reflection`, `retrieval`).
+- Atomic truth store maintaining monotonic `contextVersion`, `activeGoal`, `activeChapterId`, `constraints[]`, `attentionSignal`, `openGapLabels[]`, active `Intervention`, pending `Candidate` map, `cooldownUntilMs`, `SuppressionEntry[]`, and per-tier `TelemetryUsage` (`usageSource`, tokens, cache, latency, `costFen`).
 
 ### 2.5 `LexicalBm25RetrievalProvider` (`RetrievalProvider.ts`)
 - Bilingual CJK bigram + Latin/numeric tokenizer (`tokenizeBilingual`, `computeTermOverlap`) plus BM25 scoring over `verified && lifecycle === 'active'` `Evidence[]`, supporting an optional pluggable `EmbeddingScorer` fusion hook.
@@ -68,10 +65,10 @@ CueX strictly decouples domain-agnostic cognitive orchestration (`apps/server/sr
 ### 2.6 `InterventionController` (`InterventionController.ts`)
 - Dedicated policy gatekeeper sitting strictly between System 2 candidate creation and client delivery; enforces `L0–L3`, ceilings, cooldowns, suppressions, TTL expiry, `contextVersion` matching, evidence grounding, non-pause-only triggers, and all 7 `WithdrawalReason` transitions. (See [INTERVENTION_CONTROLLER.md](./INTERVENTION_CONTROLLER.md).)
 
-### 2.7 `MemoryStore` (`MemoryStore.ts`)
-- Persists user-confirmed memory to `<runtimeDir>/memory/items.json` (`CUEX_MEMORY_DIR` override) via atomic temp-file writes.
-- Rejects any creation request unless `userConfirmed === true`. Supports filtered `list()`, `getConfirmedForScenario()`, `patch()`, individual `delete()`, and full session wipe (`wipeSession`).
+### 2.7 `StorageRepository`, `MemoryStore` & Data Sovereignty (`ADR-001`, `ADR-003`)
+- Persists user accounts, tokens (`auth_tokens`), packs (`presentation_packs`), sessions, events (`session_events`), reflections (`session_reflections`), memories (`memories`), entitlements, usage ledger (`usage_ledger`), and billing audits (`billing_audit_log`) inside **`SqliteStorageRepository` (`node:sqlite` WAL, `.cuex-runtime/cuex.db`)** scoped by owning `userId`.
+- Rejects any memory write unless `userConfirmed === true`. Supports filtered list, patch, delete, scoped `session.wipe` / `DELETE /api/account/data` (`DataDeletionReceipt`), and JSON/Markdown export (`GET /api/account/export`).
 
 ### 2.8 Voice & ASR Layer (`apps/server/src/voice/`)
-- Exposes `LocalSherpaAsr` (`sherpa-onnx-node`), `RemoteSherpaAsr` (`ws://` Sherpa streaming), and `TextOnlyAsr` (`CUEX_ASR=fake`).
-- Always publishes truthful `AsrCapabilityStatus` via `/health`, `session.ready`, and `asr.status`. When `TextOnlyAsr` is active, binary `audio.chunk` frames return `ASR_TEXT_ONLY` while Browser Web Speech (`source: 'browser_webspeech'`) and text simulation (`source: 'text_simulation'`) stream over WS `speech.delta` with non-medical `SAMPLE_ASR_CORRECTIONS` normalization (`correctAsrText`).
+- Exposes `LocalSherpaAsr`, `RemoteSherpaAsr`, and `TextOnlyAsr`, paired with browser `AudioCapture` / `BrowserSpeechRecognizer` and text simulation (and `ADR-004` retirement of dead speech-synthesis modules).
+- Always publishes truthful `AsrCapabilityStatus` via `/health`, `session.ready`, and `asr.status`. Sample pack hotword corrections apply only when running the sample pack (`RISK-09`).

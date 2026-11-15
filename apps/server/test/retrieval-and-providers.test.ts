@@ -6,6 +6,7 @@ import {
   HeuristicFastDecisionProvider,
   LexicalBm25RetrievalProvider,
   LlamaFastDecisionProvider,
+  msToIso,
 } from '../src/runtime';
 import { LlamaSystemOne } from '../src/system1';
 import { SAMPLE_PRESENTATION_PACK } from '../src/scenarios';
@@ -73,7 +74,7 @@ test('LlamaFastDecisionProvider calls generic completion API and falls back clea
     sessionId: 's_llama',
     scenarioId: 'presentation',
     contextVersion: 1,
-    timestamp: Date.now(),
+    timestamp: msToIso(Date.now()),
     activeGoal: '演示双脑协同',
     expectedPoints: [{ id: 'p1', label: 'System 1 快速判别', covered: false }],
     recentSegments: [
@@ -97,7 +98,8 @@ test('LlamaFastDecisionProvider calls generic completion API and falls back clea
   assert.equal(verdict.usage?.outputTokens, 2);
   assert.equal(verdict.usage?.cachedInputTokens, 0);
   assert.equal(verdict.usage?.modelCalls, 2);
-  assert.equal(verdict.usage?.measurementSource, 'provider_reported');
+  assert.equal(verdict.usage?.usageSource, 'provider_reported');
+  assert.equal(verdict.usage?.degraded, false);
 
   // Verify fallback when primary rejects (unreachable local server)
   const failingPrimary = new LlamaFastDecisionProvider(
@@ -116,7 +118,7 @@ test('LlamaFastDecisionProvider calls generic completion API and falls back clea
     sessionId: 's_fb',
     scenarioId: 'presentation',
     contextVersion: 1,
-    timestamp: Date.now(),
+    timestamp: msToIso(Date.now()),
     activeGoal: '目标',
     expectedPoints: [],
     recentSegments: [],
@@ -125,7 +127,8 @@ test('LlamaFastDecisionProvider calls generic completion API and falls back clea
   });
 
   assert.equal(fallbackWrapped.mode, 'local_fallback');
-  assert.equal(fbVerdict.usage?.totalTokens, undefined);
+  assert.equal(fbVerdict.usage?.usageSource, 'local_rule_zero');
+  assert.equal(fbVerdict.usage?.degraded, true);
   assert.equal(fbVerdict.usage?.inputTokens, 0);
   assert.equal(fbVerdict.usage?.modelCalls, 0);
   assert.equal(fbVerdict.recommendedLevel, 'L0');

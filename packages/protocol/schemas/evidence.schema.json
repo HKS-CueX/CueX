@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuex.ai/schemas/evidence.v2.schema.json",
+  "title": "Evidence",
+  "description": "Grounded factual evidence unit with provenance, verification, lock, and privacy governance.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "id",
+    "schemaVersion",
+    "text",
+    "source",
+    "timestamp",
+    "createdAt",
+    "updatedAt",
+    "confidence",
+    "scope",
+    "privacyLevel",
+    "userConfirmed",
+    "verified",
+    "locked",
+    "lifecycle"
+  ],
+  "properties": {
+    "id": { "type": "string", "minLength": 1 },
+    "schemaVersion": { "type": "integer", "const": 2 },
+    "text": { "type": "string", "minLength": 1 },
+    "source": { "type": "string", "minLength": 1 },
+    "sourceType": {
+      "type": "string",
+      "enum": [
+        "user_document",
+        "user_input",
+        "user_confirmed_memory",
+        "compiler_extracted",
+        "live_transcript",
+        "system_rule"
+      ]
+    },
+    "sourceDocumentId": { "type": "string" },
+    "locationRef": { "type": "string" },
+    "contentHash": { "type": "string" },
+    "title": { "type": "string" },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "scope": { "type": "string", "enum": ["global", "scenario", "session", "document"] },
+    "privacyLevel": { "type": "string", "enum": ["ephemeral", "session", "local_private", "shared"] },
+    "userConfirmed": { "type": "boolean" },
+    "verified": { "type": "boolean" },
+    "locked": { "type": "boolean" },
+    "lifecycle": {
+      "type": "string",
+      "enum": ["draft", "active", "superseded", "archived", "revoked"]
+    }
+  }
+}

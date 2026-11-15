@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import type {
+  HealthStatusResponse,
   InterventionLevel,
   PresentationContextPack,
   PresentationMode,
@@ -13,9 +14,11 @@ import {
   AlertTriangle,
   ArrowRight,
   CheckCircle2,
+  Columns2,
   Cpu,
   Eye,
   HelpCircle,
+  Keyboard,
   Layers,
   MessageSquare,
   Mic,
@@ -42,22 +45,28 @@ import {
   ASR_MODE_LABELS,
   ATTENTION_SIGNAL_LABELS,
   CONTROLLER_ACTION_LABELS,
+  formatDateTime,
   formatDuration,
+  formatMoneyFen,
   formatMs,
+  formatTime,
   INTERVENTION_LEVEL_LABELS,
   PACE_STATUS_LABELS,
   SUPPRESS_REASON_LABELS,
+  USAGE_SOURCE_LABELS,
   WITHDRAWAL_REASON_LABELS,
 } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 type PresentationHookReturn = ReturnType<typeof usePresentationSession>;
+export type StageLayoutMode = 'standard' | 'split_strip';
 
 interface StageViewProps {
   activePack: PresentationContextPack | null;
   onPackChange: (pack: PresentationContextPack) => void;
   privacyAccepted: boolean;
   onPrivacyChange: (accepted: boolean) => void;
+  health?: HealthStatusResponse | null;
   runtime: PresentationHookReturn;
   onLoadDemoPack: () => Promise<PresentationContextPack | null>;
   onGoToCompiler: () => void;
@@ -69,6 +78,7 @@ export const StageView: React.FC<StageViewProps> = ({
   onPackChange,
   privacyAccepted,
   onPrivacyChange,
+  health = null,
   runtime,
   onLoadDemoPack,
   onGoToCompiler,
@@ -76,6 +86,7 @@ export const StageView: React.FC<StageViewProps> = ({
 }) => {
   const { state } = runtime;
   const [viewMode, setViewModeLocal] = useState<ViewMode>('focus');
+  const [layoutMode, setLayoutMode] = useState<StageLayoutMode>('standard');
   const [launchMode, setLaunchMode] = useState<PresentationMode>('rehearsal');
   const [savedPacks, setSavedPacks] = useState<PresentationPackSummary[]>([]);
   const [loadingPack, setLoadingPack] = useState(false);
@@ -106,6 +117,50 @@ export const StageView: React.FC<StageViewProps> = ({
       onGoToReflection(state.session.sessionId);
     }
   }, [autoNavigateOnEnd, state.session?.status, state.session?.sessionId, state.reflection, onGoToReflection]);
+
+  // Ergonomic speaker keyboard shortcuts (ignored inside editable fields)
+  useEffect(() => {
+    if (!state.session || state.session.status === 'ended') return;
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.tagName === 'SELECT' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (state.session?.status === 'paused') {
+          runtime.resumeSession();
+        } else {
+          runtime.pauseSession();
+        }
+      } else if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        runtime.setSilentMode(!state.session?.silentMode);
+      } else if (e.key === 'h' || e.key === 'H') {
+        e.preventDefault();
+        runtime.requestHelp(state.activeIntervention ? 'L3' : 'L2');
+      } else if (e.key === 'Escape' && state.activeIntervention) {
+        e.preventDefault();
+        runtime.dismissHint('keyboard_escape');
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [
+    state.session,
+    state.activeIntervention,
+    runtime,
+  ]);
 
   const handleToggleViewMode = (mode: ViewMode) => {
     setViewModeLocal(mode);
@@ -177,11 +232,19 @@ export const StageView: React.FC<StageViewProps> = ({
 
           {state.wipedAt && (
             <div
-              className="border border-resolved/30 bg-resolved-tint text-resolved px-4 py-3 rounded text-xs flex items-center gap-2"
+              className="border border-resolved/30 bg-resolved-tint text-resolved px-4 py-3 rounded text-xs space-y-1"
               data-testid="session-wiped-notice"
             >
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
-              <span>已彻底清除上一场会话转写、候选与临时状态。</span>
+              <div className="flex items-center gap-2 font-medium">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>已彻底清除上一场会话转写、候选与临时状态。</span>
+              </div>
+              {state.deletionReceipt && (
+                <div className="text-[11px] font-mono text-ink-2 pl-6">
+                  回执：{state.deletionReceipt.receiptId} · 完成时间：
+                  {formatDateTime(state.deletionReceipt.completedAt)}
+                </div>
+              )}
             </div>
           )}
 
@@ -390,42 +453,63 @@ export const StageView: React.FC<StageViewProps> = ({
             </Badge>
           </div>
 
-          {/* Focus / Inspector Dual View Switch */}
-          <div
-            className="inline-flex rounded border border-line bg-ground p-0.5"
-            role="group"
-            aria-label="切换视角"
-          >
-            <button
-              type="button"
-              onClick={() => handleToggleViewMode('focus')}
-              data-testid="view-toggle-focus"
-              aria-pressed={viewMode === 'focus'}
-              className={cn(
-                'px-3 py-1 rounded-sm text-xs font-medium transition-colors flex items-center gap-1.5',
-                viewMode === 'focus'
-                  ? 'bg-ink text-ground shadow-sm'
-                  : 'text-ink-2 hover:text-ink'
-              )}
+          {/* Focus / Inspector Dual View Switch + Split-Strip Ergonomics Toggle */}
+          <div className="flex flex-wrap items-center gap-2">
+            <div
+              className="inline-flex rounded border border-line bg-ground p-0.5"
+              role="group"
+              aria-label="切换视角"
             >
-              <Eye className="w-3.5 h-3.5" />
-              <span>Focus 极简视角</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleToggleViewMode('inspector')}
-              data-testid="view-toggle-inspector"
-              aria-pressed={viewMode === 'inspector'}
-              className={cn(
-                'px-3 py-1 rounded-sm text-xs font-medium transition-colors flex items-center gap-1.5',
-                viewMode === 'inspector'
-                  ? 'bg-ink text-ground shadow-sm'
-                  : 'text-ink-2 hover:text-ink'
-              )}
-            >
-              <Cpu className="w-3.5 h-3.5" />
-              <span>Inspector 透视视角</span>
-            </button>
+              <button
+                type="button"
+                onClick={() => handleToggleViewMode('focus')}
+                data-testid="view-toggle-focus"
+                aria-pressed={viewMode === 'focus'}
+                className={cn(
+                  'px-2.5 sm:px-3 py-1 rounded-sm text-xs font-medium transition-colors flex items-center gap-1.5',
+                  viewMode === 'focus'
+                    ? 'bg-ink text-ground shadow-sm'
+                    : 'text-ink-2 hover:text-ink'
+                )}
+              >
+                <Eye className="w-3.5 h-3.5" />
+                <span>Focus 极简视角</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleToggleViewMode('inspector')}
+                data-testid="view-toggle-inspector"
+                aria-pressed={viewMode === 'inspector'}
+                className={cn(
+                  'px-2.5 sm:px-3 py-1 rounded-sm text-xs font-medium transition-colors flex items-center gap-1.5',
+                  viewMode === 'inspector'
+                    ? 'bg-ink text-ground shadow-sm'
+                    : 'text-ink-2 hover:text-ink'
+                )}
+              >
+                <Cpu className="w-3.5 h-3.5" />
+                <span>Inspector 透视视角</span>
+              </button>
+            </div>
+
+            {viewMode === 'focus' && (
+              <Button
+                type="button"
+                variant={layoutMode === 'split_strip' ? 'amber' : 'quiet'}
+                size="sm"
+                onClick={() =>
+                  setLayoutMode((prev) => (prev === 'standard' ? 'split_strip' : 'standard'))
+                }
+                data-testid="layout-mode-toggle"
+                className="h-7 px-2.5 text-[11px]"
+                title="切换演说窄屏伴随条模式（适合置顶分屏于 PPT 旁）"
+              >
+                <Columns2 className="w-3.5 h-3.5 mr-1" />
+                <span>
+                  {layoutMode === 'split_strip' ? '精简伴随条 · Split Strip' : '标准双栏布局'}
+                </span>
+              </Button>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -477,10 +561,63 @@ export const StageView: React.FC<StageViewProps> = ({
         </div>
       )}
 
+      {/* Honest ASR Simulation / Runtime Degraded Banners */}
+      <div className="max-w-[1440px] w-full mx-auto px-4 sm:px-6 pt-2.5 space-y-2 empty:hidden">
+        {activeAsrMode === 'text_simulation' && (
+          <div
+            className="border border-amber/35 bg-amber-soft/50 text-amber-ink px-3.5 py-2 rounded text-[11px] flex flex-wrap items-center justify-between gap-2"
+            data-testid="asr-simulation-banner"
+          >
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              <span>
+                <strong>文本仿真输入模式：</strong>当前输入为模拟演讲文本（非真实麦克风 ASR），用于验证双层理解、触发阈值与撤回链路。
+              </span>
+            </div>
+            <Badge variant="outline" className="text-[10px]">
+              ASR: {activeAsrMode}
+            </Badge>
+          </div>
+        )}
+
+        {(state.telemetry?.degraded ||
+          state.telemetry?.usingLocalFallback ||
+          (health &&
+            (!health.system1.healthy ||
+              !health.system2.healthy ||
+              health.system1.mode === 'local_fallback' ||
+              health.system2.mode === 'local_fallback'))) && (
+          <div
+            className="border border-line bg-surface px-3.5 py-2 rounded text-[11px] text-ink-2 flex flex-wrap items-center justify-between gap-2"
+            data-testid="runtime-degraded-banner"
+          >
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="w-3.5 h-3.5 text-amber shrink-0" />
+              <span>
+                <strong>引擎状态诚实披露：</strong>
+                {state.telemetry?.degraded
+                  ? '部分推理或识别通道处于降级态，已自动回退至本地确定性规则引擎。'
+                  : '当前使用本地确定性规则引擎运行（0 外部 LLM Token），未伪装外部大模型调用。'}
+              </span>
+            </div>
+            <span className="font-mono text-[10px] text-ink-3">
+              S1:{health?.system1.mode ?? (state.telemetry?.usingLocalFallback ? 'local_fallback' : 'ok')} · S2:
+              {health?.system2.mode ?? 'ok'} · {state.telemetry?.usageSource ?? 'local_rule_zero'}
+            </span>
+          </div>
+        )}
+      </div>
+
       {/* ==================== FOCUS VIEW ==================== */}
       {viewMode === 'focus' && (
         <div
-          className="flex-1 max-w-[1180px] w-full mx-auto px-4 sm:px-6 py-6 flex flex-col justify-between gap-6"
+          className={cn(
+            'flex-1 w-full mx-auto flex flex-col justify-between transition-all',
+            layoutMode === 'split_strip'
+              ? 'max-w-[440px] px-3 py-3 gap-3'
+              : 'max-w-[1180px] px-4 sm:px-6 py-6 gap-6'
+          )}
+          data-layout={layoutMode}
           data-testid="focus-view"
         >
           {/* Chapter & Pace Header */}
@@ -582,7 +719,12 @@ export const StageView: React.FC<StageViewProps> = ({
 
           {/* Central Peripheral-Vision Cue Stage */}
           <div
-            className="flex-1 flex flex-col items-center justify-center min-h-[260px] border border-line bg-surface rounded-md p-6 sm:p-10 shadow-sm relative"
+            className={cn(
+              'flex-1 flex flex-col items-center justify-center border border-line bg-surface rounded-md shadow-sm relative',
+              layoutMode === 'split_strip' ? 'min-h-[200px] p-4' : 'min-h-[260px] p-6 sm:p-10'
+            )}
+            aria-live="polite"
+            aria-atomic="true"
             data-testid="focus-cue-stage"
           >
             {isSilent ? (
@@ -633,7 +775,7 @@ export const StageView: React.FC<StageViewProps> = ({
                 {/* L2: Crisp large 2-6+ char keyword pill readable by peripheral vision */}
                 {activeIntervention.level === 'L2' && (
                   <div className="space-y-3">
-                    <div className="inline-block px-6 py-3 rounded-md bg-amber-tint border-2 border-amber/50 text-3xl sm:text-5xl font-bold tracking-tight text-ink">
+                    <div className="inline-block max-w-full break-words px-5 sm:px-6 py-3 rounded-md bg-amber-tint border-2 border-amber/50 text-2xl sm:text-5xl font-bold tracking-tight text-ink">
                       {activeIntervention.cueText}
                     </div>
                     <p className="text-sm text-ink-2">{activeIntervention.title}</p>
@@ -835,6 +977,22 @@ export const StageView: React.FC<StageViewProps> = ({
                 <MessageSquare className="w-3.5 h-3.5" />
                 <span>{showInputDrawer ? '收起语音与测试面板' : '展开语音与测试面板'}</span>
               </Button>
+            </div>
+
+            <div
+              className="w-full pt-2 border-t border-line/70 flex flex-wrap items-center justify-between gap-2 text-[11px] text-ink-3"
+              data-testid="keyboard-shortcuts-hint"
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <Keyboard className="w-3.5 h-3.5" />
+                <span>
+                  快捷键：<code>Space</code> 暂停/恢复 · <code>M</code> 静默(L0) · <code>H</code>{' '}
+                  请求帮助 · <code>Esc</code> 忽略提示
+                </span>
+              </span>
+              <span className="font-mono">
+                {layoutMode === 'split_strip' ? 'Split Strip 模式已开启' : '全宽编辑/演练视图'}
+              </span>
             </div>
           </div>
 
@@ -1069,21 +1227,34 @@ export const StageView: React.FC<StageViewProps> = ({
               </span>
             </div>
             <div className="border border-line bg-surface rounded p-3 space-y-0.5">
-              <span className="text-[11px] text-ink-3 block">System 1 延迟</span>
+              <span className="text-[11px] text-ink-3 block">System 1 / P95 延迟</span>
               <span className="font-mono text-lg font-bold text-amber-ink">
                 {state.telemetry?.lastSystem1LatencyMs ?? latestVerdict?.latencyMs ?? 0} ms
               </span>
+              {state.telemetry?.latencyStats && (
+                <span className="text-[10px] font-mono text-ink-3 block">
+                  avg {state.telemetry.latencyStats.avgMs}ms · p95 {state.telemetry.latencyStats.p95Ms}ms
+                </span>
+              )}
             </div>
             <div className="border border-line bg-surface rounded p-3 space-y-0.5">
               <span className="text-[11px] text-ink-3 block">模型调用 / 本地规则</span>
               <span className="font-mono text-lg font-bold text-ink">
                 {state.telemetry?.modelCalls ?? 0} / {state.telemetry?.localRuleEvaluations ?? 0}
               </span>
+              {state.telemetry && state.telemetry.retries > 0 && (
+                <span className="text-[10px] font-mono text-amber-ink block">
+                  retries: {state.telemetry.retries}
+                </span>
+              )}
             </div>
             <div className="border border-line bg-surface rounded p-3 space-y-0.5">
-              <span className="text-[11px] text-ink-3 block">真实 Token 消耗</span>
+              <span className="text-[11px] text-ink-3 block">真实 Token / 费用</span>
               <span className="font-mono text-lg font-bold text-violet-ink" data-testid="inspector-tokens">
                 {state.telemetry?.totalTokens ?? 0}
+              </span>
+              <span className="text-[10px] font-mono text-ink-3 block" data-testid="inspector-cost">
+                {formatMoneyFen(state.telemetry?.cost ?? state.telemetry?.costFen)}
               </span>
             </div>
             <div className="border border-line bg-surface rounded p-3 space-y-0.5">
@@ -1093,11 +1264,16 @@ export const StageView: React.FC<StageViewProps> = ({
               </span>
             </div>
             <div className="border border-line bg-surface rounded p-3 space-y-0.5">
-              <span className="text-[11px] text-ink-3 block">计费/推理模式</span>
-              <span className="text-xs font-semibold text-ink block mt-1">
-                {state.telemetry?.estimation.usingLocalFallback
-                  ? '本地规则零 Token 回退'
-                  : state.telemetry?.estimation.source ?? '待统计'}
+              <span className="text-[11px] text-ink-3 block">计量口径 (usageSource)</span>
+              <span
+                className="text-[11px] font-semibold text-ink block mt-1 leading-snug"
+                data-testid="inspector-usage-source"
+              >
+                {state.telemetry?.usageSource
+                  ? USAGE_SOURCE_LABELS[state.telemetry.usageSource]
+                  : state.telemetry?.usingLocalFallback
+                    ? '本地规则零 Token 回退'
+                    : '待统计'}
               </span>
             </div>
           </div>
@@ -1168,9 +1344,12 @@ export const StageView: React.FC<StageViewProps> = ({
                   <div>
                     <span className="text-ink-3">冷却时间：</span>
                     <span className="font-mono text-ink">
-                      {cog?.cooldownUntilMs && cog.cooldownUntilMs > Date.now()
-                        ? `${Math.ceil((cog.cooldownUntilMs - Date.now()) / 1000)}s`
-                        : '就绪'}
+                      {(() => {
+                        const cooldownMs = cog?.cooldownUntil ? Date.parse(cog.cooldownUntil) : 0;
+                        return Number.isFinite(cooldownMs) && cooldownMs > Date.now()
+                          ? `${Math.ceil((cooldownMs - Date.now()) / 1000)}s`
+                          : '就绪';
+                      })()}
                     </span>
                   </div>
                   <div>
@@ -1262,6 +1441,11 @@ export const StageView: React.FC<StageViewProps> = ({
                         </div>
                         <div className="font-semibold text-ink">{c.title}</div>
                         <p className="text-ink-2">{c.cueText}</p>
+                        {c.evidenceIds.length > 0 && (
+                          <div className="text-[10px] font-mono text-ink-3">
+                            Retrieval IDs: {c.evidenceIds.join(', ')}
+                          </div>
+                        )}
                         {c.withdrawalReason && (
                           <p className="text-[11px] text-resolved">
                             撤回原因：{c.withdrawalReason}
@@ -1341,6 +1525,45 @@ export const StageView: React.FC<StageViewProps> = ({
               </section>
             </div>
           </div>
+
+          {/* Real CognitiveEvent Timeline */}
+          <section
+            className="border border-line bg-surface rounded-md p-4 space-y-2.5 text-xs"
+            data-testid="inspector-events"
+          >
+            <div className="flex items-center justify-between border-b border-line pb-2">
+              <span className="font-bold text-ink">CognitiveEvent 事件时间线</span>
+              <span className="font-mono text-[10px] text-ink-3">
+                {state.events.length} 条记录
+              </span>
+            </div>
+            {state.events.length === 0 ? (
+              <p className="text-ink-3">尚无事件流记录。</p>
+            ) : (
+              <div className="max-h-44 overflow-y-auto divide-y divide-line border border-line rounded">
+                {[...state.events]
+                  .reverse()
+                  .slice(0, 30)
+                  .map((ev) => (
+                    <div
+                      key={ev.event_id}
+                      className="px-3 py-1.5 flex flex-wrap items-center justify-between gap-2 text-[11px]"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Badge variant="secondary" className="font-mono text-[10px]">
+                          {ev.event_type}
+                        </Badge>
+                        <span className="font-mono text-ink-3">v{ev.context_version}</span>
+                        <span className="text-ink-2 truncate max-w-[380px]">
+                          来源 {ev.source}
+                        </span>
+                      </div>
+                      <span className="font-mono text-ink-3">{formatTime(ev.timestamp)}</span>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </section>
 
           {/* Also provide simulation / audio control strip inside Inspector for effortless testing */}
           <div className="border border-line bg-surface rounded-md p-4 text-xs">

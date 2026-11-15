@@ -1,11 +1,15 @@
-import type {
-  Evidence,
-  PresentationCompileInput,
-  PresentationContextPack,
-  PresentationCueSheetChapter,
-  PresentationFactItem,
-  PresentationProgressNode,
-  PresentationQACard,
+import { createHash } from 'node:crypto';
+import {
+  EVIDENCE_SCHEMA_VERSION,
+  PACK_SCHEMA_VERSION,
+  toUtcIso8601,
+  type Evidence,
+  type PresentationCompileInput,
+  type PresentationContextPack,
+  type PresentationCueSheetChapter,
+  type PresentationFactItem,
+  type PresentationProgressNode,
+  type PresentationQACard,
 } from '@cuex/protocol';
 import { clampSpoken } from '../../system2/spoken';
 import { SAMPLE_PRESENTATION_PACK } from './samplePack';
@@ -43,7 +47,6 @@ function splitSectionsFromRaw(raw: string): Array<{ title: string; body: string 
 
   if (sections.length >= 2) return sections.slice(0, 6);
 
-  // If flat prose/bullets without markdown headings, partition evenly by paragraphs/sentences.
   const blocks = normalized
     .split(/\n{2,}/)
     .map((b) => b.trim())
@@ -104,16 +107,30 @@ function extractKeywords(text: string): string[] {
   return [...words].slice(0, 6);
 }
 
+function shortHash(text: string): string {
+  return createHash('sha256').update(text, 'utf8').digest('hex').slice(0, 16);
+}
+
+export interface CompilePresentationOptions {
+  existingPack?: PresentationContextPack;
+  userId?: string;
+  tenantId?: string;
+}
+
 /**
  * Compiles user documents, raw notes, and confirmed facts into a PresentationContextPack.
- * Strictly grounded: zero invented numbers; identifies unprepared common Q&A gaps cleanly.
+ * Strictly grounded: zero invented numbers; preserves any locked facts from existingPack on re-compile.
  */
 export function compilePresentationPack(
   input: PresentationCompileInput,
-  now = Date.now(),
+  nowMs = Date.now(),
+  opts: CompilePresentationOptions = {},
 ): PresentationContextPack {
   if (input.useSamplePack && !input.rawMaterials.trim() && !input.keyFactsInput?.length) {
-    return structuredClone(SAMPLE_PRESENTATION_PACK);
+    const cloned = structuredClone(SAMPLE_PRESENTATION_PACK);
+    if (opts.userId) cloned.userId = opts.userId;
+    if (opts.tenantId) cloned.tenantId = opts.tenantId;
+    return cloned;
   }
 
   const warnings: string[] = [];
@@ -126,13 +143,73 @@ export function compilePresentationPack(
   const sourceLabel = input.sourceFilenames?.length
     ? input.sourceFilenames.join(', ')
     : '用户提交汇报素材';
-  const nowIso = new Date(now).toISOString();
-  const packId = input.packId?.trim() || `pack_${now}`;
+  const nowIso = toUtcIso8601(nowMs);
+  const packId = input.packId?.trim() || `pack_${nowMs}`;
 
-  // 1. Build verified Evidence + FactWhitelist strictly from user inputs (zero fabricated metrics).
   const facts: PresentationFactItem[] = [];
   const evidence: Evidence[] = [];
   const seenTexts = new Set<string>();
+  const usedFactIds = new Set<string>();
+  const usedEvidenceIds = new Set<string>();
+
+  // Preserve locked facts and their verified Evidence on re-compile.
+  if (opts.existingPack) {
+    const existingEvMap = new Map(opts.existingPack.evidence.map((e) => [e.id, e]));
+    for (const lockedFact of opts.existingPack.facts.filter((f) => f.locked)) {
+      const clean = lockedFact.text.trim();
+      if (!clean || seenTexts.has(clean)) continue;
+      seenTexts.add(clean);
+      usedFactIds.add(lockedFact.id);
+      usedEvidenceIds.add(lockedFact.evidenceId);
+      facts.push({ ...lockedFact, locked: true, verified: true, userConfirmed: true });
+      const prevEv = existingEvMap.get(lockedFact.evidenceId);
+      if (prevEv) {
+        evidence.push({ ...prevEv, locked: true, verified: true, userConfirmed: true, updatedAt: nowIso });
+      } else {
+        evidence.push({
+          id: lockedFact.evidenceId,
+          schemaVersion: EVIDENCE_SCHEMA_VERSION,
+          title: clampSpoken(clean, 24),
+          text: clean,
+          source: lockedFact.source,
+          sourceType: 'user_input',
+          locationRef: lockedFact.source,
+          contentHash: shortHash(clean),
+          timestamp: nowIso,
+          createdAt: nowIso,
+          updatedAt: nowIso,
+          confidence: 1,
+          scope: 'session',
+          privacyLevel: 'session',
+          userConfirmed: true,
+          verified: true,
+          lifecycle: 'active',
+          locked: true,
+          tags: extractKeywords(clean),
+        });
+      }
+    }
+    if (facts.length > 0) {
+      warnings.push(`已保留 ${facts.length} 条既有锁定事实，未被重新编译覆盖。`);
+    }
+  }
+
+  let seq = 0;
+  const allocFactId = (): string => {
+    do {
+      seq += 1;
+    } while (usedFactIds.has(`fact_${seq}`));
+    const id = `fact_${seq}`;
+    usedFactIds.add(id);
+    return id;
+  };
+  const allocEvidenceId = (): string => {
+    let idx = seq;
+    while (usedEvidenceIds.has(`ev_${idx}`)) idx += 1;
+    const id = `ev_${idx}`;
+    usedEvidenceIds.add(id);
+    return id;
+  };
 
   const addFactAndEvidence = (
     text: string,
@@ -144,9 +221,8 @@ export function compilePresentationPack(
     if (!clean || seenTexts.has(clean)) return;
     seenTexts.add(clean);
 
-    const idx = facts.length + 1;
-    const factId = `fact_${idx}`;
-    const evidenceId = `ev_${idx}`;
+    const factId = allocFactId();
+    const evidenceId = allocEvidenceId();
     const category = classifyFactCategory(clean);
 
     facts.push({
@@ -161,11 +237,16 @@ export function compilePresentationPack(
     });
     evidence.push({
       id: evidenceId,
+      schemaVersion: EVIDENCE_SCHEMA_VERSION,
       title: clampSpoken(clean, 24),
       text: clean,
       source,
       sourceType,
-      timestamp: now,
+      locationRef: source,
+      contentHash: shortHash(clean),
+      timestamp: nowIso,
+      createdAt: nowIso,
+      updatedAt: nowIso,
       confidence: userConfirmed ? 1 : 0.9,
       scope: 'session',
       privacyLevel: 'session',
@@ -196,7 +277,6 @@ export function compilePresentationPack(
     addFactAndEvidence(clampSpoken(rawMaterials, 120), sourceLabel, false, 'compiler_extracted');
   }
 
-  // 2. Structure chapters & progress nodes across targetDurationSec.
   const effectiveSections =
     parsedSections.length > 0
       ? parsedSections
@@ -267,7 +347,6 @@ export function compilePresentationPack(
     });
   });
 
-  // 3. Generate predicted Q&A cards (explicitly tagged isPrediction: true) + unprepared gaps.
   const qaCards: PresentationQACard[] = [];
   const unpreparedGaps: string[] = [];
 
@@ -336,6 +415,9 @@ export function compilePresentationPack(
 
   return {
     packId,
+    schemaVersion: PACK_SCHEMA_VERSION,
+    ...(opts.tenantId ? { tenantId: opts.tenantId } : {}),
+    ...(opts.userId ? { userId: opts.userId } : {}),
     scenarioId: 'presentation',
     title: input.title.trim(),
     sceneType: input.sceneType,
@@ -361,7 +443,7 @@ export function compilePresentationPack(
     compiledBy: 'local_compiler',
     warnings,
     isSample: false,
-    createdAt: nowIso,
+    createdAt: opts.existingPack?.createdAt ?? nowIso,
     updatedAt: nowIso,
   };
 }

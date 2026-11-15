@@ -7,7 +7,8 @@
     "dev": "open-slide dev",
     "build": "open-slide build",
     "preview": "open-slide preview",
-    "export:final": "node scripts/build-cuex-final.mjs"
+    "export:final": "node scripts/build-cuex-final.mjs",
+    "verify:sync": "node scripts/verify-metrics-sync.mjs"
   },
   "dependencies": {
     "@open-slide/core": "2.3.1",

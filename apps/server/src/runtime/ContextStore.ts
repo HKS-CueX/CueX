@@ -1,12 +1,14 @@
-import type {
-  ContextPack,
-  Evidence,
-  MemoryItem,
-  Observation,
-  Session,
-  TaskContext,
-  TranscriptSegment,
+import {
+  EVIDENCE_SCHEMA_VERSION,
+  type ContextPack,
+  type Evidence,
+  type MemoryItem,
+  type Observation,
+  type Session,
+  type TaskContext,
+  type TranscriptSegment,
 } from '@cuex/protocol';
+import { isoToMs, msToIso } from './time';
 
 export interface ContextStoreInit {
   session: Session;
@@ -27,13 +29,15 @@ export class ContextStore {
   private readonly memoryItems: MemoryItem[] = [];
   private readonly observations: Observation[] = [];
   private readonly segments: TranscriptSegment[] = [];
+  private readonly sessionStartedAtMs: number;
   private lastSpeechAtMs: number;
   private segCounter = 0;
 
   constructor(init: ContextStoreInit) {
     this.session = { ...init.session };
     this.taskContext = { ...init.taskContext };
-    this.lastSpeechAtMs = init.session.startedAt;
+    this.sessionStartedAtMs = isoToMs(init.session.startedAt, Date.now());
+    this.lastSpeechAtMs = this.sessionStartedAtMs;
 
     if (init.contextPack) {
       this.setContextPack(init.contextPack);
@@ -48,19 +52,27 @@ export class ContextStore {
     }
   }
 
+  getStartedAtMs(): number {
+    return this.sessionStartedAtMs;
+  }
+
   private ingestMemoryAsEvidence(item: MemoryItem): void {
     if (!item.userConfirmed || item.category !== 'fact') return;
     this.upsertEvidence({
       id: `mem_ev_${item.memoryId}`,
+      schemaVersion: EVIDENCE_SCHEMA_VERSION,
       text: `${item.title}: ${item.content}`,
       source: `user_confirmed_memory:${item.memoryId}`,
       sourceType: 'user_confirmed_memory',
-      timestamp: Date.parse(item.updatedAt) || Date.now(),
+      timestamp: item.updatedAt,
+      createdAt: item.createdAt,
+      updatedAt: item.updatedAt,
       confidence: 0.95,
       scope: item.scope,
       privacyLevel: item.privacyLevel,
       userConfirmed: true,
       verified: true,
+      locked: true,
       lifecycle: 'active',
       title: item.title,
       tags: item.tags,
@@ -125,6 +137,7 @@ export class ContextStore {
       last.isFinal = input.isFinal;
       last.confidence = input.confidence;
       last.endMs = input.endMs;
+      last.occurredAt = msToIso(input.endMs);
       last.source = input.source ?? last.source;
       last.chapterId = input.chapterId ?? last.chapterId;
       this.lastSpeechAtMs = input.endMs;
@@ -141,6 +154,7 @@ export class ContextStore {
       confidence: Math.max(0, Math.min(1, input.confidence)),
       startMs: input.startMs,
       endMs: input.endMs,
+      occurredAt: msToIso(input.endMs),
       source: input.source,
       chapterId: input.chapterId ?? this.taskContext.activeChapterId,
     };
@@ -172,8 +186,8 @@ export class ContextStore {
     return text.length > maxChars ? text.slice(-maxChars) : text;
   }
 
-  getSilenceDurationMs(now: number): number {
-    return Math.max(0, now - this.lastSpeechAtMs);
+  getSilenceDurationMs(nowMs: number): number {
+    return Math.max(0, nowMs - this.lastSpeechAtMs);
   }
 
   addObservation(observation: Observation): void {
@@ -191,10 +205,10 @@ export class ContextStore {
     return this.observations.map((obs) => ({ ...obs }));
   }
 
-  updateChapter(chapterId: string | undefined, chapterTitle: string | undefined, now: number): void {
+  updateChapter(chapterId: string | undefined, chapterTitle: string | undefined, nowMs: number): void {
     this.taskContext.activeChapterId = chapterId;
     this.taskContext.activeChapterTitle = chapterTitle;
-    this.taskContext.updatedAt = now;
+    this.taskContext.updatedAt = msToIso(nowMs);
   }
 
   wipeEphemeralData(): void {

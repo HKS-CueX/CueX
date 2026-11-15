@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import * as Dialog from '@radix-ui/react-dialog';
 import type {
+  AuthSessionResponse,
+  DataDeletionReceipt,
   HealthStatusResponse,
   InterventionLevel,
   PresentationContextPack,
@@ -11,12 +13,14 @@ import type {
   ViewMode,
 } from '@cuex/protocol';
 import { X } from 'lucide-react';
+import { AccountPanel } from '@/components/AccountPanel';
 import { Footer } from '@/components/layout/Footer';
 import { Navbar, type ViewKey } from '@/components/layout/Navbar';
 import { MemoryInspectorPanel } from '@/components/MemoryInspectorPanel';
 import { usePresentationSession } from '@/core/session/usePresentationSession';
 import {
   compilePresentationPack,
+  ensureAuthSession,
   fetchHealth,
   fetchScenarios,
   getPresentationPack,
@@ -34,12 +38,14 @@ export function App() {
     return requested && VALID_VIEWS.includes(requested) ? requested : 'home';
   });
 
+  const [authSession, setAuthSession] = useState<AuthSessionResponse | null>(null);
   const [health, setHealth] = useState<HealthStatusResponse | null>(null);
   const [scenarios, setScenarios] = useState<ScenarioCapabilityDescriptor[]>([]);
   const [activePack, setActivePack] = useState<PresentationContextPack | null>(null);
   const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [loadingDemo, setLoadingDemo] = useState(false);
   const [memoryModalOpen, setMemoryModalOpen] = useState(false);
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
 
   const [completedSessionId, setCompletedSessionId] = useState<string | null>(null);
   const [completedReflection, setCompletedReflection] = useState<PresentationReflection | null>(null);
@@ -60,9 +66,18 @@ export function App() {
     void fetchHealth()
       .then(setHealth)
       .catch(() => {});
-    void fetchScenarios()
+
+    void ensureAuthSession()
+      .then((auth) => {
+        setAuthSession(auth);
+        return fetchScenarios();
+      })
       .then(setScenarios)
-      .catch(() => {});
+      .catch(() => {
+        void fetchScenarios()
+          .then(setScenarios)
+          .catch(() => {});
+      });
   }, []);
 
   const navigate = useCallback((nextView: ViewKey) => {
@@ -73,9 +88,35 @@ export function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
+  const handleAuthChanged = useCallback(
+    (nextAuth: AuthSessionResponse) => {
+      const switchedUser = authSession?.user.userId !== nextAuth.user.userId;
+      setAuthSession(nextAuth);
+      if (switchedUser) {
+        runtime.disconnect();
+        setActivePack(null);
+        setCompletedSessionId(null);
+        setCompletedReflection(null);
+      }
+    },
+    [authSession?.user.userId, runtime]
+  );
+
+  const handleAccountWiped = useCallback(
+    (_receipt: DataDeletionReceipt, nextAuth: AuthSessionResponse) => {
+      runtime.disconnect();
+      setActivePack(null);
+      setCompletedSessionId(null);
+      setCompletedReflection(null);
+      setAuthSession(nextAuth);
+    },
+    [runtime]
+  );
+
   const loadSamplePack = useCallback(async (): Promise<PresentationContextPack | null> => {
     setLoadingDemo(true);
     try {
+      await ensureAuthSession().then(setAuthSession).catch(() => {});
       const pack = await compilePresentationPack({
         title: 'CueX：通用实时认知外挂路演演示包',
         sceneType: 'pitch',
@@ -149,12 +190,14 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-ground text-ink font-ui antialiased">
+    <div className="min-h-screen flex flex-col bg-ground text-ink font-ui antialiased overflow-x-hidden">
       <Navbar
         currentView={view}
         onSelectView={navigate}
         health={health}
+        authSession={authSession}
         onOpenMemory={() => setMemoryModalOpen(true)}
+        onOpenAccount={() => setAccountModalOpen(true)}
         sessionActive={runtime.state.session?.status === 'active'}
       />
 
@@ -163,8 +206,10 @@ export function App() {
           <HomeView
             scenarios={scenarios}
             health={health}
+            authSession={authSession}
             onNavigate={navigate}
             onLoadDemoPack={handleLoadDemoFromHome}
+            onOpenAccount={() => setAccountModalOpen(true)}
             loadingDemo={loadingDemo}
           />
         )}
@@ -185,6 +230,7 @@ export function App() {
             onPackChange={setActivePack}
             privacyAccepted={privacyAccepted}
             onPrivacyChange={setPrivacyAccepted}
+            health={health}
             runtime={runtime}
             onLoadDemoPack={loadSamplePack}
             onGoToCompiler={() => navigate('compiler')}
@@ -214,6 +260,40 @@ export function App() {
       </div>
 
       <Footer onSelectView={navigate} />
+
+      {/* Global Account, Plans, Usage & Data Sovereignty Dialog */}
+      <Dialog.Root open={accountModalOpen} onOpenChange={setAccountModalOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 bg-ink/40 backdrop-blur-[2px] z-50" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(94vw,860px)] max-h-[88vh] overflow-y-auto bg-surface border border-line rounded-md p-5 sm:p-6 shadow-xl z-50 space-y-4">
+            <div className="flex items-center justify-between border-b border-line pb-3">
+              <Dialog.Title className="text-base font-bold text-ink">
+                账户隔离、套餐用量与数据主权控制台
+              </Dialog.Title>
+              <Dialog.Close asChild>
+                <button
+                  type="button"
+                  className="p-1 rounded hover:bg-ground-2 text-ink-2"
+                  aria-label="关闭账户控制台"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </Dialog.Close>
+            </div>
+            <AccountPanel
+              authSession={authSession}
+              onAuthChanged={handleAuthChanged}
+              onAccountWiped={handleAccountWiped}
+              onInspectSession={(sid) => {
+                setCompletedSessionId(sid);
+                setCompletedReflection(null);
+                navigate('reflection');
+              }}
+              onClose={() => setAccountModalOpen(false)}
+            />
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       {/* Global Opt-in Memory Governance Drawer/Dialog */}
       <Dialog.Root open={memoryModalOpen} onOpenChange={setMemoryModalOpen}>

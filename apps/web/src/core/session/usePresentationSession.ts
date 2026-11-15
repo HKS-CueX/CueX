@@ -8,6 +8,7 @@ import type {
   TranscriptSpeaker,
   ViewMode,
 } from '@cuex/protocol';
+import { ensureAuthSession, getStoredAuthToken, wipeSession } from '@/lib/api';
 import { AudioCapture } from '../audio/AudioCapture';
 import { BrowserSpeechRecognizer } from '../audio/BrowserSpeechRecognizer';
 import { CueXWSClient } from '../driver/CueXWSClient';
@@ -58,7 +59,6 @@ export function usePresentationSession() {
     setSimulatingText(false);
   }, []);
 
-  // Auto-fade the calm withdrawal notification banner after 4.5s
   useEffect(() => {
     if (!state.lastWithdrawn) return;
     window.clearTimeout(withdrawTimerRef.current);
@@ -109,21 +109,34 @@ export function usePresentationSession() {
         },
       });
       clientRef.current = client;
-      client.connect();
-      client.send({
-        type: 'session.start',
-        payload: {
-          scenarioId: 'presentation',
-          packId: options.packId,
-          contextPack: options.contextPack,
-          mode: options.mode,
-          viewMode: options.viewMode ?? 'focus',
-          maxInterventionLevel: options.maxInterventionLevel ?? 'L3',
-          silentMode: options.silentMode ?? false,
-          privacyNoticeAccepted: options.privacyNoticeAccepted,
-          rehearsalTarget: options.rehearsalTarget,
-        },
-      });
+
+      const connectAndStart = (token: string | null) => {
+        if (clientRef.current !== client) return;
+        client.connect({ token, autoReconnect: true });
+        client.send({
+          type: 'session.start',
+          payload: {
+            scenarioId: 'presentation',
+            packId: options.packId,
+            contextPack: options.contextPack,
+            mode: options.mode,
+            viewMode: options.viewMode ?? 'focus',
+            maxInterventionLevel: options.maxInterventionLevel ?? 'L3',
+            silentMode: options.silentMode ?? false,
+            privacyNoticeAccepted: options.privacyNoticeAccepted,
+            rehearsalTarget: options.rehearsalTarget,
+          },
+        });
+      };
+
+      const storedToken = getStoredAuthToken();
+      if (storedToken) {
+        connectAndStart(storedToken);
+      } else {
+        void ensureAuthSession()
+          .then((auth) => connectAndStart(auth.token ?? getStoredAuthToken()))
+          .catch(() => connectAndStart(getStoredAuthToken()));
+      }
     },
     [stopAllAudio, stopSimulation]
   );
@@ -358,16 +371,29 @@ export function usePresentationSession() {
     [state.session?.sessionId, stopAllAudio, stopSimulation]
   );
 
-  const wipeCurrentSession = useCallback(() => {
+  const wipeCurrentSession = useCallback(async () => {
     const sessionId = state.session?.sessionId;
     stopSimulation();
     stopAllAudio();
-    if (sessionId) {
+    if (!sessionId) {
+      dispatch({ type: 'reset' });
+      return;
+    }
+    if (state.wsStatus === 'connected') {
       clientRef.current?.send({ type: 'session.wipe', payload: { sessionId } });
-    } else {
+      return;
+    }
+    try {
+      const res = await wipeSession(sessionId);
+      if (res.receipt) {
+        dispatch({ type: 'deletion_receipt', receipt: res.receipt });
+      } else {
+        dispatch({ type: 'reset' });
+      }
+    } catch {
       dispatch({ type: 'reset' });
     }
-  }, [state.session?.sessionId, stopAllAudio, stopSimulation]);
+  }, [state.session?.sessionId, state.wsStatus, stopAllAudio, stopSimulation]);
 
   const disconnect = useCallback(() => {
     stopSimulation();

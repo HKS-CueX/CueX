@@ -1,29 +1,30 @@
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import type {
-  ContextPack,
-  Evidence,
-  PresentationContextPack,
-  PresentationPackPatchInput,
-  PresentationPackSummary,
+import { createHash } from 'node:crypto';
+import path from 'node:path';
+import {
+  EVIDENCE_SCHEMA_VERSION,
+  PACK_SCHEMA_VERSION,
+  nowUtcIso8601,
+  type ContextPack,
+  type Evidence,
+  type PresentationContextPack,
+  type PresentationFactItem,
+  type PresentationPackPatchInput,
+  type PresentationPackSummary,
 } from '@cuex/protocol';
+import { SqliteRepository, type StorageRepository } from '../../storage';
 import { SAMPLE_PACK_ID, SAMPLE_PRESENTATION_PACK } from './samplePack';
-
-interface PersistedPacksFile {
-  version: 1;
-  packs: PresentationContextPack[];
-}
 
 export function toPackSummary(pack: PresentationContextPack): PresentationPackSummary {
   return {
     packId: pack.packId,
+    schemaVersion: pack.schemaVersion,
     title: pack.title,
     sceneType: pack.sceneType,
     targetDurationSec: pack.targetDurationSec,
     factCount: pack.facts.length,
     qaCount: pack.qaCards.length,
-    chapterCount: pack.cueSheet.chapters.length,
-    ...(pack.isSample ? { isSample: true } : {}),
+    chapterCount: pack.progressNodes.length,
+    isSample: pack.isSample,
     updatedAt: pack.updatedAt,
   };
 }
@@ -31,15 +32,15 @@ export function toPackSummary(pack: PresentationContextPack): PresentationPackSu
 export function toUniversalContextPack(pack: PresentationContextPack): ContextPack {
   return {
     packId: pack.packId,
+    schemaVersion: pack.schemaVersion,
+    ...(pack.tenantId ? { tenantId: pack.tenantId } : {}),
+    ...(pack.userId ? { userId: pack.userId } : {}),
     scenarioId: 'presentation',
     title: pack.title,
-    description: pack.cueSheet.oneLineThesis,
     goal: pack.goal,
     audience: pack.audience,
     targetDurationSec: pack.targetDurationSec,
-    constraints: pack.cueSheet.chapters.map(
-      (ch) => `章节「${ch.title}」目标 ${ch.targetDurationSec}s：${ch.coreMessage}`,
-    ),
+    constraints: [`Target total duration ${pack.targetDurationSec}s`, `Audience: ${pack.audience}`],
     forbiddenClaims: [...pack.forbiddenClaims],
     chapters: pack.progressNodes.map((node) => ({
       id: node.chapterId,
@@ -52,147 +53,199 @@ export function toUniversalContextPack(pack: PresentationContextPack): ContextPa
         required: true,
       })),
     })),
-    evidence: pack.evidence.map((e) => ({ ...e })),
+    evidence: pack.evidence.map((item) => ({ ...item })),
     createdAt: pack.createdAt,
     updatedAt: pack.updatedAt,
+    metadata: {
+      sceneType: pack.sceneType,
+      isSample: pack.isSample,
+    },
   };
 }
 
-/**
- * Atomic JSON store for compiled Presentation Context Packs + built-in CueX sample pack.
- */
-export class PresentationPackStore {
-  private readonly filePath: string;
-  private readonly packs = new Map<string, PresentationContextPack>();
-
-  constructor(packsDir: string) {
-    this.filePath = join(packsDir, 'packs.json');
-    this.packs.set(SAMPLE_PACK_ID, structuredClone(SAMPLE_PRESENTATION_PACK));
-    this.load();
-  }
-
-  private load(): void {
-    if (!existsSync(this.filePath)) return;
-    try {
-      const parsed = JSON.parse(readFileSync(this.filePath, 'utf8')) as PersistedPacksFile;
-      if (Array.isArray(parsed.packs)) {
-        for (const pack of parsed.packs) {
-          if (pack?.packId) {
-            this.packs.set(pack.packId, pack);
-          }
-        }
-      }
-    } catch {
-      // Keep built-in sample pack on corrupted file.
-    }
-    if (!this.packs.has(SAMPLE_PACK_ID)) {
-      this.packs.set(SAMPLE_PACK_ID, structuredClone(SAMPLE_PRESENTATION_PACK));
-    }
-  }
-
-  private persist(): void {
-    mkdirSync(dirname(this.filePath), { recursive: true });
-    const payload: PersistedPacksFile = {
-      version: 1,
-      packs: [...this.packs.values()],
-    };
-    const tmpPath = `${this.filePath}.${process.pid}.${Date.now()}.tmp`;
-    writeFileSync(tmpPath, JSON.stringify(payload, null, 2), 'utf8');
-    renameSync(tmpPath, this.filePath);
-  }
-
-  listSummaries(): PresentationPackSummary[] {
-    return [...this.packs.values()]
-      .sort((a, b) => (a.isSample ? -1 : b.isSample ? 1 : b.updatedAt.localeCompare(a.updatedAt)))
-      .map(toPackSummary);
-  }
-
-  get(packId: string): PresentationContextPack | undefined {
-    const found = this.packs.get(packId);
-    return found ? structuredClone(found) : undefined;
-  }
-
-  getDefaultPack(): PresentationContextPack {
-    return structuredClone(this.packs.get(SAMPLE_PACK_ID) ?? SAMPLE_PRESENTATION_PACK);
-  }
-
-  save(pack: PresentationContextPack): PresentationContextPack {
-    const clone = structuredClone(pack);
-    this.packs.set(clone.packId, clone);
-    this.persist();
-    return structuredClone(clone);
-  }
-
-  patch(packId: string, patchInput: PresentationPackPatchInput): PresentationContextPack | undefined {
-    const existing = this.packs.get(packId);
-    if (!existing) return undefined;
-
-    const nowMs = Date.now();
-    const updatedFacts = patchInput.facts
-      ? patchInput.facts.map((incoming) => {
-          const prev = existing.facts.find((f) => f.id === incoming.id);
-          // Respect prior lock unless explicitly toggled off.
-          if (prev?.locked && incoming.locked !== false && incoming.text !== prev.text) {
-            return { ...prev };
-          }
-          return { ...incoming };
-        })
-      : existing.facts;
-
-    // Synchronize FactWhitelist edits into Evidence[] cleanly.
-    const existingEvidenceMap = new Map(existing.evidence.map((ev) => [ev.id, ev]));
-    const syncedEvidence: Evidence[] = updatedFacts.map((fact) => {
-      const priorEv = existingEvidenceMap.get(fact.evidenceId);
+function syncEvidenceFromFacts(
+  existingEvidence: Evidence[],
+  facts: PresentationFactItem[],
+  nowIso: string,
+): Evidence[] {
+  const existingMap = new Map(existingEvidence.map((item) => [item.id, item]));
+  return facts.map((fact) => {
+    const prev = existingMap.get(fact.evidenceId);
+    const contentHash = createHash('sha256').update(fact.text, 'utf8').digest('hex').slice(0, 16);
+    if (prev) {
       return {
-        id: fact.evidenceId,
-        title: priorEv?.title ?? fact.text.slice(0, 32),
+        ...prev,
+        schemaVersion: EVIDENCE_SCHEMA_VERSION,
         text: fact.text,
         source: fact.source,
-        sourceType: priorEv?.sourceType ?? (fact.userConfirmed ? 'user_input' : 'compiler_extracted'),
-        timestamp: nowMs,
-        confidence: fact.userConfirmed ? 1 : priorEv?.confidence ?? 0.9,
-        scope: priorEv?.scope ?? 'session',
-        privacyLevel: priorEv?.privacyLevel ?? 'session',
+        locationRef: prev.locationRef ?? fact.source,
+        contentHash,
         userConfirmed: fact.userConfirmed,
         verified: fact.verified,
-        lifecycle: 'active',
         locked: fact.locked,
-        tags: priorEv?.tags,
+        lifecycle: fact.verified ? 'active' : 'draft',
+        timestamp: nowIso,
+        updatedAt: nowIso,
       };
-    });
+    }
+    return {
+      id: fact.evidenceId,
+      schemaVersion: EVIDENCE_SCHEMA_VERSION,
+      title: fact.text.slice(0, 28),
+      text: fact.text,
+      source: fact.source,
+      sourceType: fact.userConfirmed ? 'user_input' : 'compiler_extracted',
+      locationRef: fact.source,
+      contentHash,
+      timestamp: nowIso,
+      createdAt: nowIso,
+      updatedAt: nowIso,
+      confidence: fact.userConfirmed ? 1 : 0.9,
+      scope: 'session',
+      privacyLevel: 'session',
+      userConfirmed: fact.userConfirmed,
+      verified: fact.verified,
+      locked: fact.locked,
+      lifecycle: fact.verified ? 'active' : 'draft',
+    };
+  });
+}
 
-    // Retain any additional supporting Evidence not bound directly to a deleted fact row unless revoked.
-    for (const ev of existing.evidence) {
-      if (!syncedEvidence.some((s) => s.id === ev.id)) {
-        syncedEvidence.push(ev);
+function mergeFactsPreservingLocked(
+  existingFacts: PresentationFactItem[],
+  incomingFacts: PresentationFactItem[],
+): PresentationFactItem[] {
+  const incomingById = new Map(incomingFacts.map((f) => [f.id, f]));
+  const merged: PresentationFactItem[] = [];
+  const handledIds = new Set<string>();
+
+  for (const prev of existingFacts) {
+    const next = incomingById.get(prev.id);
+    if (prev.locked) {
+      // Never delete or overwrite locked fact text; only permit explicit unlock when text is unchanged.
+      const explicitlyUnlockedSameText =
+        next !== undefined && next.locked === false && next.text.trim() === prev.text.trim();
+      merged.push(
+        explicitlyUnlockedSameText
+          ? { ...prev, locked: false }
+          : { ...prev, locked: true, verified: true, userConfirmed: true },
+      );
+      handledIds.add(prev.id);
+    } else if (next) {
+      merged.push({ ...next });
+      handledIds.add(prev.id);
+    }
+  }
+
+  for (const item of incomingFacts) {
+    if (!handledIds.has(item.id)) {
+      merged.push({ ...item });
+    }
+  }
+
+  return merged;
+}
+
+/**
+ * Persistent Presentation Context Pack store backed by StorageRepository (SQLite in Phase 2).
+ * Seeds built-in CueX sample pack idempotently and protects `locked: true` facts from deletion/overwrite.
+ */
+export class PresentationPackStore {
+  private readonly repo: StorageRepository;
+  private readonly ownsRepo: boolean;
+
+  constructor(dirOrRepo: string | StorageRepository) {
+    if (typeof dirOrRepo === 'string') {
+      const dbPath =
+        dirOrRepo === ':memory:' ? ':memory:' : path.join(dirOrRepo, 'cuex-packs.sqlite');
+      const sqlite = new SqliteRepository(dbPath);
+      sqlite.init();
+      if (dirOrRepo !== ':memory:') {
+        sqlite.migrateLegacyJsonFiles({
+          runtimeDir: dirOrRepo,
+          packsDir: dirOrRepo,
+        });
       }
+      this.repo = sqlite;
+      this.ownsRepo = true;
+    } else {
+      this.repo = dirOrRepo;
+      this.ownsRepo = false;
     }
 
-    const updatedQaCards = (patchInput.qaCards ?? existing.qaCards).map((card) => ({
-      ...card,
-      isPrediction: true as const,
-    }));
+    if (!this.repo.getPack(SAMPLE_PRESENTATION_PACK.packId)) {
+      this.repo.savePack(structuredClone(SAMPLE_PRESENTATION_PACK));
+    }
+  }
+
+  close(): void {
+    if (this.ownsRepo) {
+      this.repo.close();
+    }
+  }
+
+  listSummaries(userId?: string): PresentationPackSummary[] {
+    return this.repo.listPackSummaries(userId);
+  }
+
+  getOwner(packId: string): { userId?: string; isSample: boolean } | undefined {
+    return this.repo.getPackOwner(packId);
+  }
+
+  get(packId: string, userId?: string): PresentationContextPack | undefined {
+    return this.repo.getPack(packId, userId);
+  }
+
+  getDefaultPack(userId?: string): PresentationContextPack {
+    return this.get(SAMPLE_PACK_ID, userId) ?? structuredClone(SAMPLE_PRESENTATION_PACK);
+  }
+
+  save(pack: PresentationContextPack, opts?: { isSampleOverride?: boolean }): PresentationContextPack {
+    const normalized: PresentationContextPack = {
+      ...structuredClone(pack),
+      schemaVersion: PACK_SCHEMA_VERSION,
+    };
+    return this.repo.savePack(normalized, opts);
+  }
+
+  patch(
+    packId: string,
+    patch: PresentationPackPatchInput,
+    actor?: { userId?: string; tenantId?: string },
+  ): PresentationContextPack | undefined {
+    const current = this.get(packId, actor?.userId);
+    if (!current) return undefined;
+
+    const nowIso = nowUtcIso8601();
+    const nextFacts = patch.facts
+      ? mergeFactsPreservingLocked(current.facts, patch.facts)
+      : current.facts;
+    const nextForbidden = patch.forbiddenClaims ?? current.forbiddenClaims;
+    const nextEvidence = patch.facts
+      ? syncEvidenceFromFacts(current.evidence, nextFacts, nowIso)
+      : current.evidence;
 
     const updated: PresentationContextPack = {
-      ...existing,
-      ...(patchInput.title !== undefined ? { title: patchInput.title.trim() } : {}),
-      ...(patchInput.goal !== undefined ? { goal: patchInput.goal.trim() } : {}),
-      ...(patchInput.audience !== undefined ? { audience: patchInput.audience.trim() } : {}),
-      ...(patchInput.targetDurationSec !== undefined
-        ? { targetDurationSec: patchInput.targetDurationSec }
-        : {}),
-      ...(patchInput.cueSheet !== undefined ? { cueSheet: patchInput.cueSheet } : {}),
-      ...(patchInput.forbiddenClaims !== undefined
-        ? { forbiddenClaims: [...patchInput.forbiddenClaims] }
-        : {}),
-      facts: updatedFacts,
-      qaCards: updatedQaCards,
-      evidence: syncedEvidence,
-      updatedAt: new Date(nowMs).toISOString(),
+      ...current,
+      schemaVersion: PACK_SCHEMA_VERSION,
+      ...(current.isSample && actor?.userId ? { userId: actor.userId, tenantId: actor.tenantId } : {}),
+      ...(patch.title !== undefined ? { title: patch.title.trim() } : {}),
+      ...(patch.goal !== undefined ? { goal: patch.goal.trim() } : {}),
+      ...(patch.audience !== undefined ? { audience: patch.audience.trim() } : {}),
+      ...(patch.targetDurationSec !== undefined ? { targetDurationSec: patch.targetDurationSec } : {}),
+      ...(patch.cueSheet !== undefined ? { cueSheet: patch.cueSheet } : {}),
+      facts: nextFacts,
+      qaCards: patch.qaCards ?? current.qaCards,
+      forbiddenClaims: nextForbidden,
+      evidence: nextEvidence,
+      updatedAt: nowIso,
+    };
+    updated.cueSheet = {
+      ...updated.cueSheet,
+      forbiddenClaims: [...nextForbidden],
     };
 
-    this.packs.set(packId, updated);
-    this.persist();
-    return structuredClone(updated);
+    const isSampleOverride = Boolean(current.isSample && actor?.userId);
+    return this.save(updated, { isSampleOverride });
   }
 }

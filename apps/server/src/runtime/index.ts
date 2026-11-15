@@ -22,6 +22,8 @@ export {
   FallbackSlowReasoningProvider,
   createSlowReasoningProvider,
 } from './providers/SlowReasoningAdapter';
+export { ProviderResilience } from './providers/ProviderResilience';
+export { computeLatencyStats, isoToMs, msToIso } from './time';
 export { ManualClock, systemClock } from './types';
 export type {
   EmbeddingScorer,

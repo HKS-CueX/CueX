@@ -1,24 +1,27 @@
-import type {
-  AsrCapabilityStatus,
-  Candidate,
-  CognitiveEvent,
-  ControllerDecision,
-  Evidence,
-  FastDecisionVerdict,
-  Intervention,
-  InterventionFeedback,
-  Outcome,
-  PresentationLiveState,
-  PresentationReflection,
-  PresentationWeakSegment,
-  ScenarioCapabilityDescriptor,
-  ServerMessage,
-  Session,
-  SharedCognitiveState,
-  SlowReasoningCandidateResult,
-  TelemetryUsage,
-  TranscriptSegment,
-  WithdrawalReason,
+import {
+  nowUtcIso8601,
+  type AsrCapabilityStatus,
+  type Candidate,
+  type CognitiveEvent,
+  type ControllerDecision,
+  type DataDeletionReceipt,
+  type Evidence,
+  type FastDecisionVerdict,
+  type Intervention,
+  type InterventionFeedback,
+  type Outcome,
+  type PresentationLiveState,
+  type PresentationReflection,
+  type PresentationWeakSegment,
+  type ScenarioCapabilityDescriptor,
+  type ServerMessage,
+  type Session,
+  type SharedCognitiveState,
+  type SlowReasoningCandidateResult,
+  type TelemetryUsage,
+  type TranscriptSegment,
+  type UtcIso8601,
+  type WithdrawalReason,
 } from '@cuex/protocol';
 import type { WsConnectionStatus } from '../driver/CueXWSClient';
 
@@ -27,7 +30,7 @@ export interface WithdrawnBanner {
   title?: string;
   cueText?: string;
   reason: WithdrawalReason;
-  withdrawnAt: number;
+  withdrawnAt: UtcIso8601;
 }
 
 export interface PresentationSessionState {
@@ -55,7 +58,9 @@ export interface PresentationSessionState {
     promptText: string;
     supportingEvidence: Evidence[];
   } | null;
-  wipedAt?: number;
+  wipedAt?: UtcIso8601;
+  deletionReceipt: DataDeletionReceipt | null;
+  lastServerSeq: number;
 }
 
 export const initialPresentationSessionState: PresentationSessionState = {
@@ -78,6 +83,8 @@ export const initialPresentationSessionState: PresentationSessionState = {
   outcome: null,
   reflection: null,
   rehearsalContext: null,
+  deletionReceipt: null,
+  lastServerSeq: 0,
 };
 
 export type PresentationSessionAction =
@@ -85,6 +92,7 @@ export type PresentationSessionAction =
   | { type: 'ws_status'; status: WsConnectionStatus }
   | { type: 'error'; message?: string }
   | { type: 'clear_withdrawn' }
+  | { type: 'deletion_receipt'; receipt: DataDeletionReceipt }
   | { type: 'local_feedback'; interventionId: string; feedback: InterventionFeedback }
   | { type: 'server_message'; message: ServerMessage };
 
@@ -104,6 +112,31 @@ function upsertIntervention(list: Intervention[], intervention: Intervention): I
   return next;
 }
 
+function isStaleOrFinishedIntervention(
+  intervention: Intervention | null | undefined,
+  history: Intervention[],
+  candidate?: Candidate | null
+): boolean {
+  if (!intervention) return true;
+  if (intervention.withdrawnAt || intervention.withdrawalReason || intervention.dismissedAt) {
+    return true;
+  }
+  const existing = history.find((item) => item.interventionId === intervention.interventionId);
+  if (existing && (existing.withdrawnAt || existing.withdrawalReason || existing.dismissedAt)) {
+    return true;
+  }
+  if (candidate && candidate.candidateId === intervention.candidateId) {
+    if (candidate.status === 'expired' || candidate.status === 'withdrawn' || candidate.status === 'dismissed') {
+      return true;
+    }
+    const expiresMs = Date.parse(candidate.expiresAt);
+    if (Number.isFinite(expiresMs) && expiresMs <= Date.now()) {
+      return true;
+    }
+  }
+  return false;
+}
+
 export function presentationSessionReducer(
   state: PresentationSessionState,
   action: PresentationSessionAction
@@ -120,14 +153,23 @@ export function presentationSessionReducer(
   if (action.type === 'clear_withdrawn') {
     return { ...state, lastWithdrawn: null };
   }
+  if (action.type === 'deletion_receipt') {
+    return {
+      ...initialPresentationSessionState,
+      wsStatus: state.wsStatus,
+      wipedAt: action.receipt.completedAt,
+      deletionReceipt: action.receipt,
+    };
+  }
   if (action.type === 'local_feedback') {
+    const feedbackAt = nowUtcIso8601();
     const updatedActive =
       state.activeIntervention?.interventionId === action.interventionId
-        ? { ...state.activeIntervention, userFeedback: action.feedback, feedbackAt: Date.now() }
+        ? { ...state.activeIntervention, userFeedback: action.feedback, feedbackAt }
         : state.activeIntervention;
     const updatedHistory = state.interventionHistory.map((item) =>
       item.interventionId === action.interventionId
-        ? { ...item, userFeedback: action.feedback, feedbackAt: Date.now() }
+        ? { ...item, userFeedback: action.feedback, feedbackAt }
         : item
     );
     return {
@@ -138,22 +180,64 @@ export function presentationSessionReducer(
   }
 
   const msg = action.message;
+  if (typeof msg.serverSeq === 'number' && msg.serverSeq <= state.lastServerSeq) {
+    return state;
+  }
+  const nextSeq =
+    typeof msg.serverSeq === 'number' ? Math.max(state.lastServerSeq, msg.serverSeq) : state.lastServerSeq;
+
   switch (msg.type) {
-    case 'session.ready':
+    case 'session.ready': {
+      const isSameSession = state.session?.sessionId === msg.payload.session.sessionId;
+      const incomingActive = msg.payload.initialState.activeIntervention;
+      const safeActive = isStaleOrFinishedIntervention(
+        incomingActive,
+        isSameSession ? state.interventionHistory : [],
+        msg.payload.initialState.activeCandidate
+      )
+        ? null
+        : incomingActive;
+
+      if (isSameSession) {
+        return {
+          ...state,
+          wsStatus: 'connected',
+          error: undefined,
+          lastServerSeq: nextSeq,
+          session: msg.payload.session,
+          scenario: msg.payload.scenario,
+          asrStatus: msg.payload.asrStatus,
+          cognitiveState: {
+            ...msg.payload.initialState,
+            activeIntervention: safeActive,
+          },
+          activeIntervention: safeActive,
+          presentationState: msg.payload.presentationState ?? state.presentationState,
+          telemetry: msg.payload.initialState.telemetry,
+        };
+      }
+
       return {
         ...initialPresentationSessionState,
         wsStatus: 'connected',
+        lastServerSeq: nextSeq,
         session: msg.payload.session,
         scenario: msg.payload.scenario,
         asrStatus: msg.payload.asrStatus,
-        cognitiveState: msg.payload.initialState,
+        cognitiveState: {
+          ...msg.payload.initialState,
+          activeIntervention: safeActive,
+        },
+        activeIntervention: safeActive,
         presentationState: msg.payload.presentationState ?? null,
         telemetry: msg.payload.initialState.telemetry,
       };
+    }
 
     case 'session.state':
       return {
         ...state,
+        lastServerSeq: nextSeq,
         session: msg.payload.session,
         cognitiveState: state.cognitiveState
           ? {
@@ -168,9 +252,11 @@ export function presentationSessionReducer(
     case 'session.ended':
       return {
         ...state,
+        lastServerSeq: nextSeq,
         session: state.session
           ? { ...state.session, status: 'ended', endedAt: msg.payload.endedAt }
           : state.session,
+        activeIntervention: null,
         outcome: msg.payload.outcome,
         reflection: msg.payload.reflection ?? state.reflection,
         telemetry: msg.payload.outcome.telemetry,
@@ -180,12 +266,14 @@ export function presentationSessionReducer(
       return {
         ...initialPresentationSessionState,
         wsStatus: state.wsStatus,
+        lastServerSeq: nextSeq,
         wipedAt: msg.payload.wipedAt,
       };
 
     case 'asr.status':
       return {
         ...state,
+        lastServerSeq: nextSeq,
         asrStatus: msg.payload,
       };
 
@@ -200,6 +288,7 @@ export function presentationSessionReducer(
       }
       return {
         ...state,
+        lastServerSeq: nextSeq,
         transcripts: nextTranscripts.slice(-120),
         asrStatus: msg.payload.asrStatus ?? state.asrStatus,
       };
@@ -208,28 +297,47 @@ export function presentationSessionReducer(
     case 'cognitive.event':
       return {
         ...state,
+        lastServerSeq: nextSeq,
         events: [...state.events, msg.payload].slice(-60),
       };
 
-    case 'cognitive.state':
+    case 'cognitive.state': {
+      const safeActive = isStaleOrFinishedIntervention(
+        msg.payload.activeIntervention,
+        state.interventionHistory,
+        msg.payload.activeCandidate
+      )
+        ? null
+        : msg.payload.activeIntervention;
       return {
         ...state,
-        cognitiveState: msg.payload,
-        activeIntervention: msg.payload.activeIntervention,
+        lastServerSeq: nextSeq,
+        cognitiveState: {
+          ...msg.payload,
+          activeIntervention: safeActive,
+        },
+        activeIntervention: safeActive,
         telemetry: msg.payload.telemetry,
       };
+    }
 
     case 'system1.verdict':
       return {
         ...state,
-        verdicts: [...state.verdicts, msg.payload].slice(-40),
+        lastServerSeq: nextSeq,
+        verdicts: state.verdicts.some((v) => v.requestId === msg.payload.requestId)
+          ? state.verdicts
+          : [...state.verdicts, msg.payload].slice(-40),
       };
 
     case 'system2.candidate': {
       const candidate = msg.payload.candidate;
       return {
         ...state,
-        candidateResults: [...state.candidateResults, msg.payload].slice(-30),
+        lastServerSeq: nextSeq,
+        candidateResults: state.candidateResults.some((r) => r.requestId === msg.payload.requestId)
+          ? state.candidateResults
+          : [...state.candidateResults, msg.payload].slice(-30),
         candidates: candidate ? upsertCandidate(state.candidates, candidate) : state.candidates,
       };
     }
@@ -237,12 +345,34 @@ export function presentationSessionReducer(
     case 'controller.decision':
       return {
         ...state,
-        decisions: [...state.decisions, msg.payload].slice(-60),
+        lastServerSeq: nextSeq,
+        decisions: state.decisions.some((d) => d.decisionId === msg.payload.decisionId)
+          ? state.decisions
+          : [...state.decisions, msg.payload].slice(-60),
       };
 
-    case 'intervention.shown':
+    case 'intervention.shown': {
+      const matchedCand = state.candidates.find(
+        (c) => c.candidateId === msg.payload.intervention.candidateId
+      );
+      if (
+        isStaleOrFinishedIntervention(
+          msg.payload.intervention,
+          state.interventionHistory,
+          matchedCand
+        )
+      ) {
+        return {
+          ...state,
+          lastServerSeq: nextSeq,
+          decisions: state.decisions.some((d) => d.decisionId === msg.payload.decision.decisionId)
+            ? state.decisions
+            : [...state.decisions, msg.payload.decision].slice(-60),
+        };
+      }
       return {
         ...state,
+        lastServerSeq: nextSeq,
         activeIntervention: msg.payload.intervention,
         interventionHistory: upsertIntervention(state.interventionHistory, msg.payload.intervention),
         lastWithdrawn: null,
@@ -250,6 +380,7 @@ export function presentationSessionReducer(
           ? state.decisions
           : [...state.decisions, msg.payload.decision].slice(-60),
       };
+    }
 
     case 'intervention.withdrawn': {
       const prev =
@@ -265,6 +396,7 @@ export function presentationSessionReducer(
         : undefined;
       return {
         ...state,
+        lastServerSeq: nextSeq,
         activeIntervention:
           state.activeIntervention?.interventionId === msg.payload.interventionId
             ? null
@@ -288,12 +420,14 @@ export function presentationSessionReducer(
     case 'presentation.progress':
       return {
         ...state,
+        lastServerSeq: nextSeq,
         presentationState: msg.payload,
       };
 
     case 'rehearsal.ready':
       return {
         ...state,
+        lastServerSeq: nextSeq,
         rehearsalContext: {
           weakSegment: msg.payload.weakSegment,
           promptText: msg.payload.promptText,
@@ -304,17 +438,22 @@ export function presentationSessionReducer(
     case 'telemetry.updated':
       return {
         ...state,
+        lastServerSeq: nextSeq,
         telemetry: msg.payload,
       };
 
     case 'session.error':
       return {
         ...state,
+        lastServerSeq: nextSeq,
         error: msg.payload.message,
       };
 
     case 'pong':
-      return state;
+      return {
+        ...state,
+        lastServerSeq: nextSeq,
+      };
 
     default: {
       const exhaustive: never = msg;

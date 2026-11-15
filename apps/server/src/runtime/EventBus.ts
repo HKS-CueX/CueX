@@ -1,11 +1,12 @@
-import type { CognitiveEvent, CognitiveEventType } from '@cuex/protocol';
+import type { CognitiveEvent, CognitiveEventType, UtcIso8601 } from '@cuex/protocol';
+import { isoToMs, msToIso } from './time';
 
 export type CognitiveEventListener = (event: CognitiveEvent) => void | Promise<void>;
 
 export interface EmitEventInput<TPayload = Record<string, unknown>> {
   sessionId: string;
   eventType: CognitiveEventType;
-  timestamp: number;
+  timestamp: number | UtcIso8601;
   source: string;
   payload: TPayload;
   confidence: number;
@@ -39,11 +40,14 @@ export class CognitiveEventBus {
   }
 
   emit<TPayload extends Record<string, unknown>>(input: EmitEventInput<TPayload>): CognitiveEvent<TPayload> {
+    const timestampMs = typeof input.timestamp === 'number' ? input.timestamp : isoToMs(input.timestamp, Date.now());
+    const timestampIso = typeof input.timestamp === 'string' ? input.timestamp : msToIso(timestampMs);
+
     const event: CognitiveEvent<TPayload> = {
-      event_id: `evt_${++this.seq}_${input.timestamp}`,
+      event_id: `evt_${++this.seq}_${timestampMs}`,
       session_id: input.sessionId,
       event_type: input.eventType,
-      timestamp: input.timestamp,
+      timestamp: timestampIso,
       source: input.source,
       payload: input.payload,
       confidence: Math.max(0, Math.min(1, input.confidence)),

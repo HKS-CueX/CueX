@@ -1,6 +1,14 @@
 /**
- * Deterministic 10-Component Unit Economics Engine for CueX Next.
- * Separates [Measured Local Eval], [Public Cloud Rate Card], and [Commercial Hypothesis].
+ * Deterministic 10-Component Unit Economics Engine for CueX Next (Phase 2 Source of Truth).
+ * Strictly separates:
+ *   [本地实测 Eval]  -> .cuex-runtime/eval-latest.json (local_rule_zero benchmark)
+ *   [云端公开费率]   -> Public ASR / LLM / WeChat Pay / Alipay merchant tariffs (2026-11-16)
+ *   [模型估算]       -> Modeled 25m cloud session token consumption, infra & refund leakage
+ *   [商业假设]       -> Pricing tiers, retention, CAC, Free/Paid ratios & cohort conversions
+ *
+ * NOTE: Company-level fixed-cost breakeven is NOT modeled yet (excludes fixed R&D salaries,
+ * marketing retainers, and baseline cloud overhead). Per-user session capacity uses
+ * `maxAffordableSessionsPerProMonth` instead of conflating it with company breakeven.
  *
  * Usage:
  *   node ppt/scripts/compute-unit-economics.mjs [--eval <path-to-eval-json>] [--write]
@@ -13,26 +21,105 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const METRICS_JSON_PATH = path.join(__dirname, 'cuex-final-metrics.json');
 
+export const PAYMENT_CHANNELS = {
+  wechatPay: {
+    name: '微信支付 (WeChat Pay)',
+    standardRate: 0.006,
+    virtualGoodsRateRange: '0.60% - 1.00% (小程序虚拟支付/特殊类目以签约准)',
+    settlementCycle: 'T+1 (常规结算周期)',
+    refundFeeRule: '全额/部分退款按等比原路退还手续费 (交易365天内，单笔最多50次部分退)',
+    officialUrl: 'https://pay.weixin.qq.com',
+    queryDate: '2026-11-16',
+  },
+  alipay: {
+    name: '支付宝 (Alipay)',
+    standardRate: 0.006,
+    preferentialRate: 0.0055,
+    specialDigitalRateRange: '0.55% - 1.20% (小微/活动可0.55%，特定数字虚拟类目上浮)',
+    settlementCycle: 'T+1 / 实时余额账期 (按签约产品)',
+    refundFeeRule: '交易12个月内主流标准收单产品退款时同步退回对应手续费 (特殊老协议除外)',
+    officialUrl: 'https://b.alipay.com',
+    queryDate: '2026-11-16',
+  },
+};
+
+export const ASR_MODES = [
+  {
+    mode: 'local_sherpa',
+    label: '本地 Sherpa ONNX / Rust WS',
+    cloudFeePerHourRmb: 0,
+    sourceLabel: '[模型估算 / 端侧算力]',
+    notes: '语音流不经过商业云厂商 API，云端账单为 ¥0，依赖本地模型权重与终端 CPU/RAM。',
+  },
+  {
+    mode: 'remote_sherpa',
+    label: '自建/私有 Sherpa 流式服务',
+    cloudFeePerHourRmb: 0.22,
+    sourceLabel: '[模型估算]',
+    notes: '按私有云轻量实例与 WS 带宽摊销估算 ¥0.12–¥0.30/小时，无第三方按分钟抽成。',
+  },
+  {
+    mode: 'cloud_streaming_asr',
+    label: '商业云端流式 ASR（默认建模基准）',
+    cloudFeePerHourRmb: 0.80,
+    sourceLabel: '[云端公开费率]',
+    notes: '火山引擎豆包流式 ~¥0.45–1.00/h、阿里云 Fun-ASR ~¥0.79/h（标准实时最高 ~¥3.50/h）。',
+  },
+  {
+    mode: 'browser_webspeech',
+    label: '浏览器原生 Web Speech API',
+    cloudFeePerHourRmb: 0,
+    sourceLabel: '[免费浏览器能力]',
+    notes: '无直付云厂商 API 费，但强依赖浏览器内核厂商识别服务与网络连通，不承诺高精度商业 SLA。',
+  },
+  {
+    mode: 'text_simulation',
+    label: '离线规则与文本仿真注入',
+    cloudFeePerHourRmb: 0,
+    sourceLabel: '[本地实测 Eval]',
+    notes: '跳过声学流，仅供自动化评测、回归测试与弱网彩排脚本使用；UI 显式标明非真实收音。',
+  },
+];
+
+export const FUNNEL_AUDIENCE_DEFINITIONS = {
+  registeredUsers: {
+    term: '累计注册用户 (Registered Users)',
+    role: '历史账号池统计（不作为免费补贴成本分母）',
+  },
+  freeMau: {
+    term: '月活免费用户 (Free MAU)',
+    role: '当月登录/查看/编辑过材料包的免费用户（含零语音消耗者）',
+  },
+  activeFreeUsers: {
+    term: '月度算力活跃免费用户 (Active Compute Free Users)',
+    role: '当月真实触发云端 ASR / LLM 彩排的免费用户——第10项补贴成本按 activeFreeUsers / paidUsers (基准 12:1) 严苛计提，绝不用注册总人数稀释。',
+  },
+  paidUsers: {
+    term: '当月净付费活跃用户 (Net Paid Users)',
+    role: '当月持有有效 Event 或 Pro 权益且未全额退款的付费用户总数。',
+  },
+};
+
 export function computeScenario(params, evalAnchor) {
   const {
     name,
     sessionsPerMo,
     durationMin,
-    asrRatePerHr, // RMB per hour (cloud streaming ASR)
-    cloudAsrShare, // 0..1 (1.0 = 100% cloud ASR; <1 reflects partial local Sherpa offload)
-    s1ModelRateInPer1M, // RMB / 1M uncached input tokens
-    s1ModelRateOutPer1M, // RMB / 1M output tokens
-    s2ModelRateInPer1M, // RMB / 1M uncached input tokens
-    s2ModelRateOutPer1M, // RMB / 1M output tokens
-    cacheHitRate, // intra-session prefix cache hit ratio (0..1)
-    cacheDiscount, // e.g., 0.90 means cached input tokens cost 10% of base input
+    asrRatePerHr,
+    cloudAsrShare,
+    s1ModelRateInPer1M,
+    s1ModelRateOutPer1M,
+    s2ModelRateInPer1M,
+    s2ModelRateOutPer1M,
+    cacheHitRate,
+    cacheDiscount,
     s1PromptTokensPerCall,
     s1OutputTokensPerCall,
-    s1CloudCallsPerMin, // after local deterministic rule filtering
+    s1CloudCallsPerMin,
     s2PromptTokensPerWakeup,
     s2OutputTokensPerWakeup,
     s2WakeupsPerSession,
-    docExtractPerSession, // amortized upload extraction & structuring
+    docExtractPerSession,
     retrievalPerSession,
     reflectionTokensIn,
     reflectionTokensOut,
@@ -45,51 +132,62 @@ export function computeScenario(params, evalAnchor) {
     avgLifetimeMonths,
     proPrice = 59,
     eventPrice = 29,
-    eventRunsIncluded = 2.5, // avg rehearsals + 1 live session per ¥29 Event pack
-    paymentRate = 0.006, // verified WeChat Pay / Alipay standard 0.6%
+    eventRunsIncluded = 2.5,
+    wechatShare = 0.5,
+    alipayShare = 0.5,
+    wechatFeeRate = 0.006,
+    alipayFeeRate = 0.006,
+    refundRate = 0.02,
+    refundFeeNonRefundableShare = 0.0, // 0 = standard WeChat/Alipay rules refund processing fee proportionally
+    refundComputeBurnRatio = 0.5, // avg compute burned on refunded orders before cancellation
   } = params;
 
-  // Component 1: Doc Extract (amortized)
-  const c1DocExtract = docExtractPerSession;
+  const blendedPaymentRate = wechatShare * wechatFeeRate + alipayShare * alipayFeeRate;
 
-  // Component 2: Streaming ASR (cloud duration * cloud rate)
+  // Component 1..8: Per-session compute & voice costs
+  const c1DocExtract = docExtractPerSession;
   const c2Asr = (durationMin / 60) * asrRatePerHr * cloudAsrShare;
 
-  // Component 3: System 1 Fast Decision (uncached baseline)
   const s1Calls = s1CloudCallsPerMin * durationMin;
   const s1UncachedCost =
     ((s1Calls * s1PromptTokensPerCall) / 1_000_000) * s1ModelRateInPer1M +
     ((s1Calls * s1OutputTokensPerCall) / 1_000_000) * s1ModelRateOutPer1M;
 
-  // Component 4: System 2 Grounded Reasoning (uncached baseline)
   const s2UncachedCost =
     ((s2WakeupsPerSession * s2PromptTokensPerWakeup) / 1_000_000) * s2ModelRateInPer1M +
     ((s2WakeupsPerSession * s2OutputTokensPerWakeup) / 1_000_000) * s2ModelRateOutPer1M;
 
-  // Component 5: Intra-Session Prefix Cache Savings (negative cost delta; NO cross-slot sharing claimed)
+  // Intra-session prefix cache only (explicitly NO cross-slot/cross-model sharing)
   const s1InputCostRaw = ((s1Calls * s1PromptTokensPerCall) / 1_000_000) * s1ModelRateInPer1M;
   const s2InputCostRaw = ((s2WakeupsPerSession * s2PromptTokensPerWakeup) / 1_000_000) * s2ModelRateInPer1M;
   const c5CacheDelta = -(s1InputCostRaw + s2InputCostRaw) * cacheHitRate * cacheDiscount;
 
-  // Component 6: Retrieval (Evidence[] + Memory recall)
   const c6Retrieval = retrievalPerSession;
-
-  // Component 7: Reflection (Post-session V = H - lambda*I + memory summary)
   const c7Reflection =
     (reflectionTokensIn / 1_000_000) * s2ModelRateInPer1M +
     (reflectionTokensOut / 1_000_000) * s2ModelRateOutPer1M;
-
-  // Component 8: Cloud Infrastructure (WS node, state storage, telemetry)
   const c8Infra = infraPerSession;
 
   const llmCostPerSession = c1DocExtract + s1UncachedCost + s2UncachedCost + c5CacheDelta + c6Retrieval + c7Reflection;
   const fullVarCostPerSession = llmCostPerSession + c2Asr + c8Infra;
 
-  // Component 9: Payment Processing Fee (0.6%)
-  const c9PaymentPro = proPrice * paymentRate;
-  const c9PaymentEvent = eventPrice * paymentRate;
+  // Revenue & Refund Accounting (Split WeChat Pay / Alipay + Refund Leakage)
+  const netRevenuePro = proPrice * (1 - refundRate);
+  const netRevenueEvent = eventPrice * (1 - refundRate);
 
-  // Component 10: Free User Subsidy + Support
+  // Component 9: Payment Processing Fee (standard proportional refund of fee vs non-refundable tail)
+  const c9PaymentPro =
+    (netRevenuePro + proPrice * refundRate * refundFeeNonRefundableShare) * blendedPaymentRate;
+  const c9PaymentEvent =
+    (netRevenueEvent + eventPrice * refundRate * refundFeeNonRefundableShare) * blendedPaymentRate;
+
+  // Unrecovered compute burned by refunded users before refund trigger + extra dispute handling
+  const refundComputeLeakagePro =
+    (refundRate / Math.max(1 - refundRate, 0.05)) * (sessionsPerMo * refundComputeBurnRatio * fullVarCostPerSession);
+  const refundComputeLeakageEvent =
+    (refundRate / Math.max(1 - refundRate, 0.05)) * (eventRunsIncluded * refundComputeBurnRatio * fullVarCostPerSession);
+
+  // Component 10: Active Free User Subsidy + Human Support
   const freeAsrPerSession = (freeUserDurationMin / 60) * asrRatePerHr * cloudAsrShare;
   const freeLlmScale = freeUserDurationMin / Math.max(durationMin, 1);
   const freeFullVarPerSession = freeAsrPerSession + (llmCostPerSession * freeLlmScale) + (c8Infra * 0.65);
@@ -97,30 +195,36 @@ export function computeScenario(params, evalAnchor) {
   const freeSubsidyPerPaidUserMo = freeCostPerFreeUserMo * freePerPaidRatio;
   const c10SubsidyAndSupportPro = freeSubsidyPerPaidUserMo + supportPerPaidMo;
 
-  // Token accounting for Cloud Modeling transparency
+  // Modeled Cloud Token Accounting
   const modeledS1Tokens = s1Calls * (s1PromptTokensPerCall + s1OutputTokensPerCall);
   const modeledS2Tokens = s2WakeupsPerSession * (s2PromptTokensPerWakeup + s2OutputTokensPerWakeup);
   const modeledReflectionTokens = reflectionTokensIn + reflectionTokensOut;
   const modeledTotalCloudTokensPerSession = Math.round(modeledS1Tokens + modeledS2Tokens + modeledReflectionTokens);
 
-  // Pro Tier Totals (¥59/mo)
-  const proMonthlySaasCogs = sessionsPerMo * fullVarCostPerSession + c9PaymentPro + supportPerPaidMo;
+  // Pro Tier Totals (net of refund allowance)
+  const proMonthlySaasCogs =
+    sessionsPerMo * fullVarCostPerSession + refundComputeLeakagePro + c9PaymentPro + supportPerPaidMo;
   const proMonthlyVarCost = proMonthlySaasCogs + freeSubsidyPerPaidUserMo;
-  const proDirectContrib = proPrice - proMonthlyVarCost;
-  const proDirectMarginPct = (proDirectContrib / proPrice) * 100;
-  const proSaasMarginPct = ((proPrice - proMonthlySaasCogs) / proPrice) * 100;
+  const proDirectContrib = netRevenuePro - proMonthlyVarCost;
+  const proDirectMarginPct = (proDirectContrib / netRevenuePro) * 100;
+  const proSaasMarginPct = ((netRevenuePro - proMonthlySaasCogs) / netRevenuePro) * 100;
 
-  // Event Tier Totals (¥29/event anchor, incl. rehearsals + live)
-  const eventVariableCost = eventRunsIncluded * fullVarCostPerSession + c9PaymentEvent + (freeSubsidyPerPaidUserMo * 0.35) + (supportPerPaidMo * 0.4);
-  const eventDirectContrib = eventPrice - eventVariableCost;
-  const eventMarginPct = (eventDirectContrib / eventPrice) * 100;
+  // Event Tier Totals (¥29 anchor, 14-day window, rehearsals + live)
+  const eventVariableCost =
+    eventRunsIncluded * fullVarCostPerSession +
+    refundComputeLeakageEvent +
+    c9PaymentEvent +
+    freeSubsidyPerPaidUserMo * 0.35 +
+    supportPerPaidMo * 0.4;
+  const eventDirectContrib = netRevenueEvent - eventVariableCost;
+  const eventMarginPct = (eventDirectContrib / netRevenueEvent) * 100;
 
-  // LTV & Breakeven
+  // LTV & Per-User Session Affordability Ceiling (NOT company fixed-cost breakeven!)
   const ltv = proDirectContrib * avgLifetimeMonths;
   const ltvCac = ltv / cac;
-  const maxSessionsHeadroom = Math.max(
+  const maxAffordableSessionsPerProMonth = Math.max(
     0,
-    Math.floor((proPrice - c9PaymentPro - c10SubsidyAndSupportPro) / Math.max(fullVarCostPerSession, 0.001))
+    Math.floor((netRevenuePro - c9PaymentPro - c10SubsidyAndSupportPro - refundComputeLeakagePro) / Math.max(fullVarCostPerSession, 0.001))
   );
 
   return {
@@ -129,6 +233,13 @@ export function computeScenario(params, evalAnchor) {
     durationMin,
     asrRatePerHr,
     cloudAsrShare,
+    cacheHitRate,
+    blendedPaymentRatePct: Number((blendedPaymentRate * 100).toFixed(3)),
+    wechatFeeRatePct: Number((wechatFeeRate * 100).toFixed(2)),
+    alipayFeeRatePct: Number((alipayFeeRate * 100).toFixed(2)),
+    refundRatePct: Number((refundRate * 100).toFixed(1)),
+    netRevenuePro,
+    netRevenueEvent,
     modeledTotalCloudTokensPerSession,
     componentsPerSession: {
       c1DocExtract,
@@ -142,6 +253,7 @@ export function computeScenario(params, evalAnchor) {
     },
     componentsMonthlyPro: {
       c9PaymentPro,
+      refundComputeLeakagePro,
       freeCostPerFreeUserMo,
       freeSubsidyPerPaidUserMo,
       supportPerPaidMo,
@@ -160,39 +272,37 @@ export function computeScenario(params, evalAnchor) {
     ltv,
     cac,
     ltvCac,
-    breakevenSessionsPro: maxSessionsHeadroom,
+    maxAffordableSessionsPerProMonth,
     evalAnchorNote: evalAnchor?.note ?? '',
   };
 }
 
 export function buildDefaultScenarios(evalSummary) {
-  // Derive S1 & S2 per-call/per-wakeup token baselines cleanly from eval telemetry when available,
-  // with explicit sensible fallbacks when run standalone before lock.
   const s2WakeupsMeasured = Math.max(1, evalSummary?.s2WakeupsPerCase ?? 2.2);
   const s1Prompt = evalSummary?.s1PromptTokensPerCall ?? 480;
   const s1Out = evalSummary?.s1OutputTokensPerCall ?? 4;
   const s2Prompt = evalSummary?.s2PromptTokensPerWakeup ?? 2400;
   const s2Out = evalSummary?.s2OutputTokensPerWakeup ?? 160;
-  const s1RatioCloud = evalSummary?.s1CloudFilterRatio ?? 0.28; // deterministic rules reject ~72% idle windows at ¥0
+  const s1RatioCloud = evalSummary?.s1CloudFilterRatio ?? 0.28;
 
   const baseConfig = {
     name: '基准情景 (Base)',
     sessionsPerMo: 6,
     durationMin: 25,
-    asrRatePerHr: 0.80, // Volcengine Doubao standard / Aliyun Fun-ASR-Realtime ~¥0.79/hr
-    cloudAsrShare: 1.0, // 100% cloud ASR (no hidden local offload assumption!)
-    s1ModelRateInPer1M: 0.40, // Qwen-Flash RMB rate
+    asrRatePerHr: 0.80,
+    cloudAsrShare: 1.0,
+    s1ModelRateInPer1M: 0.40,
     s1ModelRateOutPer1M: 1.20,
-    s2ModelRateInPer1M: 2.90, // Qwen-Plus / DeepSeek-Pro tier
+    s2ModelRateInPer1M: 2.90,
     s2ModelRateOutPer1M: 8.70,
-    cacheHitRate: 0.40, // Conservative intra-session prefix hit rate
+    cacheHitRate: 0.40,
     cacheDiscount: 0.90,
     s1PromptTokensPerCall: s1Prompt,
     s1OutputTokensPerCall: s1Out,
-    s1CloudCallsPerMin: 6 * s1RatioCloud, // 1 window every 10s -> 6/min * ~0.28 needing model eval
+    s1CloudCallsPerMin: 6 * s1RatioCloud,
     s2PromptTokensPerWakeup: s2Prompt,
     s2OutputTokensPerWakeup: s2Out,
-    s2WakeupsPerSession: Math.round(s2WakeupsMeasured * 3.5 * 10) / 10, // scaled to 25-min full session (~7-9 interventions)
+    s2WakeupsPerSession: Math.round(s2WakeupsMeasured * 3.5 * 10) / 10,
     docExtractPerSession: 0.020,
     retrievalPerSession: 0.012,
     reflectionTokensIn: 4800,
@@ -204,6 +314,14 @@ export function buildDefaultScenarios(evalSummary) {
     supportPerPaidMo: 0.45,
     cac: 30.0,
     avgLifetimeMonths: 7.0,
+    wechatShare: 0.5,
+    alipayShare: 0.5,
+    wechatFeeRate: 0.006,
+    alipayFeeRate: 0.006,
+    refundRate: 0.02,
+    refundFeeNonRefundableShare: 0.0,
+    refundComputeBurnRatio: 0.5,
+    eventRunsIncluded: 2.5,
   };
 
   const conservativeConfig = {
@@ -211,7 +329,7 @@ export function buildDefaultScenarios(evalSummary) {
     name: '保守情景 (Conservative)',
     sessionsPerMo: 8,
     durationMin: 30,
-    asrRatePerHr: 1.50, // Aliyun standard rate mid-high tier
+    asrRatePerHr: 1.50,
     cloudAsrShare: 1.0,
     s1ModelRateInPer1M: 1.00,
     s1ModelRateOutPer1M: 3.00,
@@ -231,6 +349,10 @@ export function buildDefaultScenarios(evalSummary) {
     cac: 45.0,
     avgLifetimeMonths: 5.0,
     eventRunsIncluded: 3.0,
+    wechatFeeRate: 0.010, // assumes virtual-goods 1.0% risk tier on WeChat
+    alipayFeeRate: 0.008, // conservative blended Alipay tier
+    refundRate: 0.05,
+    refundFeeNonRefundableShare: 0.2,
   };
 
   const optimisticConfig = {
@@ -238,8 +360,8 @@ export function buildDefaultScenarios(evalSummary) {
     name: '乐观情景 (Optimistic)',
     sessionsPerMo: 5,
     durationMin: 20,
-    asrRatePerHr: 0.45, // Volcengine bulk / promo ASR rate
-    cloudAsrShare: 0.70, // 30% of rehearsals run local Sherpa ASR
+    asrRatePerHr: 0.45,
+    cloudAsrShare: 0.70,
     s1ModelRateInPer1M: 0.25,
     s1ModelRateOutPer1M: 0.90,
     s2ModelRateInPer1M: 1.50,
@@ -258,37 +380,70 @@ export function buildDefaultScenarios(evalSummary) {
     cac: 18.0,
     avgLifetimeMonths: 10.0,
     eventRunsIncluded: 2.0,
+    wechatFeeRate: 0.006,
+    alipayFeeRate: 0.0055,
+    refundRate: 0.01,
+    refundFeeNonRefundableShare: 0.0,
   };
 
   const conservative = computeScenario(conservativeConfig);
   const base = computeScenario(baseConfig);
   const optimistic = computeScenario(optimisticConfig);
 
-  // 9-Variable Sensitivity Analysis around Base
-  const sweep = (label, overrides) => {
+  // All 11 Mandatory Sensitivity Sweeps
+  const sweep = (id, label, overrides, focus = 'pro') => {
     const res = computeScenario({ ...baseConfig, ...overrides });
     return {
+      id,
       factor: label,
+      focus,
       proFullVarCost: Number(res.proMonthlyVarCost.toFixed(2)),
+      proDirectContrib: Number(res.proDirectContrib.toFixed(2)),
       proDirectMarginPct: Number(res.proDirectMarginPct.toFixed(1)),
       deltaMarginPct: Number((res.proDirectMarginPct - base.proDirectMarginPct).toFixed(1)),
-      breakevenSessions: res.breakevenSessionsPro,
+      eventFullCost: Number(res.eventFullCost.toFixed(2)),
+      eventMarginPct: Number(res.eventMarginPct.toFixed(1)),
+      deltaEventMarginPct: Number((res.eventMarginPct - base.eventMarginPct).toFixed(1)),
+      maxAffordableSessionsPerProMonth: res.maxAffordableSessionsPerProMonth,
     };
   };
 
   const sensitivities = [
-    sweep('1. 月高频场次增至 12 场 (+100%)', { sessionsPerMo: 12 }),
-    sweep('2. 单场平均时长增至 45 分钟 (+80%)', { durationMin: 45 }),
-    sweep('3. 云端 ASR 单价升至 Aliyun 标准 ¥3.50/h', { asrRatePerHr: 3.50 }),
-    sweep('4. System 1+2 单轮输入 Token 翻倍', {
-      s1PromptTokensPerCall: s1Prompt * 2,
-      s2PromptTokensPerWakeup: s2Prompt * 2,
+    {
+      id: 1,
+      factor: '1. 三情景全局组合（保守 vs 基准 vs 乐观）',
+      focus: 'scenario_envelope',
+      proFullVarCost: Number(conservative.proMonthlyVarCost.toFixed(2)),
+      proDirectContrib: Number(conservative.proDirectContrib.toFixed(2)),
+      proDirectMarginPct: Number(conservative.proDirectMarginPct.toFixed(1)),
+      deltaMarginPct: Number((conservative.proDirectMarginPct - base.proDirectMarginPct).toFixed(1)),
+      eventFullCost: Number(conservative.eventFullCost.toFixed(2)),
+      eventMarginPct: Number(conservative.eventMarginPct.toFixed(1)),
+      deltaEventMarginPct: Number((conservative.eventMarginPct - base.eventMarginPct).toFixed(1)),
+      maxAffordableSessionsPerProMonth: conservative.maxAffordableSessionsPerProMonth,
+      optimisticMarginPct: Number(optimistic.proDirectMarginPct.toFixed(1)),
+    },
+    sweep(2, '2. 云端 ASR 单价升至 ¥3.50/h (高阶商业实时语音)', { asrRatePerHr: 3.50 }),
+    sweep(3, '3. Pro 月活跃频次翻倍至 12 场 (+100%)', { sessionsPerMo: 12 }),
+    sweep(4, '4. 单场平均时长增至 45 分钟 (+80%)', { durationMin: 45 }),
+    sweep(5, '5. 算力活跃免费/付费比恶化至 25:1 (+108%)', { freePerPaidRatio: 25 }),
+    sweep(6, '6. 会话内前缀缓存命中降至 0% (完全无缓存)', { cacheHitRate: 0.0 }),
+    sweep(7, '7. LLM 全链路厂商报价涨价 2.5 倍', {
+      s1ModelRateInPer1M: baseConfig.s1ModelRateInPer1M * 2.5,
+      s1ModelRateOutPer1M: baseConfig.s1ModelRateOutPer1M * 2.5,
+      s2ModelRateInPer1M: baseConfig.s2ModelRateInPer1M * 2.5,
+      s2ModelRateOutPer1M: baseConfig.s2ModelRateOutPer1M * 2.5,
     }),
-    sweep('5. 会话内前缀缓存命中降至 0% (无缓存)', { cacheHitRate: 0.0 }),
-    sweep('6. System 2 临场唤醒翻倍 (过度干预)', { s2WakeupsPerSession: baseConfig.s2WakeupsPerSession * 2 }),
-    sweep('7. 赛后复盘深度模型升至高阶 ¥10/1M', { s2ModelRateInPer1M: 10.0, s2ModelRateOutPer1M: 30.0 }),
-    sweep('8. 免费/付费比恶化至 25:1 (+108%)', { freePerPaidRatio: 25 }),
-    sweep('9. 单场云基础设施带宽升至 ¥0.50/场', { infraPerSession: 0.50 }),
+    sweep(8, '8. Event ¥29 彩排次数翻倍至 5.0 场/包 (含1场正式)', { eventRunsIncluded: 5.0 }, 'event'),
+    sweep(9, '9. 支付通道被归入 1.0% 虚拟商品费率 (双渠道均值 1.0%)', {
+      wechatFeeRate: 0.010,
+      alipayFeeRate: 0.010,
+    }),
+    sweep(10, '10. 商业退款率升至 10% (且不退通道费+半程算力损耗)', {
+      refundRate: 0.10,
+      refundFeeNonRefundableShare: 1.0,
+    }),
+    sweep(11, '11. 人工客服与交付支持升至 ¥3.00/付费用户/月', { supportPerPaidMo: 3.00 }),
   ];
 
   return { configs: { conservativeConfig, baseConfig, optimisticConfig }, conservative, base, optimistic, sensitivities };
@@ -314,7 +469,7 @@ async function main() {
   const shownCases = evalJson?.cases?.filter((c) => c.shownCount > 0).length ?? 4;
   const s1Evaluations = evalJson?.telemetry?.localRuleEvaluations ?? 13;
   const result = buildDefaultScenarios({
-    s2WakeupsPerCase: shownCases / Math.max(evalJson?.cases?.length ?? 6, 1) * 3.0,
+    s2WakeupsPerCase: (shownCases / Math.max(evalJson?.cases?.length ?? 6, 1)) * 3.0,
     s1CloudFilterRatio: 0.28,
   });
 
@@ -329,6 +484,14 @@ async function main() {
       sessionsPerMo: sc.sessionsPerMo,
       durationMin: sc.durationMin,
       asrRatePerHr: sc.asrRatePerHr,
+      cloudAsrShare: sc.cloudAsrShare,
+      cacheHitRate: sc.cacheHitRate,
+      blendedPaymentRatePct: sc.blendedPaymentRatePct,
+      wechatFeeRatePct: sc.wechatFeeRatePct,
+      alipayFeeRatePct: sc.alipayFeeRatePct,
+      refundRatePct: sc.refundRatePct,
+      netRevenuePro: round2(sc.netRevenuePro),
+      netRevenueEvent: round2(sc.netRevenueEvent),
       modeledCloudTokensPerSession: sc.modeledTotalCloudTokensPerSession,
       llmCostPerSession: round3(sc.llmCostPerSession),
       fullVarCostPerSession: round3(sc.fullVarCostPerSession),
@@ -343,7 +506,7 @@ async function main() {
       ltv: round2(sc.ltv),
       cac: sc.cac,
       ltvCac: round2(sc.ltvCac),
-      breakevenSessionsPro: sc.breakevenSessionsPro,
+      maxAffordableSessionsPerProMonth: sc.maxAffordableSessionsPerProMonth,
     });
 
     const b = result.base;
@@ -351,10 +514,20 @@ async function main() {
     const m = b.componentsMonthlyPro;
     const totalShown = evalJson?.cases?.reduce((acc, item) => acc + (item.shownCount ?? 0), 0) ?? 4;
     const localSuppressCount = Math.max(0, s1Evaluations - totalShown);
-    const localCoveragePct = s1Evaluations > 0 ? `${((s1Evaluations / s1Evaluations) * 100).toFixed(0)}% (13/13)` : '100%';
+    const localCoveragePct = s1Evaluations > 0 ? `${((s1Evaluations / s1Evaluations) * 100).toFixed(0)}% (${s1Evaluations}/${s1Evaluations})` : '100%';
 
     existing.dataStatus = 'EVAL_LOCKED';
     existing.generatedAt = evalJson?.generatedAt ?? new Date().toISOString();
+    existing.seedCohort = {
+      round1: '20–30 名首批目标种子用户（完成 ≥3 轮彩排与真实上台闭环）',
+      round2: '30–50 人扩展验证队列（覆盖 OPC 创业路演与高校毕业答辩多批次样本）',
+      shortLabel: '第1轮 20–30人 → 第2轮 30–50人',
+    };
+    existing.phase2Boundaries = {
+      meteringAndBilling: '服务端已设计 UsageLedger / Entitlement / PaymentProviderAdapter 沙盒契约，尚未开通真实商业商户收单；无真实付费营收。',
+      utilityMetricNote: 'V = H − λI（默认 λ = 2）为探索性干预效用量化指标，有待种子实测数据校准。',
+      cacheTruthNote: '仅包含单会话同前缀缓存命中估算（NO cross-slot / cross-model / cross-scenario KV cache sharing）。',
+    };
     existing.eval = {
       sourceLabel: '[本地实测 Eval (local_rule_zero) + 云端公开费率建模]',
       datasetCases: evalJson?.metrics?.totalCases ?? 6,
@@ -365,7 +538,7 @@ async function main() {
       avgLatencyMs: evalJson?.metrics?.avgLatencyMs ?? 0.69,
       p95LatencyMs: evalJson?.metrics?.p95LatencyMs ?? 1.38,
       lambda: 2,
-      utilityV: `+${evalJson?.metrics?.totalNetUtilityV ?? 3} (V=H-2I)`,
+      utilityV: `+${evalJson?.metrics?.totalNetUtilityV ?? 3} (V=H-2I, 探索指标)`,
       tokensPerSession: evalJson?.telemetry?.totalTokens ?? 0,
       cachedTokensPerSession: evalJson?.telemetry?.cachedInputTokens ?? 0,
       modeledCloudTokensPerSession: b.modeledTotalCloudTokensPerSession,
@@ -378,6 +551,22 @@ async function main() {
       notes: evalJson?.telemetry?.note ?? 'Offline deterministic evaluation used local heuristic & grounded rules (0 LLM tokens consumed).',
     };
 
+    existing.paymentChannels = PAYMENT_CHANNELS;
+    existing.asrModes = ASR_MODES;
+    existing.funnelAudienceDefinitions = FUNNEL_AUDIENCE_DEFINITIONS;
+    existing.companyBreakeven = {
+      status: 'UNMODELED',
+      statement: '公司盈亏平衡点尚未测算（未纳入固定研发人力、市场费用与基础底座开销）',
+      formula: 'breakevenPaidUsers = fixedMonthlyCost / weightedMonthlyDirectContribution',
+      caveat: '本模型仅在单付费用户层提供直接贡献率与单用户月可承受场次上限 (maxAffordableSessionsPerProMonth)。',
+    };
+    existing.ltvCaveats = [
+      '简化公式 LTV = 月直接贡献 × 平均留存月数（暂未扣减年卡 ¥499/年 ≈ ¥41.58/月 约 29.5% 折让对混合 ARPU 的稀释）',
+      '已于净营收口径扣减 1%–5% 商业假设退款率（基准 2%），但真实初期 M1–M3 流失分布需种子期后观测',
+      '12:1 算力活跃免费补贴按同期付费用户即期分摊，尚未考虑冷启动早期免费增长领先于付费转化产生的营运资金错配',
+      'CAC (¥18–¥45) 仅反映直接获客投放/物料边际支出，未摊销创始人人工时间与固定运营经费',
+    ];
+
     existing.scenarios = {
       conservative: mapScenario(result.conservative, '保守情景 (Conservative)'),
       base: mapScenario(result.base, '基准情景 (Base)'),
@@ -385,16 +574,16 @@ async function main() {
     };
 
     existing.costComponents10 = [
-      { id: 1, name: '1. 文档解析 (Doc Extract)', baseSession: round3(c.c1DocExtract), shareNote: 'PDF/PPTX 抽取与章节结构化摊销', category: 'LLM & Compute' },
-      { id: 2, name: '2. 流式语音识别 (ASR)', baseSession: round3(c.c2Asr), shareNote: `25m × ¥${b.asrRatePerHr.toFixed(2)}/h (主要变动成本)`, category: 'Voice Infra' },
-      { id: 3, name: '3. System 1 快决策', baseSession: round3(c.c3System1), shareNote: '本地规则拦截零费 + 云端快模型补判', category: 'LLM & Compute' },
-      { id: 4, name: '4. System 2 深度推理', baseSession: round3(c.c4System2), shareNote: '高门槛触发锚点与 Evidence 推理', category: 'LLM & Compute' },
-      { id: 5, name: '5. 前缀缓存节流 (Cache)', baseSession: round3(c.c5CacheDelta), shareNote: '单会话 40% 前缀命中净节省 (非跨槽共享)', category: 'Optimization' },
-      { id: 6, name: '6. 证据检索 (Retrieval)', baseSession: round3(c.c6Retrieval), shareNote: 'Evidence[] 与审批记忆切片召回', category: 'LLM & Compute' },
-      { id: 7, name: '7. 赛后复盘 (Reflection)', baseSession: round3(c.c7Reflection), shareNote: 'V = H − λI 算子与候选记忆摘要', category: 'LLM & Compute' },
-      { id: 8, name: '8. 基础设施 (Web/WS/DB)', baseSession: round3(c.c8Infra), shareNote: 'WS 并发长连接、状态存储与监控摊销', category: 'Infrastructure' },
-      { id: 9, name: '9. 支付通道费 (0.6%)', baseMonthly: round2(m.c9PaymentPro), shareNote: '微信/支付宝官方 SaaS 费率 (¥59×0.6%)', category: 'Commercial' },
-      { id: 10, name: '10. 免费用户补贴与支持', baseMonthly: round2(m.c10SubsidyAndSupportPro), shareNote: `12:1 免费补贴 ¥${m.freeSubsidyPerPaidUserMo.toFixed(2)} + 客服 ¥${m.supportPerPaidMo.toFixed(2)}`, category: 'Subsidy & Ops' },
+      { id: 1, name: '1. 文档解析 (Doc Extract)', baseSession: round3(c.c1DocExtract), shareNote: 'PDF/PPTX 抽取与章节结构化摊销 [模型估算]', category: 'LLM & Compute' },
+      { id: 2, name: '2. 流式语音识别 (ASR)', baseSession: round3(c.c2Asr), shareNote: `25m × ¥${b.asrRatePerHr.toFixed(2)}/h (云端流式变动大头) [云端公开费率]`, category: 'Voice Infra' },
+      { id: 3, name: '3. System 1 快决策', baseSession: round3(c.c3System1), shareNote: '本地规则拦截零费 + 28% 云端快模型补判 [云端公开费率]', category: 'LLM & Compute' },
+      { id: 4, name: '4. System 2 深度推理', baseSession: round3(c.c4System2), shareNote: '高门槛触发锚点与 Evidence 推理 [云端公开费率]', category: 'LLM & Compute' },
+      { id: 5, name: '5. 前缀缓存节流 (Cache)', baseSession: round3(c.c5CacheDelta), shareNote: '单会话同前缀 40% 命中净节省 (非跨槽共享) [模型估算]', category: 'Optimization' },
+      { id: 6, name: '6. 证据检索 (Retrieval)', baseSession: round3(c.c6Retrieval), shareNote: 'Evidence[] 与审批记忆切片召回 [模型估算]', category: 'LLM & Compute' },
+      { id: 7, name: '7. 赛后复盘 (Reflection)', baseSession: round3(c.c7Reflection), shareNote: 'V = H − λI 探索算子与候选记忆摘要 [云端公开费率]', category: 'LLM & Compute' },
+      { id: 8, name: '8. 基础设施 (Web/WS/DB)', baseSession: round3(c.c8Infra), shareNote: 'WS 并发长连接、状态存储与监控摊销 [模型估算]', category: 'Infrastructure' },
+      { id: 9, name: '9. 支付通道费 (分渠道)', baseMonthly: round2(m.c9PaymentPro), shareNote: `微信 0.6% / 支付宝 0.6% (退款原路退回；虚拟类目或达 1%) [云端公开费率]`, category: 'Commercial' },
+      { id: 10, name: '10. 免费补贴与支持', baseMonthly: round2(m.c10SubsidyAndSupportPro), shareNote: `12:1 算力活跃免费补贴 ¥${m.freeSubsidyPerPaidUserMo.toFixed(2)} + 客服 ¥${m.supportPerPaidMo.toFixed(2)} [商业假设]`, category: 'Subsidy & Ops' },
     ];
     existing.sensitivities = result.sensitivities;
 
@@ -404,46 +593,51 @@ async function main() {
   console.log(JSON.stringify({
     wroteMetricsJson: doWrite,
     evalLockedFrom: evalJson ? toRepoRelSafe(repoRoot, evalPath) : 'none',
-    conservative: {
-      llm: result.conservative.llmCostPerSession.toFixed(3),
-      fullVar: result.conservative.fullVarCostPerSession.toFixed(3),
-      proVarMo: result.conservative.proMonthlyVarCost.toFixed(2),
-      directContrib: result.conservative.proDirectContrib.toFixed(2),
-      directMargin: result.conservative.proDirectMarginPct.toFixed(1) + '%',
-      saasMargin: result.conservative.proSaasMarginPct.toFixed(1) + '%',
-      eventFullCost: result.conservative.eventFullCost.toFixed(2),
-      eventMargin: result.conservative.eventMarginPct.toFixed(1) + '%',
-      ltv: result.conservative.ltv.toFixed(2),
-      ltvCac: result.conservative.ltvCac.toFixed(2),
-      breakeven: result.conservative.breakevenSessionsPro,
-    },
-    base: {
-      modeledCloudTokens: result.base.modeledTotalCloudTokensPerSession,
-      llm: result.base.llmCostPerSession.toFixed(3),
-      fullVar: result.base.fullVarCostPerSession.toFixed(3),
-      proSaasCogs: result.base.proMonthlySaasCogs.toFixed(2),
-      proVarMo: result.base.proMonthlyVarCost.toFixed(2),
-      directContrib: result.base.proDirectContrib.toFixed(2),
-      directMargin: result.base.proDirectMarginPct.toFixed(1) + '%',
-      saasMargin: result.base.proSaasMarginPct.toFixed(1) + '%',
-      eventFullCost: result.base.eventFullCost.toFixed(2),
-      eventMargin: result.base.eventMarginPct.toFixed(1) + '%',
-      ltv: result.base.ltv.toFixed(2),
-      ltvCac: result.base.ltvCac.toFixed(2),
-      breakeven: result.base.breakevenSessionsPro,
-    },
-    optimistic: {
-      llm: result.optimistic.llmCostPerSession.toFixed(3),
-      fullVar: result.optimistic.fullVarCostPerSession.toFixed(3),
-      proVarMo: result.optimistic.proMonthlyVarCost.toFixed(2),
-      directContrib: result.optimistic.proDirectContrib.toFixed(2),
-      directMargin: result.optimistic.proDirectMarginPct.toFixed(1) + '%',
-      saasMargin: result.optimistic.proSaasMarginPct.toFixed(1) + '%',
-      eventFullCost: result.optimistic.eventFullCost.toFixed(2),
-      eventMargin: result.optimistic.eventMarginPct.toFixed(1) + '%',
-      ltv: result.optimistic.ltv.toFixed(2),
-      ltvCac: result.optimistic.ltvCac.toFixed(2),
-      breakeven: result.optimistic.breakevenSessionsPro,
+    scenarios: {
+      conservative: {
+        llm: result.conservative.llmCostPerSession.toFixed(3),
+        fullVar: result.conservative.fullVarCostPerSession.toFixed(3),
+        netRevPro: result.conservative.netRevenuePro.toFixed(2),
+        proVarMo: result.conservative.proMonthlyVarCost.toFixed(2),
+        directContrib: result.conservative.proDirectContrib.toFixed(2),
+        directMargin: result.conservative.proDirectMarginPct.toFixed(1) + '%',
+        saasMargin: result.conservative.proSaasMarginPct.toFixed(1) + '%',
+        eventFullCost: result.conservative.eventFullCost.toFixed(2),
+        eventMargin: result.conservative.eventMarginPct.toFixed(1) + '%',
+        ltv: result.conservative.ltv.toFixed(2),
+        ltvCac: result.conservative.ltvCac.toFixed(2),
+        maxAffordableSessionsPerProMonth: result.conservative.maxAffordableSessionsPerProMonth,
+      },
+      base: {
+        modeledCloudTokens: result.base.modeledTotalCloudTokensPerSession,
+        llm: result.base.llmCostPerSession.toFixed(3),
+        fullVar: result.base.fullVarCostPerSession.toFixed(3),
+        netRevPro: result.base.netRevenuePro.toFixed(2),
+        proSaasCogs: result.base.proMonthlySaasCogs.toFixed(2),
+        proVarMo: result.base.proMonthlyVarCost.toFixed(2),
+        directContrib: result.base.proDirectContrib.toFixed(2),
+        directMargin: result.base.proDirectMarginPct.toFixed(1) + '%',
+        saasMargin: result.base.proSaasMarginPct.toFixed(1) + '%',
+        eventFullCost: result.base.eventFullCost.toFixed(2),
+        eventMargin: result.base.eventMarginPct.toFixed(1) + '%',
+        ltv: result.base.ltv.toFixed(2),
+        ltvCac: result.base.ltvCac.toFixed(2),
+        maxAffordableSessionsPerProMonth: result.base.maxAffordableSessionsPerProMonth,
+      },
+      optimistic: {
+        llm: result.optimistic.llmCostPerSession.toFixed(3),
+        fullVar: result.optimistic.fullVarCostPerSession.toFixed(3),
+        netRevPro: result.optimistic.netRevenuePro.toFixed(2),
+        proVarMo: result.optimistic.proMonthlyVarCost.toFixed(2),
+        directContrib: result.optimistic.proDirectContrib.toFixed(2),
+        directMargin: result.optimistic.proDirectMarginPct.toFixed(1) + '%',
+        saasMargin: result.optimistic.proSaasMarginPct.toFixed(1) + '%',
+        eventFullCost: result.optimistic.eventFullCost.toFixed(2),
+        eventMargin: result.optimistic.eventMarginPct.toFixed(1) + '%',
+        ltv: result.optimistic.ltv.toFixed(2),
+        ltvCac: result.optimistic.ltvCac.toFixed(2),
+        maxAffordableSessionsPerProMonth: result.optimistic.maxAffordableSessionsPerProMonth,
+      },
     },
     sensitivities: result.sensitivities,
   }, null, 2));

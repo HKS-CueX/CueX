@@ -5,11 +5,11 @@
 
 ## 1. Adapter Contract & Registry Enforcement
 
-`ScenarioRegistry` (`apps/server/src/scenarios/ScenarioRegistry.ts`) wraps `SCENARIO_CAPABILITY_DESCRIPTORS` and exposes `assertRunnable(id)`. Only adapters with `status: 'implemented'` can launch a live runtime session; selecting any `'roadmap'` adapter raises `ScenarioNotImplementedError` (`HTTP 400` / WS `SCENARIO_NOT_IMPLEMENTED`) so unimplemented domains are never simulated as working features.
+`ScenarioRegistry` (`apps/server/src/scenarios/ScenarioRegistry.ts`) wraps `SCENARIO_CAPABILITY_DESCRIPTORS` and exposes `assertRunnable(id)`. Only adapters with `status: 'implemented'` can launch a live runtime session; selecting any `'roadmap'` adapter raises `ScenarioNotImplementedError` (`SCENARIO_NOT_IMPLEMENTED`) so unimplemented domains are never simulated as working features.
 
 | `ScenarioId` | Display Name | Status | Capabilities & Notes |
 | --- | --- | --- | --- |
-| `presentation` | `CueX Presentation · 演讲与答辩临场引导` | **`implemented`** | Full `.pptx/.pdf/.md/.txt` compile, `rehearsal`/`live`, live Q&A grounding, L0–L3 controller, auto-withdrawal, single-point rehearsal, opt-in memory governance. |
+| `presentation` | `CueX Presentation · 演讲与答辩临场引导` | **`implemented`** | Full `.pptx/.pdf/.md/.txt` compile (with ZIP/Flate safety bounds), `rehearsal`/`live`, live Q&A grounding, L0–L3 controller, auto-withdrawal, single-point rehearsal, opt-in memory governance. |
 | `social` | `CueX Social · 高频社交与人际破冰` | **`roadmap`** | All capability flags `false`; blocked from `session.start`. Planned multi-turn boundary & voiceprint privacy filtering. |
 | `teaching` | `CueX Teaching · 课堂讲授与互动引导` | **`roadmap`** | All capability flags `false`; blocked from `session.start`. Planned syllabus graph compilation. |
 | `sales` | `CueX Sales · 商业谈判与方案沟通` | **`roadmap`** | All capability flags `false`; blocked from `session.start`. Planned pricing/compliance whitelist & dual-speaker channel handling. |
@@ -35,9 +35,9 @@ Every runnable Scenario Adapter implements `ScenarioRuntimePlugin<TState, TRefle
 
 | Module | Concrete Responsibility |
 | --- | --- |
-| `DocumentExtractor.ts` | Parses `.md` / `.txt` directly, unpacks `.pptx` archives via native `node:zlib` (`readZipEntries`, `inflateRawSync`, DrawingML `<a:p>`/`<a:t>` over `slide*.xml` + speaker `notesSlides`), and performs best-effort `.pdf` text operator/Flate extraction while setting `unreadable: true` + `warnings[]` on scanned/encrypted PDFs. |
-| `PresentationCompiler.ts` | Generates `PresentationContextPack`: `CueSheet` (thesis, hook, chapter transitions, CTA), `FactWhitelist` (`PresentationFactItem[]` linked to `Evidence.id`, editable/lockable, zero invented numbers), `QACards` (`isPrediction: true` explicit + `unpreparedGaps[]`), and `ProgressStructure`. |
-| `PresentationPackStore.ts` + `samplePack.ts` | Persists packs under `<runtimeDir>/packs` (`CUEX_PACKS_DIR`) and preloads `SAMPLE_PRESENTATION_PACK` (`pack_cuex_demo_01` about CueX itself) with `ev_sample_*` verified evidence items. |
+| `DocumentExtractor.ts` | Parses `.md` / `.txt` directly, unpacks `.pptx` archives via native `node:zlib` (`readZipEntries`, `inflateRawSync`, DrawingML `<a:p>`/`<a:t>` over `slide*.xml` + speaker `notesSlides`), and performs best-effort `.pdf` text extraction while enforcing ZIP/Flate decompression bounds (`status: 'parsed' \| 'unreadable' \| 'rejected'`) and honest warnings on scanned/encrypted PDFs (`RISK-01`). |
+| `PresentationCompiler.ts` | Generates `PresentationContextPack` (`PACK_SCHEMA_VERSION = 2`): `CueSheet` (thesis, hook, chapter transitions, CTA), `FactWhitelist` (`PresentationFactItem[]` linked to `Evidence.id` with `contentHash`, editable/lockable, zero invented numbers), `QACards` (`isPrediction: true` explicit + `unpreparedGaps[]`), and `ProgressStructure`. |
+| `PresentationPackStore.ts` + `samplePack.ts` | Persists tenant-owned packs (SQLite `StorageRepository` target per `ADR-001`) and preloads `SAMPLE_PRESENTATION_PACK` (`pack_cuex_demo_01` about CueX itself) with `ev_sample_*` verified evidence items. |
 | `PresentationPolicies.ts` | Implements `evaluateChapterPace`, `matchChapterKeyPoints`, and `detectNextChapterTransition`. |
-| `PresentationRuntime.ts` | Implements `PresentationRuntimePlugin` tracking live chapter durations, pace (`on_pace | slightly_fast | slightly_behind | overtime`), missed key points, active drift, Q&A records, and `toUniversalContextPack()`. |
+| `PresentationRuntime.ts` | Implements `PresentationRuntimePlugin` tracking live chapter durations, pace (`on_pace \| slightly_fast \| slightly_behind \| overtime`), missed key points, active drift, Q&A records, and `toUniversalContextPack()`. |
 | `PresentationReflection.ts` | Computes `computeUtilitySummary()` (`V = H - λI`), builds chronological `PresentationTimelineEvent[]`, generates `PresentationDiagnosis` + `PresentationWeakSegment[]` for single-point rehearsal, and emits pending opt-in `MemoryProposal[]`. |

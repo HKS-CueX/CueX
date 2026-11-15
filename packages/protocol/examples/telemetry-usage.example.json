@@ -1,0 +1,34 @@
+{
+  "sessionId": "sess_demo_001",
+  "updatedAt": "2026-11-16T04:02:30.000Z",
+  "usageSource": "local_rule_zero",
+  "inputTokens": 0,
+  "outputTokens": 0,
+  "cachedInputTokens": 0,
+  "totalTokens": 0,
+  "modelCalls": 0,
+  "retries": 0,
+  "localRuleEvaluations": 13,
+  "latencyMs": 9,
+  "latencyStats": {
+    "avgMs": 0.69,
+    "p95Ms": 1.38,
+    "maxMs": 1.38
+  },
+  "lastSystem1LatencyMs": 0.69,
+  "degraded": false,
+  "usingLocalFallback": true,
+  "asrProvider": "text_simulation",
+  "asrDurationMs": 0,
+  "costFen": 0,
+  "cost": {
+    "amountFen": 0,
+    "currency": "CNY"
+  },
+  "estimation": {
+    "isEstimated": false,
+    "source": "local_rule_zero",
+    "usingLocalFallback": true,
+    "notes": "Deterministic local rule evaluation uses zero LLM tokens."
+  }
+}

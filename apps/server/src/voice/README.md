@@ -1,6 +1,6 @@
-# Voice Engines
+# Voice / ASR Engines
 
-`index.ts` exports `createAsrEngine()`, `describeAsrCapability()`, `createTtsEngine()`, and `warmupVoice()`.
+`index.ts` exports `createAsrEngine()`, `describeAsrCapability()`, `warmupVoice()`, `LocalSherpaAsr`, `RemoteSherpaAsr`, `TextOnlyAsr`, and `correctAsrText()`.
 
 ## ASR (Speaker speech to transcript)
 

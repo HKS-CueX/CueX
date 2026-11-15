@@ -1,5 +1,5 @@
 /**
- * Voice engines for the CueX runtime. Supports real Sherpa ASR (local or WebSocket)
+ * ASR engines for the CueX runtime. Supports real Sherpa ASR (local or WebSocket)
  * and transparent text-only capability reporting when native ASR is disabled or missing.
  */
 import { existsSync } from 'node:fs';
@@ -8,17 +8,12 @@ import { join } from 'node:path';
 import type { AsrCapabilityStatus } from '@cuex/protocol';
 import { LocalSherpaAsr } from './asr-local';
 import { RemoteSherpaAsr } from './asr-remote';
-import { EdgeTts } from './tts-edge';
-import { HttpTts } from './tts-http';
-import { LocalSherpaTts } from './tts-local';
-import type { AsrCallbacks, AsrEngine, AsrStream, TtsChunk, TtsEngine } from './types';
+import type { AsrCallbacks, AsrEngine, AsrStream } from './types';
 
-export type { AsrCorrection, AsrCallbacks, AsrEngine, AsrStream, TtsChunk, TtsEngine } from './types';
+export type { AsrCorrection, AsrCallbacks, AsrEngine, AsrStream } from './types';
 export { correctAsrText } from './corrections';
 export { LocalSherpaAsr } from './asr-local';
 export { RemoteSherpaAsr } from './asr-remote';
-
-export const DEFAULT_EDGE_VOICE = 'zh-CN-YunyangNeural';
 
 type Source = NodeJS.ProcessEnv;
 const reader = (source: Source) => {
@@ -54,34 +49,7 @@ export class TextOnlyAsr implements AsrEngine {
   }
 }
 
-class FallbackTts implements TtsEngine {
-  constructor(private readonly engines: TtsEngine[]) {}
-  get backend(): string { return this.engines.map(e => e.backend).join('>'); }
-
-  close(): void {
-    for (const engine of this.engines) (engine as { close?: () => void }).close?.();
-  }
-
-  async *synthesize(text: string, signal: AbortSignal): AsyncIterable<TtsChunk> {
-    let lastError: unknown;
-    for (const engine of this.engines) {
-      if (signal.aborted) return;
-      try {
-        for await (const chunk of engine.synthesize(text, signal)) yield chunk;
-        return;
-      } catch (error) {
-        if (signal.aborted) return;
-        lastError = error;
-        log(`${engine.backend} failed (${(error as Error).message}); trying the next TTS engine`);
-      }
-    }
-    throw lastError ?? new Error('No TTS engine is configured');
-  }
-}
-
 let asr: AsrEngine | undefined;
-let tts: TtsEngine | undefined;
-let edge: EdgeTts | undefined;
 
 export function createAsrEngine(source: Source = process.env): AsrEngine {
   const shared = source === process.env;
@@ -155,48 +123,12 @@ export async function describeAsrCapability(engine: AsrEngine, source: Source = 
   };
 }
 
-export function createTtsEngine(source: Source = process.env): TtsEngine {
-  const shared = source === process.env;
-  if (shared && tts) return tts;
-  const { env, num } = reader(source);
-  const url = env('CUEX_TTS_URL') ?? 'http://127.0.0.1:18766/tts';
-  const modelDir = env('CUEX_TTS_MODEL_DIR');
-  const makers: Record<string, (() => TtsEngine) | undefined> = {
-    edge: () => {
-      const engine = new EdgeTts({
-        voice: env('CUEX_EDGE_VOICE') ?? DEFAULT_EDGE_VOICE,
-        rate: env('CUEX_EDGE_RATE') ?? '+8%',
-        pitch: env('CUEX_EDGE_PITCH') ?? '+0Hz',
-        timeoutMs: num('CUEX_TTS_TIMEOUT_MS', 8000),
-      });
-      if (shared) edge = engine;
-      return engine;
-    },
-    http: () => new HttpTts({ url, timeoutMs: num('CUEX_TTS_TIMEOUT_MS', 30000) }),
-    sherpa: modelDir ? () => new LocalSherpaTts({ modelDir, threads: num('CUEX_TTS_THREADS', 2), speakerId: num('CUEX_TTS_SPEAKER', 0), speed: num('CUEX_TTS_SPEED', 1) }) : undefined,
-  };
-  const first = env('CUEX_TTS_BACKEND') ?? 'http';
-  if (!(first in makers)) throw new Error(`CUEX_TTS_BACKEND must be edge, http or sherpa, got "${first}"`);
-  if (!makers[first]) throw new Error(`CUEX_TTS_BACKEND=${first} needs ${first === 'http' ? 'CUEX_TTS_URL' : 'CUEX_TTS_MODEL_DIR'}`);
-  const fallback = env('CUEX_TTS_FALLBACK') ?? 'none';
-  if (fallback !== 'auto' && fallback !== 'none') throw new Error('CUEX_TTS_FALLBACK must be auto or none');
-  const order = fallback === 'none' ? [first] : [first, ...['http', 'sherpa', 'edge'].filter(name => name !== first)];
-  const engines = order.flatMap(name => (makers[name] ? [makers[name]!()] : []));
-  const engine = engines.length === 1 ? engines[0] : new FallbackTts(engines);
-  if (shared) tts = engine;
-  return engine;
-}
-
 export async function warmupVoice(): Promise<void> {
   const started = Date.now();
   const jobs: Array<Promise<string>> = [];
   const speech = createAsrEngine();
   if (speech instanceof LocalSherpaAsr) jobs.push(Promise.resolve().then(() => { speech.warmup(); return 'asr model loaded'; }));
   if (speech instanceof RemoteSherpaAsr) jobs.push(speech.probe().then(() => 'asr server reachable'));
-  if ((process.env.CUEX_TTS ?? 'fake').toLowerCase() === 'real') {
-    createTtsEngine();
-    if (edge) jobs.push(edge.warmup().then(() => 'edge tts connected'));
-  }
   const results = await Promise.allSettled(jobs);
   const notes = results.map(r => (r.status === 'fulfilled' ? r.value : `FAILED: ${(r.reason as Error).message}`));
   log(`asr=${speech.backend}; ${notes.join('; ') || 'text-only mode ready'} (${Date.now() - started} ms)`);

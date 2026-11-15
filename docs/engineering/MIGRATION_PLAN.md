@@ -1,14 +1,17 @@
 # CueX Next Refactor & Migration Plan
 
+> **[Historical Engineering Archive — Isolated from Active Product Docs]**  
+> This document records the Phase 1 architectural refactor plan (`96cd742 -> 6804f5a`) onto `refactor/universal-runtime-presentation`. For the active Phase 2 productionization roadmap (persistence, auth, schema v2, observability, commercial guardrails), see [PHASE2_PLAN.md](./PHASE2_PLAN.md).
+
 > Target Branch: `refactor/universal-runtime-presentation` (branched from `main` at `96cd742`)  
 > Positioning: **CueX** (通用认知外挂 · Universal Cognitive Runtime + Scenario Adapter) with **CueX Presentation** as the first fully implemented live scenario.
 
 ## 1. Architectural Shift Summary
 
-| Dimension | Legacy Baseline (`96cd742`, see [BASELINE.md](./BASELINE.md)) | Target Architecture (CueX Next) |
+| Dimension | Legacy Baseline (`96cd742`, see [BASELINE.md](./BASELINE.md)) | Target Architecture (CueX Next Phase 1) |
 | --- | --- | --- |
-| Core Abstraction | Single hardcoded vertical dialogue loop (`TurnController`) | Domain-agnostic **Universal Cognitive Runtime** (`CognitiveRuntimeSession`, `ContextStore`, `CognitiveEventBus`, `SharedCognitiveStateStore`, `InterventionController`, `MemoryStore`) decoupled from scenario plugins |
-| Scenario Support | Single hardcoded pre-race demo scenario | Pluggable **Scenario Adapter Layer** (`ScenarioRegistry`): `presentation` (`implemented`) + explicit `roadmap` descriptors (`social`, `teaching`, `sales`, `custom`) |
+| Core Abstraction | Single hardcoded vertical dialogue loop (`TurnController`, 历史单领域角色扮演原型) | Domain-agnostic **Universal Cognitive Runtime** (`CognitiveRuntimeSession`, `ContextStore`, `CognitiveEventBus`, `SharedCognitiveStateStore`, `InterventionController`, `MemoryStore`) decoupled from scenario plugins |
+| Scenario Support | Single hardcoded pre-race prototype scenario | Pluggable **Scenario Adapter Layer** (`ScenarioRegistry`): `presentation` (`implemented`) + explicit `roadmap` descriptors (`social`, `teaching`, `sales`, `custom`) |
 | Intervention Policy | Coupled inside dialogue turn controller + legacy HUD modes (`full/minimal/faded`) | Independent **`InterventionController`** enforcing `L0–L3`, TTL expiry, monotonic `contextVersion` checks, grounding verification, multi-signal hesitation/omission/drift gating, cooldowns, dismissal suppression, and **7 typed automatic withdrawal reasons** |
 | System 1 & System 2 | Legacy fixed-question single-token loop + scripted turn agents | Model-agnostic `FastDecisionProvider` (`LlamaFastDecisionProvider` / `HeuristicFastDecisionProvider`) + `SlowReasoningProvider` (`PiSlowReasoningProvider` / `LocalSlowReasoningProvider`) with `LexicalBm25RetrievalProvider` and honest telemetry |
 | User Memory | Automatic unconfirmed file writes after sessions | Opt-in `MemoryStore` (`userConfirmed === true` required), inspectable/editable/deletable via REST + UI (`MemoryInspectorPanel`) |
@@ -18,40 +21,24 @@
 
 ---
 
-## 2. Execution Phases & Ownership
+## 2. Phase 1 Execution Waves & Ownership (Completed at `e2cb637` / `6804f5a`)
 
 ### P0 — Baseline Audit & Legacy Doc Purge (`auditor-docs`)
-- Produce honest baseline engineering documentation: `BASELINE.md`, `CURRENT_ARCHITECTURE.md`, `AUDIT.md`, `LEGACY_CLEANUP.md`, `MIGRATION_PLAN.md`.
-- Delete obsolete docs: `docs/SCENARIO_LIBRARY.md`, `docs/HKS_2026_SUBMISSION_GUIDE.md`, `docs/HKS_2026_UNIVERSAL_SUBMISSION_GUIDE.md`.
+- Produced baseline engineering documentation: `BASELINE.md`, `CURRENT_ARCHITECTURE.md`, `AUDIT.md`, `LEGACY_CLEANUP.md`, `MIGRATION_PLAN.md` (subsequently neutralized in Phase 2 to isolate legacy domain terms).
+- Deleted obsolete docs: `docs/SCENARIO_LIBRARY.md`, `docs/HKS_2026_SUBMISSION_GUIDE.md`, `docs/HKS_2026_UNIVERSAL_SUBMISSION_GUIDE.md`.
 
 ### P1 — Branch Setup & `@cuex/protocol` Redesign (`protocol-architect`)
-- Branch `refactor/universal-runtime-presentation` cleanly from `main` (`96cd742`).
-- Purge legacy domain schemas listed in [LEGACY_CLEANUP.md](./LEGACY_CLEANUP.md).
-- Ship domain-agnostic contracts in `packages/protocol/src/`: `common.ts`, `scenario.ts`, `controller.ts`, `entities.ts`, `state.ts`, `reasoning.ts`, `audio.ts`, `presentation.ts`, `api.ts`, `events.ts`, `index.ts`.
+- Branched `refactor/universal-runtime-presentation` cleanly from `main` (`96cd742`).
+- Purged legacy domain schemas (`jev.ts`, `piagent.ts`, `library.ts`) and shipped domain-agnostic contracts in `packages/protocol/src/`.
 
 ### P2 — Universal Cognitive Runtime & Presentation Backend (`runtime-server`)
-- Remove all legacy domain personas, scripts, domain ASR corrections, tests, and 3D avatar meshes inventoried in [LEGACY_CLEANUP.md](./LEGACY_CLEANUP.md).
-- Build Universal Runtime (`apps/server/src/runtime/`):
-  - `CognitiveRuntimeSession`, `ContextStore`, `CognitiveEventBus`, `SharedCognitiveStateStore`, `InterventionController`, `MemoryStore`, `LexicalBm25RetrievalProvider`.
-  - Model-agnostic `FastDecisionAdapter` (`LlamaSystemOne` + deterministic `HeuristicFastDecisionProvider`), `SlowReasoningAdapter` (`pi-ai` runner + `LocalSlowReasoningProvider`), and honest `voice/` ASR (`LocalSherpaAsr`, `RemoteSherpaAsr`, `TextOnlyAsr`).
-- Build Scenario Adapter Layer (`apps/server/src/scenarios/`):
-  - `ScenarioRegistry` (`presentation` = `implemented`; `social`/`teaching`/`sales`/`custom` = `roadmap`).
-  - `DocumentExtractor`, `PresentationCompiler`, `PresentationPackStore`, `PresentationPolicies`, `PresentationRuntimePlugin`, `PresentationReflection` (`V = H - λI`, default `λ = 2`), plus sample CueX Presentation pack (`pack_cuex_demo_01`).
-- Expose REST & WS `/ws` (`/ws/session` alias) endpoints matching `@cuex/protocol`, add unit/integration tests (`CUEX_TEST_OFFLINE=1 pnpm --filter @cuex/server test`), and add reproducible `apps/server/scripts/eval-presentation.ts`.
+- Removed legacy domain stores, personas, benchmarks, tests, and 3D avatar meshes inventoried in [LEGACY_CLEANUP.md](./LEGACY_CLEANUP.md).
+- Built Universal Runtime (`apps/server/src/runtime/`) + Scenario Adapter Layer (`apps/server/src/scenarios/`) + REST/WS `GatewayServer.ts` + offline `eval-presentation.ts`.
 
 ### P3 — CueX Presentation Web Application (`presentation-web`)
-- Remove all legacy stage UI components, R3F avatar canvases, and static scripted replay drivers listed in [LEGACY_CLEANUP.md](./LEGACY_CLEANUP.md).
-- Preserve CueX warm-light Amber × Violet `X` identity across 4 workflows:
-  - `HomeView` (Universal Copilot philosophy + implemented `Presentation` + honest `roadmap` cards)
-  - `CompilerView` (`.pptx/.pdf/.md/.txt` upload + CueX sample pack + privacy disclosure + editable/lockable Fact Whitelist, AI-predicted QA Cards, Cue Sheet, Progress Structure)
-  - `StageView` (`Focus` peripheral HUD with L0–L3 + auto-withdraw + `H/I` feedback vs `Inspector` live runtime telemetry; `AudioCapture`, optional `BrowserSpeechRecognizer` with honest status badge, plus clearly labeled text simulation)
-  - `ReflectionView` (timeline, diagnosis, single-point weak-segment rehearsal, opt-in Memory governance via `MemoryInspectorPanel`)
-- Verify typecheck, production Vite build, Vitest unit tests, and Playwright E2E suite (`apps/web/test/presentation-e2e.test.mjs`).
+- Built `HomeView`, `CompilerView`, `StageView` (`Focus` / `Inspector`), `ReflectionView`, `MemoryInspectorPanel`, and Playwright E2E suite.
 
-### P4 — Product, Architecture, Business & Unified Deliverables (`auditor-docs` & `biz-deliverables`)
-- Author `docs/product/*`, `docs/architecture/*`, `docs/DEPLOYMENT.md`, and root `README.md` (`auditor-docs`), strictly aligned with implemented backend/frontend symbols.
-- Run verified competitor research, rebuild `docs/business/{BUSINESS_MODEL,UNIT_ECONOMICS,COMPETITIVE_ANALYSIS,ROADMAP}.md` with 10-component economics + measured eval telemetry, unify `ppt/` to `cuex-final`, and generate all PDFs, markdown scripts, token evidence graphics, and previews under `deliverables/cuex-final/` (`biz-deliverables`).
+### P4–P6 — Product/Business Alignment, Verification & Commit (`auditor-docs`, `biz-deliverables`, `qa-verifier`)
+- Authored unified docs, rebuilt `ppt/cuex-final` deliverables, verified build/tests/eval/public-data checks, archived `deliverables/hks-2026*` to `.cuex-runtime/reference-archives/`, and committed cleanly on `refactor/universal-runtime-presentation` (`e2cb637`, `6804f5a`).
 
-### P5 & P6 — Alignment Gate, Full Verification, Archival & Local Commit (`auditor-docs`, `qa-verifier`)
-- Alignment Gate: Cross-check every doc claim, file path, symbol name, WS/REST route, and ASR/KV-cache disclosure against actual compiled code.
-- QA Verification: Confirm zero unintended legacy domain terms across active code/docs/deliverables, run `pnpm typecheck`, `pnpm build`, offline server tests, `eval-presentation.ts`, Playwright E2E, visual PDF/PNG inspection, archive legacy `deliverables/hks-2026*` to `.cuex-runtime/reference-archives/`, package `CueX-Universal-Presentation-Final.zip`, run `check-public-data.mjs --staged`, write `TEST_REPORT.md` & `CHANGELOG.md`, and commit cleanly on `refactor/universal-runtime-presentation`.
+For Phase 2 architecture hardening (SQLite `StorageRepository`, `EventEnvelope`, schema v2, multi-tenant auth, `UsageLedger`, `Entitlement`, CI/CD, security/privacy/ops docs, and commercial model fixes), see [PHASE2_PLAN.md](./PHASE2_PLAN.md).

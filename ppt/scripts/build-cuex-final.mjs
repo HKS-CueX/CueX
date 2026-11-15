@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { PDFDocument } from 'pdf-lib';
+import { runMetricsSyncCheck } from './verify-metrics-sync.mjs';
 import { getChromium } from '../../scripts/browser-runtime.mjs';
 import {
   renderBmcHtml,
@@ -392,6 +393,15 @@ async function main() {
 
     const verPath = path.join(OUT_ROOT, 'evidence', 'verification.json');
     await fs.writeFile(verPath, JSON.stringify(verification, null, 2) + '\n', 'utf8');
+
+    const syncResult = await runMetricsSyncCheck({ checkPdfs: true });
+    if (!syncResult.ok) {
+      throw new Error(`Metrics sync verification failed:\n${syncResult.errors.join('\n')}`);
+    }
+    verification.checks.metricsSyncPassed = true;
+    verification.checks.scannedFiles = syncResult.scannedFiles;
+    await fs.writeFile(verPath, JSON.stringify(verification, null, 2) + '\n', 'utf8');
+
     console.log('CueX-Final build succeeded:', JSON.stringify(verification, null, 2));
   } catch (err) {
     console.error('Server logs:\n', serverLogs);

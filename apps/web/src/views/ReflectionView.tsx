@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import type {
+  DataDeletionReceipt,
   MemoryProposal,
   PresentationContextPack,
   PresentationReflection,
@@ -27,9 +28,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { createMemoryItem, getSessionReflection, wipeSession } from '@/lib/api';
 import {
+  formatApiError,
+  formatDateTime,
   formatDuration,
+  formatMoneyFen,
   formatMs,
   MEMORY_CATEGORY_LABELS,
+  USAGE_SOURCE_LABELS,
   WITHDRAWAL_REASON_LABELS,
 } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -78,9 +83,13 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
   const [proposalDraftContent, setProposalDraftContent] = useState('');
   const [memoryRefresh, setMemoryRefresh] = useState(0);
   const [wiping, setWiping] = useState(false);
+  const [deletionReceipt, setDeletionReceipt] = useState<DataDeletionReceipt | null>(null);
 
   useEffect(() => {
     setReflection(initialReflection);
+    if (initialReflection) {
+      setDeletionReceipt(null);
+    }
     if (initialReflection?.weakSegments[0]) {
       setSelectedWeakId(initialReflection.weakSegments[0].weakSegmentId);
     }
@@ -91,6 +100,7 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
     if (!targetSessionId) return;
     setLoading(true);
     setError(null);
+    setDeletionReceipt(null);
     void getSessionReflection(targetSessionId, lambda)
       .then((ref) => {
         setReflection(ref);
@@ -100,7 +110,7 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
       })
       .catch((err) => {
         if (!initialReflection) {
-          setError(err instanceof Error ? err.message : '读取复盘报告失败');
+          setError(formatApiError(err));
         }
       })
       .finally(() => setLoading(false));
@@ -139,13 +149,15 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
     const targetId = reflection?.sessionId ?? sessionId;
     if (!targetId) return;
     setWiping(true);
+    setError(null);
     try {
-      await wipeSession(targetId);
+      const res = await wipeSession(targetId);
       setReflection(null);
+      setDeletionReceipt(res.receipt ?? null);
       setMemoryRefresh((n) => n + 1);
       onSessionWiped();
     } catch (err) {
-      setError(err instanceof Error ? err.message : '清除会话数据失败');
+      setError(formatApiError(err));
     } finally {
       setWiping(false);
     }
@@ -212,6 +224,33 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
         {error && (
           <div className="border border-amber/40 bg-amber-tint text-amber-ink px-4 py-3 rounded text-xs">
             {error}
+          </div>
+        )}
+
+        {deletionReceipt && (
+          <div
+            className="border border-resolved/40 bg-resolved-tint/60 rounded-md p-4 text-xs space-y-2"
+            data-testid="session-deletion-receipt"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2 font-semibold text-resolved">
+                <ShieldCheck className="w-4 h-4" />
+                <span>会话数据销毁合规回执 (DataDeletionReceipt)</span>
+              </div>
+              <span className="font-mono text-[11px] text-ink-3">{deletionReceipt.receiptId}</span>
+            </div>
+            <p className="text-[11px] text-ink-2">
+              完成时间：{formatDateTime(deletionReceipt.completedAt)} · 已清除范围：
+              {deletionReceipt.deletedScopes.map((s) => `${s.scope}: ${s.deletedCount}`).join(' · ')}
+            </p>
+            {deletionReceipt.preservedRecords.length > 0 && (
+              <p className="text-[11px] text-ink-3">
+                保留合规项：
+                {deletionReceipt.preservedRecords
+                  .map((p) => `${p.category} (${p.count})`)
+                  .join('；')}
+              </p>
+            )}
           </div>
         )}
 
@@ -295,8 +334,13 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                     </div>
                   </div>
 
-                  <p className="text-[11px] text-ink-3 border-t border-line pt-2.5 leading-relaxed">
-                    计算方式严格基于本场真实触发事件与演讲者微反馈：多余打断以 λ={reflection.utility.lambda} 倍惩罚，主动撤回不计入打扰成本。
+                  <p
+                    className="text-[11px] text-ink-3 border-t border-line pt-2.5 leading-relaxed"
+                    data-testid="utility-formula-note"
+                  >
+                    公式口径：<strong>H</strong> = 有效帮助介入次数（非提示总次数），<strong>I</strong>{' '}
+                    = 不必要/打扰介入次数，多余打断以 λ={reflection.utility.lambda}{' '}
+                    倍惩罚；演讲者主动修复后及时撤回不计入 I。
                   </p>
                 </div>
 
@@ -313,10 +357,11 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                       </Badge>
                       <Badge variant="outline" className="font-mono text-[10px]">
                         Tokens：{reflection.telemetry.totalTokens}（
-                        {reflection.telemetry.estimation.usingLocalFallback
-                          ? '本地规则零 Token'
-                          : '模型实计'}
-                        ）
+                        {USAGE_SOURCE_LABELS[reflection.telemetry.usageSource] ??
+                          (reflection.telemetry.estimation.usingLocalFallback
+                            ? '本地规则零 Token'
+                            : '模型实计')}
+                        · {formatMoneyFen(reflection.telemetry.cost ?? reflection.telemetry.costFen)}）
                       </Badge>
                     </div>
                   </div>

@@ -12,9 +12,9 @@ Most AI systems live inside **System 2**: you pause what you are doing, switch w
 CueX acts as a **minimum-necessary-intervention cognitive copilot**:
 - **Stay Quiet (`L0`) by Default**: Fluent delivery and intentional rhetorical pauses stay completely undisturbed.
 - **Progressive Peripheral Cues (`L1 -> L2 -> L3`)**: Gentle Amber/Violet edge light (`L1`) -> 2–6 character peripheral keyword (`L2`) -> brief grounded scaffold card (`L3`).
-- **Automatic Withdrawal**: Prompts disappear automatically when the speaker recovers, changes topic/chapter, expires TTL, or dismisses (`7` typed withdrawal transitions).
+- **Automatic Withdrawal**: Prompts disappear automatically when the speaker recovers, changes topic/chapter, expires TTL, invalidates context, or dismisses (`7` typed withdrawal transitions).
 - **Zero-Hallucination Grounding**: Every factual/numeric hint must cite user-confirmed `Evidence` from the pre-stage compiler; absent answers trigger an explicit missing-evidence notice instead of fabricated statistics.
-- **Opt-In Memory Governance**: Nothing persists across sessions unless explicitly confirmed (`userConfirmed: true`), with full inspect/edit/delete and single-session wipe controls.
+- **Multi-Tenant Auth, Persistence & Data Sovereignty**: Stateful `node:sqlite` WAL storage (`.cuex-runtime/cuex.db`), SHA-256 bearer sessions with per-user ownership isolation, atomic `usage_ledger` metering, opt-in `userConfirmed === true` memories, JSON/Markdown export (`UserDataExportBundle`), and synchronous wipe receipts (`DataDeletionReceipt`).
 
 ---
 
@@ -22,25 +22,33 @@ CueX acts as a **minimum-necessary-intervention cognitive copilot**:
 
 | Component / Scenario | Current Status | Details |
 | --- | --- | --- |
-| **Universal Cognitive Runtime** (`apps/server/src/runtime/`) | **Implemented** | `CognitiveRuntimeSession`, `ContextStore`, `CognitiveEventBus`, `SharedCognitiveStateStore`, `LexicalBm25RetrievalProvider`, independent `InterventionController`, opt-in `MemoryStore` |
-| **CueX Presentation** (`apps/server/src/scenarios/presentation/`, `apps/web/`) | **Implemented** | `.pptx`/`.pdf`/`.md`/`.txt` document extraction, Context Compiler (Cue Sheet, lockable Fact Whitelist, AI-predicted Q&A Cards, Progress Structure), `Focus` vs `Inspector` live stage, grounded Q&A fallback, Reflection (`V = H - λI`), Single-Point Rehearsal |
-| **System 1 / System 2 / ASR Modes** | **Implemented with Local Fallback** | Works zero-token locally out of the box (`CUEX_SYSTEM1/2/ASR=fake`) or connects optional `llama.cpp` System 1, `pi-ai` System 2, local/remote `sherpa-onnx` ASR, and browser Web Speech API |
-| **`CueX Social` · `Teaching` · `Sales` · `Custom`** | **Roadmap Only** | Explicitly defined in `SCENARIO_CAPABILITY_DESCRIPTORS` (`status: 'roadmap'`); backend rejects live execution (`ScenarioNotImplementedError`) until adapters are built |
+| **Universal Cognitive Runtime & Gateway** (`apps/server/src/{runtime,gateway,storage,security,commercial,observability,pipeline}/`) | **Implemented (`Phase 2`)** | `CognitiveRuntimeSession`, `ContextStore`, `CognitiveEventBus`, `SharedCognitiveStateStore`, `LexicalBm25RetrievalProvider`, `InterventionController` (11 gates / 7 withdrawals), `PipelineTracker` (`serverSeq` + idempotency), `SqliteStorageRepository` (`node:sqlite` WAL migrations), `AuthService`, `RateLimiter`, `OriginGuard`, `PromptGuard`, `CommercialService` + `SandboxPaymentProviderAdapter`, `MetricsCollector`, opt-in `MemoryStore`. |
+| **CueX Presentation** (`apps/server/src/scenarios/presentation/`, `apps/web/`) | **Implemented (`Phase 2`)** | Bounded `.pptx`/`.pdf`/`.md`/`.txt` `DocumentExtractor`, `PresentationCompiler` (`CueSheet`, lockable `FactWhitelist`, AI-predicted `QACards` tagged `isPrediction: true`, `ProgressNodes`), `Focus` / `Split Strip` / `Inspector` stage views, grounded Q&A fallback, `ReflectionView` (`V = H - λI`), single-point rehearsal, `AccountPanel` (`Plans` with `Team=Planned`, sandbox checkout preview, usage ledger, export & wipe). |
+| **System 1 / System 2 / ASR Modes** | **Implemented with Local Fallback** | Runs zero-token locally out of the box (`CUEX_SYSTEM1=fake`, `CUEX_SYSTEM2=fake`, `CUEX_ASR=fake`) or connects optional `llama.cpp` System 1, `pi-ai` System 2, local/remote `sherpa-onnx` ASR (`local_sherpa` / `remote_sherpa`), and browser Web Speech API (`browser_webspeech` / `text_simulation`). |
+| **Offline Cognitive Benchmark (`eval-presentation.ts`)** | **Verified Deterministic Eval** | `.cuex-runtime/eval-latest.json` (`2026-11-15T20:51:30.737Z`): `6/6` cases passed (`100%` precision, `0%` false intervention, `100%` withdrawal accuracy, `avgMs: 0.75`, `p50Ms: 0.46`, `p95Ms: 1.57`, `13` local rule evals, `0` tokens, `local_rule_zero`). *Explicitly offline deterministic rules — not GPU/cloud LLM throughput.* |
+| **`CueX Social` · `Teaching` · `Sales` · `Custom` & Desktop Overlay** | **Roadmap Only** | Defined in `@cuex/protocol` (`status: 'roadmap'`); backend rejects live execution (`SCENARIO_NOT_IMPLEMENTED`); desktop always-on-top overlay scoped post-Web. |
 
 ---
 
 ## Repository Architecture
 
 ```text
-packages/protocol/     Shared TypeScript contracts (@cuex/protocol): Universal entities, Controller, WS/REST, Presentation
-apps/server/           Universal Cognitive Runtime, Presentation adapter, voice/ASR adapters, HTTP + WS Gateway (/ws)
-apps/web/              Warm-light CueX UI (HomeView, CompilerView, StageView Focus/Inspector, ReflectionView)
+packages/protocol/     Shared @cuex/protocol v2.0.0 contracts, validators, errors, schemas/, examples/, v1-to-v2 upgrader
+apps/server/           Universal Runtime, Presentation adapter, Gateway HTTP + WS (/ws), SQLite WAL storage, Auth, Commercial & Observability
+apps/web/              Warm-light CueX UI (HomeView, CompilerView, StageView Focus/Split-Strip/Inspector, ReflectionView, AccountPanel)
 docs/
-  ├── product/         PRODUCT_VISION.md, PRESENTATION_PRD.md, USER_FLOWS.md
+  ├── api/             openapi.yaml (OpenAPI 3.2.1) & asyncapi.yaml (AsyncAPI 3.1.0)
   ├── architecture/    UNIVERSAL_RUNTIME.md, SYSTEM_1_SYSTEM_2.md, INTERVENTION_CONTROLLER.md, DATA_MODEL.md, SCENARIO_ADAPTER.md
-  ├── engineering/     BASELINE.md, CURRENT_ARCHITECTURE.md, AUDIT.md, LEGACY_CLEANUP.md, MIGRATION_PLAN.md
-  ├── business/        BUSINESS_MODEL.md, UNIT_ECONOMICS.md, COMPETITIVE_ANALYSIS.md, ROADMAP.md
-  └── DEPLOYMENT.md    Local/production setup, optional real S1/S2/ASR wiring, and verification commands
+  ├── data/            DATA_PIPELINE.md, DATA_DICTIONARY.md, EVENT_CATALOG.md, SCHEMA_VERSIONING.md
+  ├── security/        SECURITY_MODEL.md
+  ├── privacy/         PRIVACY_DATA_MAP.md, DATA_RETENTION.md, CONSENT_FLOW.md
+  ├── operations/      DEPLOYMENT.md, OBSERVABILITY.md, INCIDENT_RESPONSE.md, BACKUP_AND_RECOVERY.md
+  ├── product/         PRODUCT_VISION.md, PRESENTATION_PRD.md, USER_FLOWS.md, PRODUCT_METRICS.md
+  ├── engineering/     PHASE2_{AUDIT,PLAN,RISK_REGISTER}.md, DECISIONS/ADR-001..004.md, TEST_STRATEGY.md, RELEASE_PROCESS.md + historical archive
+  ├── business/        BUSINESS_MODEL.md, UNIT_ECONOMICS.md, COMPETITIVE_ANALYSIS.md, CUSTOMER_VALIDATION.md, GTM_PLAN.md, PRICING_AND_PACKAGING.md, ROADMAP.md
+  └── DEPLOYMENT.md    Quickstart & links to operational runbooks
+scripts/               demo.mjs, db-backup-restore.mjs, check-public-data.mjs, check-legacy-domain.mjs, generate-sbom.mjs
+.github/workflows/     ci.yml (typecheck, protocol/server/web tests, build, eval, Playwright E2E, guards, audit, SBOM)
 ```
 
 ---
@@ -49,33 +57,40 @@ docs/
 
 ```bash
 # 1. Install workspace dependencies (Node >= 22.19, pnpm 9.15.9)
-pnpm install
+cp .env.example .env
+pnpm install --frozen-lockfile
 
-# 2. Launch both API/WS server (:8765) and Vite web client (:5173)
+# 2. Launch both API/WS server (127.0.0.1:8765) and Vite web client (127.0.0.1:5173)
 pnpm demo
 # (Or run in two terminals: `pnpm dev:server` and `pnpm dev:web`)
 ```
 
 Then open **`http://127.0.0.1:5173/`**:
-1. Click **一键载入 CueX 路演演示包** in `HomeView` (or **载入示例：CueX 路演演示包** in `CompilerView`) to load `pack_cuex_demo_01`, or upload a `.pptx`, `.pdf`, `.md`, or `.txt` file.
-2. Confirm/lock facts in the Fact Whitelist, accept the privacy & audio notice, and launch **`Focus`** or **`Inspector`** mode (`rehearsal` or `live`).
-3. Speak via Browser Web Speech (`SpeechRecognition`) or send speech segments via the simulation controls in `StageView` to observe `L0–L3` intervention gating, automatic withdrawal (`user_recovered`, `chapter_changed`, etc.), grounded Q&A lookup, and post-session **`ReflectionView`** (`V = H - λI`).
+1. Authenticate via `POST /api/auth/session` (automatic dev session or explicit demo identity switcher in `AccountPanel`) and click **一键载入 CueX 路演演示包** (`pack_cuex_demo_01`) or upload a `.pptx`, `.pdf`, `.md`, or `.txt` document (`<= 15 MB`).
+2. Confirm/lock facts in the Fact Whitelist, accept the Microphone & Privacy Notice (`privacyNoticeAccepted: true`), and launch **`Focus`**, **`Split Strip`**, or **`Inspector`** mode (`rehearsal` or `live`).
+3. Speak via Browser Web Speech (`SpeechRecognition`), Sherpa audio streaming, or text simulation controls to observe `L0–L3` intervention gating, automatic withdrawal, grounded Q&A lookup, post-session **`ReflectionView`** (`V = H - λI`), JSON/Markdown export (`GET /api/account/export`), and session/account wipe (`DataDeletionReceipt`).
 
 ---
 
-## Verification & Benchmark Commands
+## Verification, Backup & Hygiene Commands
 
 ```bash
-pnpm typecheck                                                  # Workspace TypeScript verification
-pnpm build                                                      # Web production bundle check
-CUEX_TEST_OFFLINE=1 pnpm --filter @cuex/server test            # Universal Runtime, Controller, Compiler, Memory & WS tests
-pnpm --filter @cuex/server eval                                 # Deterministic 6-case Presentation benchmark (.cuex-runtime/eval-latest.*)
-pnpm --filter @cuex/web exec vitest run test/presentation-reducer.test.ts
-node --test apps/web/test/presentation-e2e.test.mjs               # Browser Playwright E2E flow
+pnpm typecheck                                                  # Workspace TypeScript check (@cuex/protocol, @cuex/server, @cuex/web)
+pnpm --filter @cuex/protocol test                               # Protocol validator, JSON Schema, & v1->v2 compatibility tests
+CUEX_TEST_OFFLINE=1 pnpm --filter @cuex/server test             # Server unit, controller, persistence, security & commercial isolation tests
+pnpm --filter @cuex/web test                                    # Web reducer & helper unit tests (Vitest)
+pnpm build                                                      # Workspace production bundle build
+CUEX_SYSTEM1=fake CUEX_SYSTEM2=fake CUEX_ASR=fake pnpm --filter @cuex/server eval
+                                                                # Deterministic 6-case Presentation benchmark (.cuex-runtime/eval-latest.*)
+node --test apps/web/test/presentation-e2e.test.mjs             # Headless Playwright browser E2E test against built server & web
+pnpm db:backup --self-test                                      # Online WAL-safe SQLite backup/restore & integrity self-test
+pnpm check:public-data && pnpm check:legacy                     # Secret/PII/local-path guard & legacy-domain/TTS guard
+node scripts/generate-sbom.mjs --output .cuex-runtime/sbom-and-checksums.json
+                                                                # Zero-dep SBOM & SHA-256 artifact checksums
 ```
 
 ---
 
 ## Pre-Race Baseline Disclosure (HKS 2026)
 
-Consistent with HKS 2026 OPC Track transparency rules: prior to the hackathon branch (`refactor/universal-runtime-presentation` from baseline commit `96cd742`), the repository held an earlier domain-specific dialogue training prototype from which only domain-neutral engineering infrastructure (browser PCM16 audio capture worklet, Sherpa ASR transport scaffolding, `pi-ai` provider credential redaction helpers, and CueX brand SVG marks/fonts) was retained or adapted. All Universal Cognitive Runtime abstractions, `InterventionController` policies, `@cuex/protocol` schemas, Presentation compiler/stage/reflection workflows, and benchmark harnesses were designed and implemented during the CueX Next refactor. Full commit-level provenance and audit matrices are documented in [BASELINE.md](docs/engineering/BASELINE.md) and [AUDIT.md](docs/engineering/AUDIT.md).
+Consistent with HKS 2026 OPC Track transparency rules: prior to the hackathon branch (`refactor/universal-runtime-presentation` from baseline commit `96cd742`), the repository held an earlier vertical dialogue training prototype from which only domain-neutral engineering infrastructure (browser PCM16 audio capture worklet, Sherpa ASR transport scaffolding, `pi-ai` provider credential redaction helpers, and CueX brand SVG marks/fonts) was retained or adapted. All Universal Cognitive Runtime abstractions, `InterventionController` policies, `@cuex/protocol` schemas, SQLite WAL storage/auth/quota layers, Presentation compiler/stage/reflection workflows, Web client views, and evaluation harnesses were designed and implemented during the CueX Next refactor. Full commit-level provenance and audit matrices live in [BASELINE.md](docs/engineering/BASELINE.md) and [AUDIT.md](docs/engineering/AUDIT.md).

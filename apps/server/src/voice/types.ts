@@ -18,14 +18,3 @@ export interface AsrEngine {
   readonly backend: string;
   open(opts: { sampleRate: number }, callbacks: AsrCallbacks): Promise<AsrStream>;
 }
-
-export interface TtsChunk {
-  audio: Buffer;
-  mimeType: string;
-  text?: string;
-}
-
-export interface TtsEngine {
-  readonly backend: string;
-  synthesize(text: string, signal: AbortSignal): AsyncIterable<TtsChunk>;
-}
