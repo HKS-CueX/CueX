@@ -46,6 +46,4 @@ __pycache__/
 *.py[cod]
 deliverables/
 .cuex-runtime/
-
-# Generated scenario doctor memories (default legacy doctor directory)
-apps/server/agents/doctors/dr-synth-*/
+*.zip

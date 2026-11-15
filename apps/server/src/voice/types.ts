@@ -1,0 +1,31 @@
+export interface AsrCorrection {
+  pattern: string;
+  replacement: string;
+}
+
+export interface AsrCallbacks {
+  onPartial(text: string): void;
+  onFinal(text: string): void;
+  onError(error: Error): void;
+}
+
+export interface AsrStream {
+  write(pcm16le: Buffer): void;
+  end(): void;
+}
+
+export interface AsrEngine {
+  readonly backend: string;
+  open(opts: { sampleRate: number }, callbacks: AsrCallbacks): Promise<AsrStream>;
+}
+
+export interface TtsChunk {
+  audio: Buffer;
+  mimeType: string;
+  text?: string;
+}
+
+export interface TtsEngine {
+  readonly backend: string;
+  synthesize(text: string, signal: AbortSignal): AsyncIterable<TtsChunk>;
+}

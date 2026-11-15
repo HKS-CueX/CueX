@@ -1,5 +1,5 @@
 import { createRequire } from 'node:module';
-import type { TtsChunk, TtsEngine } from '../contracts';
+import type { TtsChunk, TtsEngine } from './types';
 import { sniffAudio } from './wav';
 
 interface EdgeClient {

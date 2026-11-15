@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "start": "tsx src/index.ts",
     "test": "tsx --test test/*.test.ts",
-    "test:controller": "tsx --test test/controller-gateway.test.ts"
+    "test:controller": "tsx --test test/runtime-controller.test.ts",
+    "eval": "tsx scripts/eval-presentation.ts"
   },
   "dependencies": {
     "@cuex/protocol": "workspace:*",

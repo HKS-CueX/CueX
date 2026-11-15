@@ -3,7 +3,8 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "demo": "node scripts/demo-remote-tts.mjs",
+    "demo": "node scripts/demo.mjs",
+    "demo:remote-tts": "node scripts/demo-remote-tts.mjs",
     "tts:connect": "node scripts/tts-tunnel.mjs",
     "dev:web": "pnpm --filter @cuex/web dev",
     "dev:server": "pnpm --filter @cuex/server dev",
@@ -12,8 +13,8 @@
     "check:public-data": "node scripts/check-public-data.mjs",
     "ppt:dev": "npm --prefix ppt run dev",
     "ppt:build": "npm --prefix ppt run build",
-    "ppt:export:hks": "npm --prefix ppt run export:hks",
-    "ppt:export:hks:universal": "npm --prefix ppt run export:hks:universal"
+    "ppt:preview": "npm --prefix ppt run preview",
+    "ppt:export:final": "npm --prefix ppt run export:final"
   },
   "pnpm": {
     "overrides": {

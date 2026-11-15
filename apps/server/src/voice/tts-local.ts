@@ -1,6 +1,6 @@
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import type { TtsChunk, TtsEngine } from '../contracts';
+import type { TtsChunk, TtsEngine } from './types';
 import { loadSherpa, type SherpaOfflineTts } from './sherpa';
 import { float32ToWav } from './wav';
 

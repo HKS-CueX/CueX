@@ -11,7 +11,7 @@ import { anthropicMessagesApi } from '@earendil-works/pi-ai/api/anthropic-messag
 import { openAICompletionsApi } from '@earendil-works/pi-ai/api/openai-completions.lazy';
 
 export const DEFAULT_S2_PROVIDER = 'gpt-kanglives';
-/** Default model per API family. Chosen from scripts/s2-bench.ts results and a read of the drafts. Backup for openai-completions: gemini-3.1-flash-lite. */
+/** Default model per API family. Backup for openai-completions: gemini-3.1-flash-lite. */
 export const DEFAULT_S2_MODEL: Record<string, string> = {
   'openai-completions': 'gemini-3-flash',
   'anthropic-messages': 'claude-haiku-4-5',

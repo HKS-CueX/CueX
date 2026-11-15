@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field
 ROOT = Path(os.environ.get('CUEX_TTS_ROOT', r'E:\CueX-TTS'))
 REPO = ROOT / 'Ming-3.0-tts'
 CHECKPOINT = ROOT / 'models' / 'Ming-3.0-tts-0.5b'
-VOICES = {'doctor': '灵楷', 'narrator': '灵小柔'}
+VOICES = {'speaker': '灵楷', 'narrator': '灵小柔'}
 log = logging.getLogger('cuex.tts')
 model = None
 gpu_lock = asyncio.Lock()
@@ -57,7 +57,7 @@ async def lifespan(_app: FastAPI):
         raise RuntimeError('CUDA is required; CPU fallback is disabled for this deployment')
     torch.set_num_threads(4)
     model = MingTTS(str(CHECKPOINT), device='cuda:0', text_normalization=False)
-    await asyncio.to_thread(infer, '你好，我们开始这次训练。', 'doctor')
+    await asyncio.to_thread(infer, '你好，我们开始本次 CueX 语音测试。', 'speaker')
     log.info('ready: %s / %s', torch.cuda.get_device_name(0), torch.__version__)
     yield
     model = None
@@ -69,7 +69,7 @@ app = FastAPI(lifespan=lifespan)
 
 class Speech(BaseModel):
     text: str = Field(min_length=1, max_length=500)
-    voice: Literal['doctor', 'narrator'] = 'doctor'
+    voice: Literal['speaker', 'narrator'] = 'speaker'
 
 
 @app.get('/health')

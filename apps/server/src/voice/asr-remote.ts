@@ -1,5 +1,5 @@
 import { WebSocket } from 'ws';
-import type { AsrCallbacks, AsrEngine, AsrStream } from '../contracts';
+import type { AsrCallbacks, AsrEngine, AsrStream } from './types';
 
 export interface RemoteAsrOptions {
   url: string;

@@ -1,6 +1,6 @@
 # Linux/systemd example. Adjust user, directory, and node executable first.
 [Unit]
-Description=CueX WebSocket training server
+Description=CueX Universal Cognitive Copilot Runtime Server
 After=network-online.target
 Wants=network-online.target
 

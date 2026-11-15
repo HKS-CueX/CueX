@@ -1,11 +1,5 @@
-import type { SystemTwo } from '../contracts';
-import { PiSystemTwo, type PiSystemTwoOptions } from './PiSystemTwo';
-
-export { PiSystemTwo } from './PiSystemTwo';
-export type { PiSystemTwoOptions, S2Metrics } from './PiSystemTwo';
-export { loadS2Runtime } from './config';
-
-/** Real System 2. Reads CUEX_S2_PROVIDER, CUEX_S2_MODEL, CUEX_S2_API_KEY, CUEX_S2_BASE_URL, CUEX_S2_RETRIEVAL, PRIME_MODELS_JSON. */
-export function createSystemTwo(opts?: PiSystemTwoOptions): SystemTwo {
-  return new PiSystemTwo(opts);
-}
+export { loadS2Runtime, loadModelsJson, DEFAULT_S2_PROVIDER, DEFAULT_S2_MODEL } from './config';
+export type { S2Runtime, LoadS2Options } from './config';
+export { numbersIn } from './numbers';
+export { abortError, runAgentGuarded } from './run';
+export { clampSpoken, bigramDice, ensureEnding, stripFiller } from './spoken';

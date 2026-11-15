@@ -28,7 +28,8 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
-    location = /ws/session {
+    # Primary WebSocket gateway (/ws) and compatibility alias (/ws/session).
+    location ~ ^/ws(/session)?$ {
         proxy_pass http://127.0.0.1:8765;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -40,23 +41,20 @@ server {
         proxy_buffering off;
     }
 
+    # Supports up to 15 MB base64 Presentation document payloads (.pptx/.pdf/.md/.txt).
     location /api/ {
         proxy_pass http://127.0.0.1:8765;
         proxy_set_header Host $host;
         proxy_read_timeout 60s;
-        client_max_body_size 32k;
+        client_max_body_size 20m;
     }
 
     location = /health {
         proxy_pass http://127.0.0.1:8765;
     }
 
-    location = /briefing {
-        proxy_pass http://127.0.0.1:8765;
-    }
-
-    # Authoring inputs are shared in assets/, but are not needed by the web UI.
-    location ~ ^/(qa|captures|audio|captions|references)(/|$) {
+    # Block direct exposure of local runtime storage or authoring internals if present.
+    location ~ ^/(\.cuex-runtime|qa|captures|audio|captions|references)(/|$) {
         return 404;
     }
 }

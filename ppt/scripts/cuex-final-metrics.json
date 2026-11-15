@@ -1,0 +1,265 @@
+{
+  "dataStatus": "EVAL_LOCKED",
+  "generatedAt": "2026-11-15T18:26:03.257Z",
+  "team": {
+    "name": "记性好了一点",
+    "members": "路皓然、任逸康",
+    "track": "OPC 模式创新赛道",
+    "brand": "CueX",
+    "tagline": "你的快思考外挂 · 在深度思考之外，接住当下。",
+    "wedge": "CueX Presentation（演讲与答辩临场引导师）"
+  },
+  "eval": {
+    "sourceLabel": "[本地实测 Eval (local_rule_zero) + 云端公开费率建模]",
+    "datasetCases": 6,
+    "passedCases": 6,
+    "precision": "100.0%",
+    "falseInterventionRate": "0.0%",
+    "withdrawalAccuracy": "100.0%",
+    "avgLatencyMs": 0.69,
+    "p95LatencyMs": 1.38,
+    "lambda": 2,
+    "utilityV": "+3 (V=H-2I)",
+    "tokensPerSession": 0,
+    "cachedTokensPerSession": 0,
+    "modeledCloudTokensPerSession": 43748,
+    "s1EvaluationsPerSession": 13,
+    "s1ModelCallsPerSession": 0,
+    "s2WakeupsPerSession": 4,
+    "localSuppressCount": 9,
+    "localRuleCoveragePct": "100% (13/13)",
+    "measurementSource": "local_rule_zero",
+    "notes": "Offline deterministic evaluation used local heuristic & grounded rules (0 LLM tokens consumed)."
+  },
+  "pricing": {
+    "free": {
+      "name": "CueX Free",
+      "price": "¥0",
+      "tag": "体验配额",
+      "quota": "每月限 2 场 × 10m 云端 ASR + 完整 Inspector"
+    },
+    "event": {
+      "name": "CueX Event",
+      "price": "¥19–39 / 场",
+      "anchor": 29,
+      "tag": "答辩/路演单场包",
+      "quota": "14 天有效期 · 含 120m 云端 ASR 演练 + 正式临场 + 复盘"
+    },
+    "pro": {
+      "name": "CueX Pro",
+      "price": "¥59 / 月",
+      "annual": "¥499 / 年",
+      "anchor": 59,
+      "tag": "高频订阅主力",
+      "quota": "月含 240m 云端 ASR · 长期审批记忆 · 无限材料编译"
+    },
+    "team": {
+      "name": "CueX Team",
+      "price": "¥199 / 席位 / 月",
+      "tag": "规划中 Planned",
+      "quota": "共享口径库 + 团队管理审计 + 多场景适配器包"
+    }
+  },
+  "scenarios": {
+    "conservative": {
+      "label": "保守情景 (Conservative)",
+      "sessionsPerMo": 8,
+      "durationMin": 30,
+      "asrRatePerHr": 1.5,
+      "modeledCloudTokensPerSession": 69488,
+      "llmCostPerSession": 0.233,
+      "fullVarCostPerSession": 1.283,
+      "proMonthlySaasCogs": 11.47,
+      "proMonthlyVarCost": 28.4,
+      "proDirectContrib": 30.6,
+      "proDirectMarginPct": 51.9,
+      "proSaasMarginPct": 80.6,
+      "eventFullCost": 10.29,
+      "eventDirectContrib": 18.71,
+      "eventMarginPct": 64.5,
+      "ltv": 153.01,
+      "cac": 45,
+      "ltvCac": 3.4,
+      "breakevenSessionsPro": 31
+    },
+    "base": {
+      "label": "基准情景 (Base)",
+      "sessionsPerMo": 6,
+      "durationMin": 25,
+      "asrRatePerHr": 0.8,
+      "modeledCloudTokensPerSession": 43748,
+      "llmCostPerSession": 0.098,
+      "fullVarCostPerSession": 0.612,
+      "proMonthlySaasCogs": 4.47,
+      "proMonthlyVarCost": 9.34,
+      "proDirectContrib": 49.66,
+      "proDirectMarginPct": 84.2,
+      "proSaasMarginPct": 92.4,
+      "eventFullCost": 3.59,
+      "eventDirectContrib": 25.41,
+      "eventMarginPct": 87.6,
+      "ltv": 347.62,
+      "cac": 30,
+      "ltvCac": 11.59,
+      "breakevenSessionsPro": 87
+    },
+    "optimistic": {
+      "label": "乐观情景 (Optimistic)",
+      "sessionsPerMo": 5,
+      "durationMin": 20,
+      "asrRatePerHr": 0.45,
+      "modeledCloudTokensPerSession": 28566,
+      "llmCostPerSession": 0.042,
+      "fullVarCostPerSession": 0.267,
+      "proMonthlySaasCogs": 1.94,
+      "proMonthlyVarCost": 3.27,
+      "proDirectContrib": 55.73,
+      "proDirectMarginPct": 94.5,
+      "proSaasMarginPct": 96.7,
+      "eventFullCost": 1.27,
+      "eventDirectContrib": 27.73,
+      "eventMarginPct": 95.6,
+      "ltv": 557.29,
+      "cac": 18,
+      "ltvCac": 30.96,
+      "breakevenSessionsPro": 213
+    }
+  },
+  "costComponents10": [
+    {
+      "id": 1,
+      "name": "1. 文档解析 (Doc Extract)",
+      "baseSession": 0.02,
+      "shareNote": "PDF/PPTX 抽取与章节结构化摊销",
+      "category": "LLM & Compute"
+    },
+    {
+      "id": 2,
+      "name": "2. 流式语音识别 (ASR)",
+      "baseSession": 0.333,
+      "shareNote": "25m × ¥0.80/h (主要变动成本)",
+      "category": "Voice Infra"
+    },
+    {
+      "id": 3,
+      "name": "3. System 1 快决策",
+      "baseSession": 0.008,
+      "shareNote": "本地规则拦截零费 + 云端快模型补判",
+      "category": "LLM & Compute"
+    },
+    {
+      "id": 4,
+      "name": "4. System 2 深度推理",
+      "baseSession": 0.058,
+      "shareNote": "高门槛触发锚点与 Evidence 推理",
+      "category": "LLM & Compute"
+    },
+    {
+      "id": 5,
+      "name": "5. 前缀缓存节流 (Cache)",
+      "baseSession": -0.02,
+      "shareNote": "单会话 40% 前缀命中净节省 (非跨槽共享)",
+      "category": "Optimization"
+    },
+    {
+      "id": 6,
+      "name": "6. 证据检索 (Retrieval)",
+      "baseSession": 0.012,
+      "shareNote": "Evidence[] 与审批记忆切片召回",
+      "category": "LLM & Compute"
+    },
+    {
+      "id": 7,
+      "name": "7. 赛后复盘 (Reflection)",
+      "baseSession": 0.02,
+      "shareNote": "V = H − λI 算子与候选记忆摘要",
+      "category": "LLM & Compute"
+    },
+    {
+      "id": 8,
+      "name": "8. 基础设施 (Web/WS/DB)",
+      "baseSession": 0.18,
+      "shareNote": "WS 并发长连接、状态存储与监控摊销",
+      "category": "Infrastructure"
+    },
+    {
+      "id": 9,
+      "name": "9. 支付通道费 (0.6%)",
+      "baseMonthly": 0.35,
+      "shareNote": "微信/支付宝官方 SaaS 费率 (¥59×0.6%)",
+      "category": "Commercial"
+    },
+    {
+      "id": 10,
+      "name": "10. 免费用户补贴与支持",
+      "baseMonthly": 5.32,
+      "shareNote": "12:1 免费补贴 ¥4.87 + 客服 ¥0.45",
+      "category": "Subsidy & Ops"
+    }
+  ],
+  "sensitivities": [
+    {
+      "factor": "1. 月高频场次增至 12 场 (+100%)",
+      "proFullVarCost": 13.01,
+      "proDirectMarginPct": 77.9,
+      "deltaMarginPct": -6.2,
+      "breakevenSessions": 87
+    },
+    {
+      "factor": "2. 单场平均时长增至 45 分钟 (+80%)",
+      "proFullVarCost": 10.69,
+      "proDirectMarginPct": 81.9,
+      "deltaMarginPct": -2.3,
+      "breakevenSessions": 60
+    },
+    {
+      "factor": "3. 云端 ASR 单价升至 Aliyun 标准 ¥3.50/h",
+      "proFullVarCost": 23.65,
+      "proDirectMarginPct": 59.9,
+      "deltaMarginPct": -24.3,
+      "breakevenSessions": 26
+    },
+    {
+      "factor": "4. System 1+2 单轮输入 Token 翻倍",
+      "proFullVarCost": 9.8,
+      "proDirectMarginPct": 83.4,
+      "deltaMarginPct": -0.8,
+      "breakevenSessions": 81
+    },
+    {
+      "factor": "5. 会话内前缀缓存命中降至 0% (无缓存)",
+      "proFullVarCost": 9.6,
+      "proDirectMarginPct": 83.7,
+      "deltaMarginPct": -0.4,
+      "breakevenSessions": 84
+    },
+    {
+      "factor": "6. System 2 临场唤醒翻倍 (过度干预)",
+      "proFullVarCost": 9.86,
+      "proDirectMarginPct": 83.3,
+      "deltaMarginPct": -0.9,
+      "breakevenSessions": 81
+    },
+    {
+      "factor": "7. 赛后复盘深度模型升至高阶 ¥10/1M",
+      "proFullVarCost": 11.24,
+      "proDirectMarginPct": 81,
+      "deltaMarginPct": -3.2,
+      "breakevenSessions": 68
+    },
+    {
+      "factor": "8. 免费/付费比恶化至 25:1 (+108%)",
+      "proFullVarCost": 14.61,
+      "proDirectMarginPct": 75.2,
+      "deltaMarginPct": -8.9,
+      "breakevenSessions": 78
+    },
+    {
+      "factor": "9. 单场云基础设施带宽升至 ¥0.50/场",
+      "proFullVarCost": 14.75,
+      "proDirectMarginPct": 75,
+      "deltaMarginPct": -9.2,
+      "breakevenSessions": 53
+    }
+  ]
+}

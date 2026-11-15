@@ -1,4 +1,4 @@
-import type { TtsChunk, TtsEngine } from '../contracts';
+import type { TtsChunk, TtsEngine } from './types';
 import { fixWavSizes, sniffAudio } from './wav';
 
 export interface HttpTtsOptions {

@@ -1,38 +1,76 @@
 /**
- * Controller 轮次仲裁与动作调度协议
- * 职责：输出前复核（核验候选依据在当前最新情境下是否依然成立），统一指挥 3D 医生与语音输出
+ * Controller Protocol contracts.
+ * Enforces minimum necessary intervention, TTL, contextVersion gating, grounding verification, and automatic withdrawal.
  */
 
-// 医生身体姿态枚举（驱动 3D 石膏像）
-export type DoctorPoseName = 
-  | 'listening'    // 倾听中：身体直立，偶尔微点头
-  | 'holding'      // 想插话：身体前倾，微吸气挑眉，背侧朱砂光渐强
-  | 'asking'       // 追问中：前倾开口打断，口型与语音同步
-  | 'withdrawing'  // 放下追问：呼气后靠，点头微闭，朱砂光消散
-  | 'speaking';    // 正常发言轮次
+import type { InterventionLevel } from './common';
+import type { Intervention } from './entities';
 
-export interface ControllerDispatchEvent {
+export type WithdrawalReason =
+  | 'user_recovered'
+  | 'topic_changed'
+  | 'chapter_changed'
+  | 'context_invalidated'
+  | 'candidate_expired'
+  | 'user_dismissed'
+  | 'superseded';
+
+export type ControllerAction =
+  | 'stay_silent'
+  | 'show_l1_edge'
+  | 'show_l2_keyword'
+  | 'show_l3_scaffold'
+  | 'withdraw';
+
+export type ControllerSuppressReason =
+  | 'silent_mode'
+  | 'session_paused'
+  | 'ceiling_exceeded'
+  | 'cooldown_active'
+  | 'user_dismissed_suppression'
+  | 'candidate_expired'
+  | 'stale_context_version'
+  | 'ungrounded_evidence'
+  | 'no_semantic_need'
+  | 'pause_only_without_gap'
+  | 'user_already_recovering'
+  | 'lower_priority';
+
+export interface ControllerInspectionTrace {
+  evaluatedAt: number;
+  contextVersion: number;
+  candidateId?: string;
+  candidateContextVersion?: number;
+  ttlRemainingMs?: number;
+  groundedChecked: boolean;
+  evidenceCount: number;
+  cooldownRemainingMs: number;
+  ceilingLevel: InterventionLevel;
+  silentMode: boolean;
+  paused: boolean;
+  signalsEvaluated: {
+    silenceMs: number;
+    semanticGap: boolean;
+    drift: boolean;
+    openQuestion: boolean;
+    manualHelp: boolean;
+    recovery: boolean;
+  };
+  rulesApplied: string[];
+}
+
+export interface ControllerDecision {
+  decisionId: string;
   sessionId: string;
   timestamp: number;
-  
-  // 3D 视觉信号
-  pose: DoctorPoseName;
-  readiness: number;               // 0~1 准备度（0=刚有想法，1=即将开口）
-  nodAmp?: number;                 // 点头幅度 (0~0.2)
-  lookAt?: { x: number; y: number };// 视线朝向
-  
-  // 执行动作
-  action: {
-    type: 'idle' | 'nod' | 'interrupt_speak' | 'withdraw_question';
-    textToSpeak?: string;          // 需投递给 TTS 的文本
-    candidateId?: string;          // 关联的候选 ID
-  };
-  
-  // 当前主要关切进度
-  concernProgress: {
-    concernId: string;
-    resolvedCount: number;
-    totalPoints: number;
-    isFullyResolved: boolean;
-  };
+  contextVersion: number;
+  selectedAction: ControllerAction;
+  level: InterventionLevel;
+  candidateId?: string;
+  interventionId?: string;
+  intervention?: Intervention;
+  withdrawalReason?: WithdrawalReason;
+  suppressReason?: ControllerSuppressReason | string;
+  reason: string;
+  trace: ControllerInspectionTrace;
 }

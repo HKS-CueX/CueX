@@ -7,8 +7,7 @@
     "dev": "open-slide dev",
     "build": "open-slide build",
     "preview": "open-slide preview",
-    "export:hks": "node scripts/build-hks-deliverables.mjs",
-    "export:hks:universal": "node scripts/build-hks-universal-deliverables.mjs"
+    "export:final": "node scripts/build-cuex-final.mjs"
   },
   "dependencies": {
     "@open-slide/core": "2.3.1",

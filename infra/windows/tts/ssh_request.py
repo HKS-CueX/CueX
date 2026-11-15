@@ -17,8 +17,8 @@ def main():
     elif route == '/tts':
         body = message.get('body', {})
         text = body.get('text')
-        voice = body.get('voice', 'doctor')
-        if not isinstance(text, str) or not 1 <= len(text.strip()) <= 500 or voice not in ('doctor', 'narrator'):
+        voice = body.get('voice', 'speaker')
+        if not isinstance(text, str) or not 1 <= len(text.strip()) <= 500 or voice not in ('speaker', 'narrator'):
             raise ValueError('invalid speech request')
         request = urllib.request.Request('http://127.0.0.1:18666/tts',
             data=json.dumps({'text': text, 'voice': voice}).encode('utf-8'),

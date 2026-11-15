@@ -21,7 +21,7 @@ const server=http.createServer(async(req,res)=>{
     let size=0;const chunks=[];
     for await(const chunk of req){size+=chunk.length;if(size>8192){fail(413,'Speech request too large');return;}chunks.push(chunk);}
     const body=route==='/tts'?JSON.parse(Buffer.concat(chunks).toString('utf8')):undefined;
-    if(route==='/tts'&&(typeof body.text!=='string'||!body.text.trim()||body.text.length>500||!['doctor','narrator'].includes(body.voice??'doctor'))){fail(400,'Invalid speech request');return;}
+    if(route==='/tts'&&(typeof body.text!=='string'||!body.text.trim()||body.text.length>500||!['speaker','narrator'].includes(body.voice??'speaker'))){fail(400,'Invalid speech request');return;}
     if(res.destroyed)return;
     child=spawn('ssh',[...base,'rtx-home','E:/CueX-TTS/.venv/Scripts/python.exe','-u','E:/CueX-TTS/ssh_request.py'],{stdio:['pipe','pipe','pipe']});
     children.add(child);

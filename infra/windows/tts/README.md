@@ -9,12 +9,12 @@ Deployment root: `E:\CueX-TTS`. No existing model environment, account, SSH key,
 ## Runtime contract
 
 - `GET /health`: model, GPU, sample rate and readiness.
-- `POST /tts`: JSON `{"text":"...","voice":"doctor"}` returns a complete PCM WAV. `voice` also accepts `narrator`.
-- Official built-in voices: 灵楷 for the simulated doctor, 灵小柔 for narration. No real person's voice is cloned.
-- As in the existing `apps/server/scripts/voice-tts-server.ts`, synthesis is serialized for one shared model. Disconnected queued requests are skipped; already-running GPU work may finish, but its audio is discarded after disconnect.
-- Chinese FST normalization is disabled because the optional native pynini dependency is unavailable in the chosen Windows environment. CueX samples and final narration are saved for audition; do not equate timing/decoding checks with subjective voice-quality assessment.
+- `POST /tts`: JSON `{"text":"...","voice":"speaker"}` returns a complete PCM WAV. `voice` also accepts `narrator`.
+- Official built-in voices: 灵楷 for the primary `speaker` voice, 灵小柔 for `narrator`. No real person's voice is cloned.
+- Synthesis is serialized for one shared model. Disconnected queued requests are skipped; already-running GPU work may finish, but its audio is discarded after disconnect.
+- Chinese FST normalization is disabled because the optional native pynini dependency is unavailable in the chosen Windows environment. CueX samples and narration are saved for audition; do not equate timing/decoding checks with subjective voice-quality assessment.
 
-Project configuration after validation:
+Configuration for optional remote TTS tooling:
 
 ```sh
 CUEX_TTS_BACKEND=http
@@ -22,9 +22,9 @@ CUEX_TTS_URL=http://127.0.0.1:18766/tts
 CUEX_TTS_FALLBACK=none
 ```
 
-`none` preserves the user's requirement that both product speech and film narration come from this machine. An unavailable remote service is reported as an error instead of silently using Edge. Legacy adapters remain available only when explicitly selected. Automatic fallback now requires an explicit `CUEX_TTS_FALLBACK=auto`.
+`none` requires speech synthesis to come from this machine when remote TTS is enabled; an unavailable remote service reports an error instead of silently falling back to another network provider. Automatic fallback requires an explicit `CUEX_TTS_FALLBACK=auto`.
 
-Service source: `serve_ming.py`. Manual background startup: `start-ming.ps1`. Model and virtual-environment files remain on the Windows machine; only reproducible source/configuration belongs in this repo. 
+Service source: `serve_ming.py`. Manual background startup: `start-ming.ps1`. Model and virtual-environment files remain on the Windows machine; only reproducible source/configuration belongs in this repo.
 
 ## Start and connect
 
@@ -32,15 +32,12 @@ The isolated environment is `.venv`, the source checkout is `Ming-3.0-tts` at `9
 
 On Windows, run `E:\CueX-TTS\start-ming.ps1`. It uses a WMI-owned background process, survives SSH logout and waits for model warmup. It does not install boot autostart. After a reboot, start it again.
 
-On the Mac, keep the supplied private key, pinned known_hosts and SSH config outside the repository. Set `CUEX_TTS_SSH_CONFIG` to select a config explicitly. Otherwise, the launcher uses `~/.ssh/cuex-rtx-tts/ssh-config` when present, then `~/.ssh/rtx-home/ssh-config`. The config must define `rtx-home` and pin its host key. No keys or configs are copied. Run `pnpm tts:connect` for a standalone bridge, or `pnpm demo` for the complete launcher. The bridge listens only at `127.0.0.1:18766` and uses a private, owned SSH multiplex socket.
+On the Mac, keep the supplied private key, pinned known_hosts and SSH config outside the repository. Set `CUEX_TTS_SSH_CONFIG` to select a config explicitly. Otherwise, the launcher uses `~/.ssh/cuex-rtx-tts/ssh-config` when present, then `~/.ssh/rtx-home/ssh-config`. The config must define `rtx-home` and pin its host key. No keys or configs are copied. Run `pnpm tts:connect` for a standalone bridge, or `pnpm demo:remote-tts` for the remote-TTS launcher (`pnpm demo` starts the standard local CueX Presentation stack). The bridge listens only at `127.0.0.1:18766` and uses a private, owned SSH multiplex socket.
 
-## Measured validation (2026-11-01)
+## Historical baseline validation (2026-11-01)
 
 - CUDA BF16 computation and actual model synthesis passed on RTX 5080, torch 2.8.0+cu128. Output: 44.1 kHz mono PCM16 WAV.
-- Warm doctor sample: 3.3 s audio, 3.208 s GPU synthesis, 4.522 s end-to-end including SSH connection startup.
+- Warm primary speaker sample: 3.3 s audio, 3.208 s GPU synthesis, 4.522 s end-to-end including SSH connection startup.
 - Warm narration sample: 2.4 s audio, 2.205 s synthesis, 2.723 s end-to-end. These are two samples, not a latency percentile or concurrency benchmark.
-- Six film lines generated successfully: 2.4–4.3 s audio each. Sources and hashes are in `assets/audio/narration/manifest.json`.
 - The first GPU warmup after process startup took about 19 s. Health becomes ready only afterwards.
-- `CUEX_TEST_OFFLINE=1 CUEX_TEST_MING_TTS=1 pnpm --filter @cuex/server test` enables the real Windows gateway/abort check while skipping legacy Edge network tests.
-
-The actual WebSocket gateway delivered its first Ming WAV chunk in 3.096 s in the recorded integration check. ffmpeg decoded it successfully; user interruption produced no later audio from that utterance over a 6 s observation window.
+- `node --test scripts/tts-startup.test.mjs` verifies the pinned SSH bridge launcher config resolution and health probing offline.
