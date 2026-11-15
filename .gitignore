@@ -44,6 +44,8 @@ docs/怀客松*.pdf
 *.tsbuildinfo
 __pycache__/
 *.py[cod]
-deliverables/
+deliverables/*
+!deliverables/cuex-final/
 .cuex-runtime/
 *.zip
+!/CueX-Universal-Presentation-Final.zip

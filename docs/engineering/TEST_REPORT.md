@@ -166,7 +166,7 @@ All `14` PNG files were visually inspected via `read_file` (`brand/CueX-Cover.pn
 13. **BP 与商业材料是否与当前代码一致？** — `[已验证]`  
     一致。经 QA 逐项比对与返修闭环，`docs/business/*.md`、`ppt/slides/cuex-final/`、`CueX-BP.pdf`（8 页）、`CueX-Business-Plan.pdf`（8 页）、`CueX-AI-Employee-Job-Spec.pdf`（1 页 A4）、`CueX-BMC-and-Unit-Economics.pdf`（2 页 A4 横版）、`CueX-Demo-Script.md`、`evaluation-results.md` 与 `token-usage-proof.png` 均已与 `@cuex/protocol`、`apps/server`、`apps/web` 及 `eval-presentation.ts` 对齐，且无医药残留。（注：`eval-presentation.ts` 的 2 次本地实机跑批存在 `0.69ms` vs `0.74ms` 正常毫秒级耗时微差，计数与结论完全一致。）
 14. **最终交付物在哪里？** — `[已实现 / 已验证]`  
-    - 目录交付包：[`deliverables/cuex-final/`](../../deliverables/cuex-final/README.md)（含 `brand/`、`pitch/`、`business/`、`evidence/`、`previews/`）
-    - 打包归档 ZIP：[`CueX-Universal-Presentation-Final.zip`](../../CueX-Universal-Presentation-Final.zip)（仓库根目录，已加入 `.gitignore` 避免膨胀 Git 历史）
-    - 历史参考归档：`.cuex-runtime/reference-archives/`（已移出 `deliverables/`）
+    - 目录交付包：[`deliverables/cuex-final/`](../../deliverables/cuex-final/README.md)（含 `brand/`、`pitch/`、`business/`、`evidence/`、`previews/`，已在 `refactor/universal-runtime-presentation` 跟踪并推送至远端）
+    - 打包归档 ZIP：[`CueX-Universal-Presentation-Final.zip`](../../CueX-Universal-Presentation-Final.zip)（仓库根目录，已在 `.gitignore` 中放行并在 `refactor/universal-runtime-presentation` 跟踪推送，其余 `*.zip` 继续忽略）
+    - 历史参考归档：`.cuex-runtime/reference-archives/`（已移出 `deliverables/`，并保持 `.gitignore` 忽略）
     - 工程与战略文档：`README.md`、`docs/DEPLOYMENT.md`、`docs/product/*`、`docs/architecture/*`、`docs/business/*`、`docs/engineering/*`
