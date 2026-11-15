@@ -1,0 +1,30 @@
+{
+  "name": "cuex-monorepo",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "demo": "node scripts/demo-remote-tts.mjs",
+    "tts:connect": "node scripts/tts-tunnel.mjs",
+    "dev:web": "pnpm --filter @cuex/web dev",
+    "dev:server": "pnpm --filter @cuex/server dev",
+    "build": "pnpm --filter @cuex/web build",
+    "typecheck": "pnpm -r run typecheck",
+    "check:public-data": "node scripts/check-public-data.mjs",
+    "ppt:dev": "npm --prefix ppt run dev",
+    "ppt:build": "npm --prefix ppt run build",
+    "ppt:export:hks": "npm --prefix ppt run export:hks",
+    "ppt:export:hks:universal": "npm --prefix ppt run export:hks:universal"
+  },
+  "pnpm": {
+    "overrides": {
+      "@types/react": "^18.3.12",
+      "@types/react-dom": "^18.3.1",
+      "three": "^0.170.0",
+      "@types/three": "^0.170.0"
+    }
+  },
+  "packageManager": "pnpm@9.15.9",
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

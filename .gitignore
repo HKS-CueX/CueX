@@ -1,0 +1,51 @@
+.DS_Store
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor and agent local directories
+.vscode/*
+!.vscode/extensions.json
+.idea
+.claude/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# local pnpm store created when the global store is not writable
+.pnpm-store/
+
+# Derived presentation/print artifacts and local review output
+ppt/out/
+assets/banners/
+docs/hks.md
+docs/怀客松*.pdf
+.firecrawl/
+.taste-skill/
+# Local secrets
+.env
+.env.*
+!.env.example
+
+# TypeScript incremental build info
+*.tsbuildinfo
+__pycache__/
+*.py[cod]
+deliverables/
+.cuex-runtime/
+
+# Generated scenario doctor memories (default legacy doctor directory)
+apps/server/agents/doctors/dr-synth-*/

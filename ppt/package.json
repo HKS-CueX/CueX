@@ -1,0 +1,23 @@
+{
+  "name": "cuex-slides",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "open-slide dev",
+    "build": "open-slide build",
+    "preview": "open-slide preview",
+    "export:hks": "node scripts/build-hks-deliverables.mjs",
+    "export:hks:universal": "node scripts/build-hks-universal-deliverables.mjs"
+  },
+  "dependencies": {
+    "@open-slide/core": "2.3.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "three": "^0.170.0"
+  },
+  "devDependencies": {
+    "@types/three": "^0.170.0",
+    "pdf-lib": "^1.17.1"
+  }
+}

@@ -1,0 +1,275 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: 'Noto Sans SC';
+  src: url('/fonts/NotoSansSC-VF.ttf') format('truetype');
+  font-weight: 100 900;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Noto Serif SC';
+  src: url('/fonts/NotoSerifSC-VF.ttf') format('truetype');
+  font-weight: 200 900;
+  font-display: swap;
+}
+
+
+:root {
+  color-scheme: light;
+
+  /* Ground and surfaces: the wall of a consulting room in daylight */
+  --ground: #ecede8;
+  --ground-2: #e2e4de;
+  --ground-3: #d6d9d2;
+  --surface: #f6f6f2;
+
+  /* Ink */
+  --ink: #141716;
+  --ink-2: #4a504d;
+  --ink-hover: #2a2f2d;
+  --ink-3: #585e5b;
+  --line: #c9ccc5;
+  --line-strong: #a9ada6;
+
+  /* Plaster */
+  --plaster: #d9d6ce;
+
+  /* Cinnabar: accent for held question */
+  --held: #d2461e;
+  --held-ink: #a8340f;
+  --held-tint: #f3ddd3;
+
+  /* Resolved: answered concern */
+  --resolved: #28604f;
+  --resolved-tint: #d9e6e0;
+
+  /* Fonts */
+  --font-doctor: "Noto Serif SC", "Songti SC", "STSong", serif;
+  --font-ui: "Noto Serif SC", "Songti SC", "STSong", serif;
+
+  /* Type steps */
+  --t-13: 13px;
+  --t-14: 14px;
+  --t-16: 16px;
+  --t-17: 17px;
+  --t-20: 20px;
+  --t-26: 26px;
+  --t-34: 34px;
+  --t-display: clamp(48px, 6.5vw, 110px);
+
+  --lh-tight: 1.12;
+  --lh-ui: 1.5;
+  --lh-read: 1.7;
+
+  /* Space base */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+  --s-9: 96px;
+  --margin: clamp(16px, 2.2vw, 32px);
+
+  /* Square radius */
+  --r: 2px;
+
+  /* Easing */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --dur-press: 140ms;
+  --dur-ui: 220ms;
+  --dur-state: 480ms;
+  --dur-withdraw: 640ms;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: var(--t-16);
+  line-height: var(--lh-ui);
+  font-kerning: normal;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+::selection {
+  background: var(--held-tint);
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+  border-radius: var(--r);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.doctor-voice {
+  font-family: var(--font-doctor);
+}
+
+/* Custom button classes adhering to design system */
+.btn-ink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 24px;
+  border: 1px solid transparent;
+  border-radius: var(--r);
+  background-color: var(--ink);
+  color: var(--ground);
+  font-size: var(--t-16);
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  touch-action: manipulation;
+  transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-ui) ease;
+}
+
+.btn-ink:hover {
+  background-color: var(--ink-hover);
+}
+
+.btn-ink:active {
+  transform: scale(0.97);
+}
+
+.btn-quiet {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 20px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r);
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--t-16);
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  touch-action: manipulation;
+  transition: transform var(--dur-press) var(--ease-out), background-color var(--dur-ui) ease;
+}
+
+.btn-quiet:hover {
+  background-color: var(--ground-2);
+}
+
+.btn-quiet:active {
+  transform: scale(0.97);
+}
+
+.seg {
+  display: inline-flex;
+  background-color: var(--ground-2);
+  border-radius: var(--r);
+  padding: 3px;
+}
+
+.seg button {
+  white-space: nowrap;
+  min-height: 36px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--r);
+  background: transparent;
+  color: var(--ink-2);
+  font-size: var(--t-14);
+  cursor: pointer;
+  transition: background-color var(--dur-ui) ease, color var(--dur-ui) ease;
+}
+
+.seg button[aria-pressed="true"] {
+  background-color: var(--surface);
+  color: var(--ink);
+  box-shadow: inset 0 -2px 0 var(--ink);
+}
+
+/* A cue sits at the periphery, leaving the original clinic surface untouched. */
+.cue-edge-light {
+  --cue-color: 210, 70, 30;
+  --cue-period: 2.6s;
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  pointer-events: none;
+  isolation: isolate;
+}
+.cue-edge-light__halo, .cue-edge-light__rim {
+  position: absolute;
+  inset: 0;
+  border-radius: 20px;
+  opacity: 0;
+  transition: opacity 240ms var(--ease-out);
+}
+.cue-edge-light__halo {
+  box-shadow: inset 0 0 34px 8px rgba(var(--cue-color), .60);
+}
+.cue-edge-light__rim {
+  border: 2px solid rgba(var(--cue-color), .72);
+  box-shadow: inset 0 0 8px rgba(var(--cue-color), .32);
+}
+.cue-edge-light[data-phase="drift"] > *,
+.cue-edge-light[data-phase="focus"] > * {
+  animation: cue-breathe var(--cue-period) cubic-bezier(.45, 0, .55, 1) infinite;
+}
+.cue-edge-light[data-phase="focus"] { --cue-period: 1.6s; }
+.cue-edge-light[data-phase="resolved"] { --cue-color: 40, 96, 79; }
+.cue-edge-light[data-phase="resolved"] > * { animation: cue-release 1.2s ease-out both; }
+.cue-edge-light[data-paused][data-phase]:not([data-phase="quiet"]) > * { animation: none; opacity: .42; }
+.cuex-nav-mark { transform: perspective(120px) rotateY(-10deg); transition: transform 240ms var(--ease-out); }
+@media (hover: hover) and (pointer: fine) {
+  button:hover > .cuex-nav-mark { transform: perspective(120px) rotateY(10deg) rotateZ(3deg); }
+}
+@keyframes cue-breathe {
+  0%, 100% { opacity: .10; }
+  45% { opacity: .58; }
+}
+@keyframes cue-release {
+  0% { opacity: .08; }
+  30% { opacity: .55; }
+  100% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+    scroll-behavior: auto !important;
+  }
+  .cue-edge-light[data-phase]:not([data-phase="quiet"]) > * {
+    animation: none;
+    opacity: .22;
+    transition: none;
+  }
+  .cuex-nav-mark, button:hover > .cuex-nav-mark { transform: none; }
+}
