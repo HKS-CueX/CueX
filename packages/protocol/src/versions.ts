@@ -2,6 +2,7 @@
  * Protocol & Schema Version Constants and Fundamental Time/Money Primitives.
  */
 
+export const PROTOCOL_PACKAGE_VERSION = '2.1.0' as const;
 export const API_VERSION = '2026-11' as const;
 export const WS_PROTOCOL_VERSION = '2.0' as const;
 export const PACK_SCHEMA_VERSION = 2 as const;

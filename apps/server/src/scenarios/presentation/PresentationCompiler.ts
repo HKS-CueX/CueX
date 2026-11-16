@@ -80,7 +80,7 @@ function splitSectionsFromRaw(raw: string): Array<{ title: string; body: string 
   return grouped;
 }
 
-function splitCandidateFacts(text: string): string[] {
+export function splitCandidateFacts(text: string): string[] {
   return text
     .replace(/\r\n/g, '\n')
     .split(/\n+|(?<=[。！？!?；;])\s*/)
@@ -88,7 +88,7 @@ function splitCandidateFacts(text: string): string[] {
     .filter((line) => line.length >= 8 && !line.startsWith('演讲备注'));
 }
 
-function classifyFactCategory(text: string): PresentationFactItem['category'] {
+export function classifyFactCategory(text: string): PresentationFactItem['category'] {
   if (/\d+(?:\.\d+)?\s*(?:%|ms|秒|分钟|s|万|亿|元|人|倍|λ)/i.test(text)) return 'metric';
   if (/(?:不得|禁止|不|边界|仅|限制|必须|隐私|未覆盖)/.test(text)) return 'boundary';
   if (/(?:阶段|完成|里程碑|上线|发布|版本)/.test(text)) return 'milestone';
@@ -96,7 +96,7 @@ function classifyFactCategory(text: string): PresentationFactItem['category'] {
   return 'claim';
 }
 
-function extractKeywords(text: string): string[] {
+export function extractKeywords(text: string): string[] {
   const words = new Set<string>();
   for (const w of text.match(/[A-Za-z0-9][A-Za-z0-9._-]{1,}/g) ?? []) {
     words.add(w);

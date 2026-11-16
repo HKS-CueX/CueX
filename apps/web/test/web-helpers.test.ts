@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { CuexApiError } from '../src/lib/api';
 import {
+  ASR_MODE_LABELS,
+  COLAB_ASR_LIFECYCLE_LABELS,
+  USAGE_SOURCE_LABELS,
   formatApiError,
   formatBytes,
   formatDateTime,
@@ -77,5 +80,12 @@ describe('formatters & ApiError formatting', () => {
     expect(formatted).toContain('QUOTA_EXCEEDED');
     expect(formatted).toContain('本月免费场次已耗尽');
     expect(formatted).toContain('req-abc-123');
+  });
+
+  it('covers protocol v2.1.0 Colab GPU ASR and unreported telemetry labels cleanly', () => {
+    expect(ASR_MODE_LABELS.colab_gpu).toContain('Colab GPU');
+    expect(USAGE_SOURCE_LABELS.provider_unreported).toContain('未回传');
+    expect(COLAB_ASR_LIFECYCLE_LABELS.ready).toContain('就绪');
+    expect(COLAB_ASR_LIFECYCLE_LABELS.disconnected).toContain('断开');
   });
 });

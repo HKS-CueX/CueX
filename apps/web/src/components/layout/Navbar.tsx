@@ -1,6 +1,7 @@
 import React from 'react';
 import type { AuthSessionResponse, HealthStatusResponse } from '@cuex/protocol';
-import { Database, Activity, UserCircle2 } from 'lucide-react';
+import { Activity, Database, UserCircle2 } from 'lucide-react';
+import { COLAB_ASR_LIFECYCLE_LABELS } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 export type ViewKey = 'home' | 'compiler' | 'stage' | 'reflection';
@@ -31,47 +32,50 @@ export const Navbar: React.FC<NavbarProps> = ({
     { key: 'reflection', label: '场后复盘' },
   ];
 
-  const runtimeLabel = health
+  const isRealLlm = health
     ? health.system1.mode === 'real' || health.system2.mode === 'real'
-      ? '实时 LLM 引擎'
-      : '本地规则引擎'
-    : '后端检测中';
+    : false;
+  const colabLifecycle = health?.asr.lifecycleState;
+  const runtimeLabel = !health
+    ? '后端检测中'
+    : health.asr.mode === 'colab_gpu' && colabLifecycle
+      ? `${isRealLlm ? '实时模型' : '规则兜底'} · ${COLAB_ASR_LIFECYCLE_LABELS[colabLifecycle]}`
+      : isRealLlm
+        ? '实时 LLM 引擎'
+        : '本地规则引擎';
 
   const accountLabel = authSession?.user.displayName || '账户';
   const activePlan = authSession?.usageSummary?.activePlanId?.toUpperCase() || 'FREE';
 
   return (
-    <header className="w-full border-b border-line bg-surface/95 backdrop-blur-md sticky top-0 z-40">
-      <div className="max-w-[1440px] mx-auto px-3 sm:px-6 py-2 sm:py-0 sm:h-14 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 sm:gap-4">
-        <div className="flex items-center gap-2.5 min-w-0 order-1">
+    <header className="w-full border-b border-line bg-surface sticky top-0 z-40">
+      <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 flex flex-wrap md:flex-nowrap items-center justify-between gap-x-2 lg:gap-x-4 md:h-14">
+        {/* Left: Official Wordmark */}
+        <div className="order-1 h-12 md:h-auto flex items-center gap-3 min-w-0 shrink-0">
           <button
             type="button"
             onClick={() => onSelectView('home')}
-            className="flex items-center gap-2 text-ink hover:opacity-85 transition-opacity"
+            className="inline-flex items-center gap-2 min-h-[40px] sm:min-h-[36px] text-ink focus-visible:outline-none"
             aria-label="CueX 首页"
           >
             <img
-              src="/brand/cuex-symbol-dimensional.svg"
-              width="24"
-              height="24"
-              alt=""
-              className="cuex-nav-mark shrink-0"
+              src="/brand/cuex-wordmark.svg"
+              alt="CueX"
+              width="64"
+              height="29"
+              className="cuex-nav-mark h-7 w-auto block shrink-0"
             />
-            <span
-              className="font-display text-xl sm:text-2xl tracking-tight text-ink leading-none"
-              translate="no"
-            >
-              Cue<span className="text-amber font-serif not-italic font-semibold">X</span>
-            </span>
+            <span className="sr-only">CueX</span>
           </button>
-          <span className="hidden lg:inline-block h-4 w-px bg-line" aria-hidden="true" />
-          <span className="hidden lg:inline text-xs text-ink-3 truncate">
+          <span className="hidden xl:inline-block h-4 w-px bg-line shrink-0" aria-hidden="true" />
+          <span className="hidden xl:inline text-xs text-ink-3 whitespace-nowrap">
             你的快思考外挂 · CueX Presentation
           </span>
         </div>
 
+        {/* Center: Unified Primary Navigation (1 single DOM nav, zero duplicate testids) */}
         <nav
-          className="order-3 sm:order-2 w-full sm:w-auto flex items-center justify-between sm:justify-center gap-1 pt-1.5 sm:pt-0 border-t border-line/60 sm:border-t-0"
+          className="order-3 md:order-2 w-full md:w-auto grid grid-cols-4 md:flex items-center justify-center gap-1 border-t border-line md:border-t-0 py-1 md:py-0"
           aria-label="主导航"
         >
           {navItems.map((item) => {
@@ -83,7 +87,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 data-testid={`nav-${item.key}`}
                 onClick={() => onSelectView(item.key)}
                 className={cn(
-                  'relative flex-1 sm:flex-none justify-center px-2 sm:px-3 py-1.5 text-[11px] sm:text-sm rounded transition-colors whitespace-nowrap flex items-center gap-1',
+                  'transition-transform duration-100 relative inline-flex items-center justify-center gap-1 md:gap-1.5 min-h-[44px] md:min-h-0 px-1 md:px-2.5 lg:px-3.5 md:h-8 rounded text-xs lg:text-sm whitespace-nowrap active:scale-[0.97]',
                   isActive
                     ? 'bg-ink text-ground font-medium'
                     : 'text-ink-2 hover:bg-ground-2 hover:text-ink'
@@ -93,10 +97,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span>{item.label}</span>
                 {item.key === 'stage' && sessionActive && (
                   <span
-                    className={cn(
-                      'w-1.5 h-1.5 rounded-full',
-                      isActive ? 'bg-amber' : 'bg-amber animate-pulse'
-                    )}
+                    className="w-1.5 h-1.5 rounded-full bg-amber shrink-0"
                     title="场中会话进行中"
                   />
                 )}
@@ -105,31 +106,38 @@ export const Navbar: React.FC<NavbarProps> = ({
           })}
         </nav>
 
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 order-2 sm:order-3">
+        {/* Right: Health Readout + Account & Memory Utilities */}
+        <div className="order-2 md:order-3 h-12 md:h-auto flex items-center gap-1.5 sm:gap-2 shrink-0">
           <div
-            className="hidden md:inline-flex items-center gap-1.5 px-2.5 py-1 rounded border border-line bg-ground text-[11px] text-ink-2"
+            className="hidden lg:inline-flex items-center gap-1.5 px-2.5 h-8 rounded border border-line bg-ground text-xs text-ink-2 whitespace-nowrap max-w-[240px]"
             title={health ? `ASR: ${health.asr.detail}` : '等待健康检查'}
             data-testid="nav-health-badge"
           >
             <Activity
               className={cn(
-                'w-3 h-3',
-                health?.ok ? 'text-resolved' : 'text-ink-3'
+                'w-3.5 h-3.5 shrink-0',
+                colabLifecycle === 'ready' || (!colabLifecycle && health?.ok)
+                  ? 'text-resolved'
+                  : colabLifecycle === 'disconnected' || colabLifecycle === 'unavailable'
+                    ? 'text-alert'
+                    : health?.ok
+                      ? 'text-amber'
+                      : 'text-ink-3'
               )}
             />
-            <span>{runtimeLabel}</span>
+            <span className="truncate">{runtimeLabel}</span>
           </div>
 
           <button
             type="button"
             onClick={onOpenAccount}
             data-testid="open-account-drawer"
-            className="inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded border border-line bg-surface hover:bg-ground-2 text-[11px] text-ink-2 hover:text-ink transition-colors max-w-[140px] sm:max-w-[190px]"
+            className="cuex-btn inline-flex items-center gap-1.5 px-2.5 min-h-[40px] sm:min-h-0 sm:h-8 rounded border border-line-strong bg-surface hover:bg-ground-2 text-xs text-ink-2 hover:text-ink active:scale-[0.97] max-w-[132px] sm:max-w-[176px]"
             title="账户隔离、套餐用量、会话历史与数据主权"
           >
             <UserCircle2 className="w-3.5 h-3.5 text-amber shrink-0" />
             <span className="truncate">{accountLabel}</span>
-            <span className="hidden sm:inline px-1 py-0.2 rounded bg-ground-2 text-[9px] font-mono text-ink-3 shrink-0">
+            <span className="hidden sm:inline px-1.5 py-0.5 rounded-sm bg-ground-2 text-xs font-mono text-ink-3 shrink-0 num leading-none">
               {activePlan}
             </span>
           </button>
@@ -138,11 +146,12 @@ export const Navbar: React.FC<NavbarProps> = ({
             type="button"
             onClick={onOpenMemory}
             data-testid="open-memory-drawer"
-            className="inline-flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded border border-line bg-surface hover:bg-ground-2 text-[11px] text-ink-2 hover:text-ink transition-colors"
+            className="cuex-btn inline-flex items-center gap-1.5 px-2.5 min-h-[40px] sm:min-h-0 sm:h-8 rounded border border-line-strong bg-surface hover:bg-ground-2 text-xs text-ink-2 hover:text-ink whitespace-nowrap active:scale-[0.97]"
             title="个人记忆治理"
           >
             <Database className="w-3.5 h-3.5 text-violet shrink-0" />
-            <span className="hidden sm:inline">个人记忆治理</span>
+            <span className="hidden xl:inline">个人记忆治理</span>
+            <span className="hidden sm:inline xl:hidden">记忆治理</span>
           </button>
         </div>
       </div>

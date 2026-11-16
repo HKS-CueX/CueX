@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import type {
+  ColabAsrLifecycleState,
   HealthStatusResponse,
   InterventionLevel,
   PresentationContextPack,
@@ -44,6 +45,7 @@ import { getPresentationPack, listPresentationPacks } from '@/lib/api';
 import {
   ASR_MODE_LABELS,
   ATTENTION_SIGNAL_LABELS,
+  COLAB_ASR_LIFECYCLE_LABELS,
   CONTROLLER_ACTION_LABELS,
   formatDateTime,
   formatDuration,
@@ -60,6 +62,24 @@ import { cn } from '@/lib/utils';
 
 type PresentationHookReturn = ReturnType<typeof usePresentationSession>;
 export type StageLayoutMode = 'standard' | 'split_strip';
+
+function getColabLifecycleBadgeVariant(
+  lifecycle?: ColabAsrLifecycleState
+): 'resolved' | 'amber' | 'violet' | 'outline' {
+  switch (lifecycle) {
+    case 'ready':
+      return 'resolved';
+    case 'starting':
+    case 'restarting':
+      return 'violet';
+    case 'degraded':
+    case 'disconnected':
+    case 'unavailable':
+      return 'amber';
+    default:
+      return 'outline';
+  }
+}
 
 interface StageViewProps {
   activePack: PresentationContextPack | null;
@@ -216,16 +236,13 @@ export const StageView: React.FC<StageViewProps> = ({
   // Pre-session launch gate if no session active
   if (!state.session) {
     return (
-      <div className="bg-ground text-ink min-h-[calc(100vh-3.5rem)] py-12 px-4 sm:px-6">
-        <div className="max-w-3xl mx-auto border border-line bg-surface rounded-md p-6 sm:p-8 shadow-sm space-y-6">
+      <main className="bg-ground text-ink min-h-[calc(100dvh-3.5rem)] py-10 px-4 sm:px-6">
+        <div className="max-w-3xl mx-auto border border-line bg-surface rounded-md p-6 sm:p-8 space-y-6">
           <div className="space-y-1.5 border-b border-line pb-4">
-            <div className="flex items-center gap-2 text-xs font-mono text-ink-3 uppercase">
-              <span className="text-amber font-semibold">STAGE 02</span>
-              <span>/</span>
-              <span>LIVE COGNITIVE COLLABORATION</span>
-            </div>
-            <h1 className="text-2xl font-bold text-ink">进入场中实时协同</h1>
-            <p className="text-xs sm:text-sm text-ink-2">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink">
+              进入场中实时协同
+            </h1>
+            <p className="text-sm text-ink-2 leading-relaxed">
               选择已编译的演讲 ContextPack，确认麦克风与隐私告知后，即可开启彩排或正式演讲。
             </p>
           </div>
@@ -240,7 +257,7 @@ export const StageView: React.FC<StageViewProps> = ({
                 <span>已彻底清除上一场会话转写、候选与临时状态。</span>
               </div>
               {state.deletionReceipt && (
-                <div className="text-[11px] font-mono text-ink-2 pl-6">
+                <div className="text-xs font-mono text-ink-2 pl-6 tabular-nums">
                   回执：{state.deletionReceipt.receiptId} · 完成时间：
                   {formatDateTime(state.deletionReceipt.completedAt)}
                 </div>
@@ -255,12 +272,12 @@ export const StageView: React.FC<StageViewProps> = ({
           )}
 
           <div className="space-y-3 text-xs">
-            <label className="font-semibold text-ink block">当前演讲上下文包</label>
+            <div className="font-semibold text-ink">当前演讲上下文包</div>
             {activePack ? (
-              <div className="border border-line bg-ground rounded p-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="bg-surface-muted rounded p-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <div className="font-semibold text-sm text-ink">{activePack.title}</div>
-                  <div className="text-ink-3 mt-0.5">
+                  <div className="text-ink-3 mt-1 tabular-nums">
                     {activePack.facts.filter((f) => f.userConfirmed).length} 条已确认事实 ·{' '}
                     {activePack.cueSheet.chapters.length} 章节 · 目标{' '}
                     {formatDuration(activePack.targetDurationSec)}
@@ -271,14 +288,14 @@ export const StageView: React.FC<StageViewProps> = ({
                 </Button>
               </div>
             ) : (
-              <div className="border border-dashed border-line-strong bg-ground/60 rounded p-4 space-y-3">
+              <div className="bg-surface-muted rounded p-4 space-y-3">
                 <p className="text-ink-2">尚未选定 ContextPack，可选择已保存包或载入路演示例包。</p>
                 <div className="flex flex-wrap gap-2">
                   {savedPacks.length > 0 && (
                     <select
                       defaultValue=""
                       onChange={(e) => void handlePickPack(e.target.value)}
-                      className="h-9 px-3 border border-line bg-surface rounded text-xs text-ink"
+                      className="h-9 px-3 border border-line bg-surface rounded text-xs text-ink focus-visible:outline-none focus-visible:border-ink"
                     >
                       <option value="" disabled>
                         选择已保存演讲包...
@@ -312,12 +329,12 @@ export const StageView: React.FC<StageViewProps> = ({
               className={cn(
                 'text-left p-4 rounded border transition-colors space-y-1',
                 launchMode === 'rehearsal'
-                  ? 'border-ink bg-ground font-medium'
-                  : 'border-line bg-surface hover:bg-ground/50'
+                  ? 'border-ink bg-surface-muted font-medium'
+                  : 'border-line bg-surface hover:bg-surface-muted/60'
               )}
             >
               <div className="font-semibold text-ink">彩排模式 (Rehearsal)</div>
-              <p className="text-ink-3">支持测试话术仿真、随时切换视角、检验提示与撤回机制。</p>
+              <p className="text-ink-3 leading-relaxed">支持测试话术仿真、随时切换视角、检验提示与撤回机制。</p>
             </button>
             <button
               type="button"
@@ -325,21 +342,21 @@ export const StageView: React.FC<StageViewProps> = ({
               className={cn(
                 'text-left p-4 rounded border transition-colors space-y-1',
                 launchMode === 'live'
-                  ? 'border-ink bg-ground font-medium'
-                  : 'border-line bg-surface hover:bg-ground/50'
+                  ? 'border-ink bg-surface-muted font-medium'
+                  : 'border-line bg-surface hover:bg-surface-muted/60'
               )}
             >
               <div className="font-semibold text-ink">正式演讲 (Live)</div>
-              <p className="text-ink-3">开启 Focus 余光极简界面，最小必要干扰陪你完成真实演讲。</p>
+              <p className="text-ink-3 leading-relaxed">开启 Focus 余光极简界面，最小必要干扰陪你完成真实演讲。</p>
             </button>
           </div>
 
-          <label className="flex items-start gap-2.5 border border-line bg-ground rounded p-3.5 text-xs cursor-pointer">
+          <label className="flex items-center gap-2.5 border border-line bg-surface-muted rounded px-3.5 py-2.5 min-h-[44px] text-xs cursor-pointer">
             <input
               type="checkbox"
               checked={privacyAccepted}
               onChange={(e) => onPrivacyChange(e.target.checked)}
-              className="mt-0.5 w-4 h-4 accent-ink"
+              className="w-4 h-4 accent-ink shrink-0"
               data-testid="stage-privacy-checkbox"
             />
             <span className="text-ink-2 leading-relaxed">
@@ -347,7 +364,7 @@ export const StageView: React.FC<StageViewProps> = ({
             </span>
           </label>
 
-          <div className="flex justify-end gap-3">
+          <div className="flex flex-wrap justify-end gap-3">
             <Button type="button" variant="quiet" onClick={onGoToCompiler}>
               先去场前编译
             </Button>
@@ -356,14 +373,14 @@ export const StageView: React.FC<StageViewProps> = ({
               disabled={!privacyAccepted || loadingPack}
               onClick={() => void handleStartFromStage()}
               data-testid="stage-start-btn"
-              className="gap-1.5"
+              className="gap-1.5 min-h-[40px]"
             >
               <span>开始场中协同</span>
               <ArrowRight className="w-4 h-4" />
             </Button>
           </div>
         </div>
-      </div>
+      </main>
     );
   }
 
@@ -404,20 +421,39 @@ export const StageView: React.FC<StageViewProps> = ({
       ? 'browser_webspeech'
       : state.asrStatus?.mode ?? 'text_simulation';
 
+  const asrLifecycle = state.asrStatus?.lifecycleState ?? health?.asr.lifecycleState;
+  const isRuntimeFallbackOrDegraded = Boolean(
+    state.telemetry?.degraded ||
+      state.telemetry?.usingLocalFallback ||
+      state.asrStatus?.fallbackActive ||
+      asrLifecycle === 'degraded' ||
+      asrLifecycle === 'disconnected' ||
+      asrLifecycle === 'unavailable' ||
+      asrLifecycle === 'starting' ||
+      asrLifecycle === 'restarting' ||
+      (health &&
+        (!health.system1.healthy ||
+          !health.system2.healthy ||
+          health.system1.degraded ||
+          health.system2.degraded ||
+          health.system1.mode === 'local_fallback' ||
+          health.system2.mode === 'local_fallback'))
+  );
+
   return (
-    <div
-      className="bg-ground text-ink min-h-[calc(100vh-3.5rem)] flex flex-col"
+    <main
+      className="bg-ground text-ink min-h-[calc(100dvh-3.5rem)] flex flex-col"
       data-testid="stage-workspace"
     >
-      <CueEdgeLight phase={edgePhase} paused={isPaused} />
+      {viewMode === 'focus' && <CueEdgeLight phase={edgePhase} paused={isPaused} />}
 
       {/* Top Session Bar */}
-      <div className="w-full border-b border-line bg-surface/95 px-4 sm:px-6 py-2.5">
+      <div className="w-full border-b border-line bg-surface px-4 sm:px-6 py-2.5">
         <div className="max-w-[1440px] mx-auto flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex flex-wrap items-center gap-2 min-w-0">
-            <span className="font-semibold text-ink truncate max-w-[240px]">
+            <h1 className="text-xs sm:text-sm font-semibold text-ink truncate max-w-[240px]">
               {activePack?.title ?? 'CueX Presentation 会话'}
-            </span>
+            </h1>
             <Badge variant={session.mode === 'rehearsal' ? 'violet' : 'amber'}>
               {session.mode === 'rehearsal' ? '彩排模式' : '正式演讲'}
             </Badge>
@@ -437,14 +473,14 @@ export const StageView: React.FC<StageViewProps> = ({
               </span>
             </Badge>
 
-            {/* Privacy Recording Badge */}
+            {/* Privacy Recording Badge (calm solid dot when capturing) */}
             <Badge
               variant={runtime.micMode !== 'off' ? 'amber' : 'outline'}
               data-testid="privacy-recording-badge"
             >
               {runtime.micMode !== 'off' ? (
                 <>
-                  <span className="w-2 h-2 rounded-full bg-amber animate-pulse" />
+                  <span className="w-2 h-2 rounded-full bg-amber shrink-0" />
                   <span>正在收音（仅本场会话 · 可随时清除）</span>
                 </>
               ) : (
@@ -466,9 +502,9 @@ export const StageView: React.FC<StageViewProps> = ({
                 data-testid="view-toggle-focus"
                 aria-pressed={viewMode === 'focus'}
                 className={cn(
-                  'px-2.5 sm:px-3 py-1 rounded-sm text-xs font-medium transition-colors flex items-center gap-1.5',
+                  'px-2.5 sm:px-3 py-1 rounded-sm text-xs font-medium flex items-center gap-1.5',
                   viewMode === 'focus'
-                    ? 'bg-ink text-ground shadow-sm'
+                    ? 'bg-ink text-ground'
                     : 'text-ink-2 hover:text-ink'
                 )}
               >
@@ -481,9 +517,9 @@ export const StageView: React.FC<StageViewProps> = ({
                 data-testid="view-toggle-inspector"
                 aria-pressed={viewMode === 'inspector'}
                 className={cn(
-                  'px-2.5 sm:px-3 py-1 rounded-sm text-xs font-medium transition-colors flex items-center gap-1.5',
+                  'px-2.5 sm:px-3 py-1 rounded-sm text-xs font-medium flex items-center gap-1.5',
                   viewMode === 'inspector'
-                    ? 'bg-ink text-ground shadow-sm'
+                    ? 'bg-ink text-ground'
                     : 'text-ink-2 hover:text-ink'
                 )}
               >
@@ -495,13 +531,17 @@ export const StageView: React.FC<StageViewProps> = ({
             {viewMode === 'focus' && (
               <Button
                 type="button"
-                variant={layoutMode === 'split_strip' ? 'amber' : 'quiet'}
+                variant="quiet"
                 size="sm"
                 onClick={() =>
                   setLayoutMode((prev) => (prev === 'standard' ? 'split_strip' : 'standard'))
                 }
                 data-testid="layout-mode-toggle"
-                className="h-7 px-2.5 text-[11px]"
+                className={cn(
+                  'h-8 px-3 text-xs whitespace-nowrap',
+                  layoutMode === 'split_strip' &&
+                    'bg-amber-tint border-amber/45 text-amber-ink hover:bg-amber-tint'
+                )}
                 title="切换演说窄屏伴随条模式（适合置顶分屏于 PPT 旁）"
               >
                 <Columns2 className="w-3.5 h-3.5 mr-1" />
@@ -565,7 +605,7 @@ export const StageView: React.FC<StageViewProps> = ({
       <div className="max-w-[1440px] w-full mx-auto px-4 sm:px-6 pt-2.5 space-y-2 empty:hidden">
         {activeAsrMode === 'text_simulation' && (
           <div
-            className="border border-amber/35 bg-amber-soft/50 text-amber-ink px-3.5 py-2 rounded text-[11px] flex flex-wrap items-center justify-between gap-2"
+            className="border border-amber/35 bg-amber-tint/70 text-amber-ink px-3.5 py-2 rounded text-xs flex flex-wrap items-center justify-between gap-2"
             data-testid="asr-simulation-banner"
           >
             <div className="flex items-center gap-2">
@@ -574,35 +614,36 @@ export const StageView: React.FC<StageViewProps> = ({
                 <strong>文本仿真输入模式：</strong>当前输入为模拟演讲文本（非真实麦克风 ASR），用于验证双层理解、触发阈值与撤回链路。
               </span>
             </div>
-            <Badge variant="outline" className="text-[10px]">
+            <Badge variant="outline">
               ASR: {activeAsrMode}
             </Badge>
           </div>
         )}
 
-        {(state.telemetry?.degraded ||
-          state.telemetry?.usingLocalFallback ||
-          (health &&
-            (!health.system1.healthy ||
-              !health.system2.healthy ||
-              health.system1.mode === 'local_fallback' ||
-              health.system2.mode === 'local_fallback'))) && (
+        {isRuntimeFallbackOrDegraded && (
           <div
-            className="border border-line bg-surface px-3.5 py-2 rounded text-[11px] text-ink-2 flex flex-wrap items-center justify-between gap-2"
+            className="border border-line bg-surface px-3.5 py-2 rounded text-xs text-ink-2 flex flex-wrap items-center justify-between gap-2"
             data-testid="runtime-degraded-banner"
           >
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0">
               <ShieldAlert className="w-3.5 h-3.5 text-amber shrink-0" />
               <span>
                 <strong>引擎状态诚实披露：</strong>
-                {state.telemetry?.degraded
-                  ? '部分推理或识别通道处于降级态，已自动回退至本地确定性规则引擎。'
-                  : '当前使用本地确定性规则引擎运行（0 外部 LLM Token），未伪装外部大模型调用。'}
+                {state.asrStatus?.fallbackActive && state.asrStatus?.fallbackReason
+                  ? `ASR 回退中（${state.asrStatus.fallbackReason}）。`
+                  : health?.asr.fallbackActive && health?.asr.fallbackReason
+                    ? `ASR 回退中（${health.asr.fallbackReason}）。`
+                    : state.telemetry?.degraded
+                      ? '部分推理或识别通道处于降级态，已自动回退至本地确定性规则引擎。'
+                      : asrLifecycle && asrLifecycle !== 'ready'
+                        ? `${COLAB_ASR_LIFECYCLE_LABELS[asrLifecycle]}。`
+                        : '当前使用本地确定性规则引擎运行（0 外部 LLM Token），未伪装外部大模型调用。'}
               </span>
             </div>
-            <span className="font-mono text-[10px] text-ink-3">
-              S1:{health?.system1.mode ?? (state.telemetry?.usingLocalFallback ? 'local_fallback' : 'ok')} · S2:
-              {health?.system2.mode ?? 'ok'} · {state.telemetry?.usageSource ?? 'local_rule_zero'}
+            <span className="font-mono text-xs text-ink-3 tabular-nums">
+              {asrLifecycle ? `ASR:${asrLifecycle} · ` : ''}
+              S1:{health?.system1.model ?? health?.system1.mode ?? (state.telemetry?.usingLocalFallback ? 'local_fallback' : 'ok')} · S2:
+              {health?.system2.model ?? health?.system2.mode ?? 'ok'} · {state.telemetry?.usageSource ?? 'local_rule_zero'}
             </span>
           </div>
         )}
@@ -612,394 +653,439 @@ export const StageView: React.FC<StageViewProps> = ({
       {viewMode === 'focus' && (
         <div
           className={cn(
-            'flex-1 w-full mx-auto flex flex-col justify-between transition-all',
+            'flex-1 w-full max-w-[1180px] mx-auto px-4 sm:px-6',
             layoutMode === 'split_strip'
-              ? 'max-w-[440px] px-3 py-3 gap-3'
-              : 'max-w-[1180px] px-4 sm:px-6 py-6 gap-6'
+              ? 'py-4 sm:py-5 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start'
+              : 'py-6 flex flex-col justify-between gap-6'
           )}
           data-layout={layoutMode}
           data-testid="focus-view"
         >
-          {/* Chapter & Pace Header */}
-          <div className="border border-line bg-surface rounded-md p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
-            <div className="space-y-2 min-w-0">
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                <span className="font-mono text-ink-3 uppercase">CURRENT CHAPTER</span>
-                {pres && (
-                  <Badge
-                    variant={
-                      pres.paceStatus === 'overtime'
-                        ? 'amber'
-                        : pres.paceStatus === 'on_pace'
-                          ? 'resolved'
-                          : 'secondary'
-                    }
-                  >
-                    {PACE_STATUS_LABELS[pres.paceStatus]}
-                  </Badge>
-                )}
-              </div>
-              <div className="text-xl sm:text-2xl font-bold text-ink truncate">
-                {cog?.activeChapterTitle ??
-                  pres?.chapterNodes[pres.activeChapterIndex]?.title ??
-                  '开场与核心论点'}
-              </div>
-
-              {pres && pres.chapterNodes.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {pres.chapterNodes.map((ch, idx) => (
-                    <button
-                      key={ch.chapterId}
-                      type="button"
-                      onClick={() => runtime.setChapter(ch.chapterId)}
-                      data-testid={`focus-chapter-${ch.chapterId}`}
-                      className={cn(
-                        'px-2.5 py-1 rounded text-[11px] border transition-colors',
-                        ch.chapterId === pres.activeChapterId
-                          ? 'bg-ink text-ground border-ink font-medium'
-                          : ch.status === 'completed'
-                            ? 'bg-resolved-tint/60 text-resolved border-resolved/30'
-                            : 'bg-ground text-ink-2 border-line hover:bg-ground-2'
-                      )}
-                    >
-                      0{idx + 1} {ch.title}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="text-left sm:text-right shrink-0">
-              <div
-                className="font-mono text-3xl sm:text-4xl font-semibold num text-ink tracking-tight"
-                data-testid="focus-timer"
-              >
-                {formatDuration(pres?.elapsedSec ?? 0)}
-                <span className="text-lg text-ink-3 font-normal">
-                  {' '}
-                  / {formatDuration(pres?.targetDurationSec ?? activePack?.targetDurationSec ?? 300)}
-                </span>
-              </div>
-              <div className="text-[11px] text-ink-3 mt-1">
-                当前注意态：{ATTENTION_SIGNAL_LABELS[cog?.attentionSignal ?? 'fluent']} · 干预上限{' '}
-                <span className="font-mono font-semibold text-ink">
-                  {session.maxInterventionLevel}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Rehearsal Prompt Strip */}
-          {state.rehearsalContext && (
-            <div
-              className="border border-violet/35 bg-violet-tint/50 rounded-md p-4 text-xs space-y-2"
-              data-testid="rehearsal-banner"
-            >
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-violet-ink">
-                  单点重练模式 · 目标片段：{state.rehearsalContext.weakSegment.chapterTitle}
-                </span>
-                <Badge variant="violet">Rehearsal Target</Badge>
-              </div>
-              <p className="text-ink leading-relaxed">{state.rehearsalContext.promptText}</p>
-              {state.rehearsalContext.supportingEvidence.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {state.rehearsalContext.supportingEvidence.map((ev) => (
-                    <span
-                      key={ev.id}
-                      className="px-2 py-0.5 rounded bg-surface border border-violet/25 text-ink-2"
-                    >
-                      依据：{ev.text}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Central Peripheral-Vision Cue Stage */}
           <div
             className={cn(
-              'flex-1 flex flex-col items-center justify-center border border-line bg-surface rounded-md shadow-sm relative',
-              layoutMode === 'split_strip' ? 'min-h-[200px] p-4' : 'min-h-[260px] p-6 sm:p-10'
+              'space-y-4 min-w-0',
+              layoutMode === 'split_strip' &&
+                'lg:col-span-5 w-full max-w-[460px] mx-auto lg:mx-0'
             )}
-            aria-live="polite"
-            aria-atomic="true"
-            data-testid="focus-cue-stage"
           >
-            {isSilent ? (
-              <div className="text-center space-y-3" data-testid="focus-silent-state">
-                <VolumeX className="w-8 h-8 text-ink-3 mx-auto" />
-                <div className="text-xl font-semibold text-ink">L0 · 静默模式已开启</div>
-                <p className="text-xs text-ink-2 max-w-md">
-                  系统仍在静默记录转写与覆盖率，但不会向画面输出任何 L1–L3 干预提示。
-                </p>
-              </div>
-            ) : activeIntervention ? (
-              <div
-                className="w-full max-w-2xl text-center space-y-5"
-                data-testid="focus-active-intervention"
-                data-level={activeIntervention.level}
-                data-grounded={activeIntervention.grounded}
-              >
-                <div className="flex flex-wrap items-center justify-center gap-2">
-                  <Badge
-                    variant={activeIntervention.level === 'L3' ? 'violet' : 'amber'}
-                    className="font-mono"
-                  >
-                    {INTERVENTION_LEVEL_LABELS[activeIntervention.level]}
-                  </Badge>
-                  {activeIntervention.grounded ? (
-                    <Badge variant="resolved">
-                      <ShieldCheck className="w-3 h-3" />
-                      已核验事实依据 ({activeIntervention.evidenceIds.length})
-                    </Badge>
-                  ) : (
-                    <Badge variant="amber">
-                      <ShieldAlert className="w-3 h-3" />
-                      资料未覆盖 · 勿现场编造
+            {/* Chapter & Pace Header */}
+            <div
+              className={cn(
+                'border border-line bg-surface rounded-md p-4 sm:p-5 flex justify-between gap-4',
+                layoutMode === 'split_strip'
+                  ? 'flex-col items-stretch'
+                  : 'flex-col sm:flex-row sm:items-center'
+              )}
+            >
+              <div className="space-y-2 min-w-0">
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="font-mono text-ink-3">当前章节</span>
+                  {pres && (
+                    <Badge
+                      variant={
+                        pres.paceStatus === 'overtime'
+                          ? 'amber'
+                          : pres.paceStatus === 'on_pace'
+                            ? 'resolved'
+                            : 'secondary'
+                      }
+                    >
+                      {PACE_STATUS_LABELS[pres.paceStatus]}
                     </Badge>
                   )}
                 </div>
+                <div
+                  className={cn(
+                    'font-bold text-ink leading-snug break-words',
+                    layoutMode === 'split_strip' ? 'text-xl' : 'text-xl sm:text-2xl'
+                  )}
+                >
+                  {cog?.activeChapterTitle ??
+                    pres?.chapterNodes[pres.activeChapterIndex]?.title ??
+                    '开场与核心论点'}
+                </div>
 
-                {/* L1: Subtle minimal whisper */}
-                {activeIntervention.level === 'L1' && (
-                  <div className="space-y-2">
-                    <div className="text-2xl sm:text-3xl font-semibold text-amber-ink tracking-tight">
-                      {activeIntervention.title}
-                    </div>
-                    <p className="text-sm text-ink-2">{activeIntervention.cueText}</p>
-                  </div>
-                )}
-
-                {/* L2: Crisp large 2-6+ char keyword pill readable by peripheral vision */}
-                {activeIntervention.level === 'L2' && (
-                  <div className="space-y-3">
-                    <div className="inline-block max-w-full break-words px-5 sm:px-6 py-3 rounded-md bg-amber-tint border-2 border-amber/50 text-2xl sm:text-5xl font-bold tracking-tight text-ink">
-                      {activeIntervention.cueText}
-                    </div>
-                    <p className="text-sm text-ink-2">{activeIntervention.title}</p>
-                  </div>
-                )}
-
-                {/* L3: Concise 2-3 bullet scaffold */}
-                {activeIntervention.level === 'L3' && (
-                  <div className="space-y-4 text-left bg-violet-tint/35 border border-violet/35 rounded-md p-5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-base sm:text-lg font-bold text-ink">
-                        {activeIntervention.title}
-                      </span>
-                      <span className="text-xs font-mono text-violet-ink">L3 脚手架</span>
-                    </div>
-                    <p className="text-lg sm:text-2xl font-semibold text-ink leading-snug">
-                      {activeIntervention.cueText}
-                    </p>
-                    {activeIntervention.bullets && activeIntervention.bullets.length > 0 && (
-                      <ul className="space-y-2 pt-1 text-sm sm:text-base text-ink-2 list-disc pl-5">
-                        {activeIntervention.bullets.slice(0, 3).map((b, idx) => (
-                          <li key={idx}>{b}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                )}
-
-                {activeIntervention.missingEvidenceNotice && (
+                {pres && pres.chapterNodes.length > 0 && (
                   <div
-                    className="border border-amber/40 bg-amber-tint rounded p-3 text-xs text-amber-ink text-left flex items-start gap-2"
-                    data-testid="missing-evidence-warning"
+                    className={cn(
+                      'gap-1.5 pt-1',
+                      layoutMode === 'split_strip'
+                        ? 'flex flex-wrap'
+                        : 'flex sm:flex-wrap overflow-x-auto sm:overflow-visible pb-1 sm:pb-0'
+                    )}
                   >
-                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                    <span>{activeIntervention.missingEvidenceNotice}</span>
-                  </div>
-                )}
-
-                {matchedEvidence.length > 0 && (
-                  <div className="flex flex-wrap justify-center gap-2 pt-1 text-[11px] text-ink-3">
-                    {matchedEvidence.map((ev) => (
-                      <span
-                        key={ev.id}
-                        className="px-2.5 py-1 rounded bg-ground border border-line"
+                    {pres.chapterNodes.map((ch, idx) => (
+                      <button
+                        key={ch.chapterId}
+                        type="button"
+                        onClick={() => runtime.setChapter(ch.chapterId)}
+                        data-testid={`focus-chapter-${ch.chapterId}`}
+                        className={cn(
+                          'px-2.5 py-1.5 rounded text-xs border transition-colors',
+                          layoutMode !== 'split_strip' &&
+                            'shrink-0 sm:shrink whitespace-nowrap sm:whitespace-normal',
+                          ch.chapterId === pres.activeChapterId
+                            ? 'bg-ink text-ground border-ink font-medium'
+                            : ch.status === 'completed'
+                              ? 'bg-resolved-tint/60 text-resolved border-resolved/30'
+                              : 'bg-surface-muted/70 text-ink-2 border-line hover:bg-surface-muted'
+                        )}
                       >
-                        出处：{ev.source} · {ev.text}
-                      </span>
+                        {idx + 1}. {ch.title}
+                      </button>
                     ))}
                   </div>
                 )}
+              </div>
 
-                {/* Micro-feedback (H/I) + Dismiss suppression */}
-                <div className="pt-3 flex flex-wrap items-center justify-center gap-2">
-                  <Button
-                    type="button"
-                    variant={activeIntervention.userFeedback === 'helpful' ? 'resolved' : 'quiet'}
-                    size="sm"
-                    onClick={() => runtime.sendFeedback(activeIntervention.interventionId, 'helpful')}
-                    data-testid="feedback-helpful-btn"
-                  >
-                    <ThumbsUp className="w-3.5 h-3.5" />
-                    <span>有效 (H)</span>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={activeIntervention.userFeedback === 'distracting' ? 'amber' : 'quiet'}
-                    size="sm"
-                    onClick={() =>
-                      runtime.sendFeedback(activeIntervention.interventionId, 'distracting')
-                    }
-                    data-testid="feedback-distracting-btn"
-                  >
-                    <ThumbsDown className="w-3.5 h-3.5" />
-                    <span>打扰 (I)</span>
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => runtime.dismissHint('user_dismissed_in_focus')}
-                    data-testid="dismiss-hint-btn"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                    <span>忽略并抑制此提示</span>
-                  </Button>
-                </div>
-              </div>
-            ) : lastWithdrawn ? (
               <div
-                className="text-center space-y-2 max-w-lg border border-resolved/35 bg-resolved-tint/60 rounded-md px-6 py-5"
-                data-testid="focus-withdrawn-banner"
-              >
-                <Badge variant="resolved">主动退出 · 已自动撤回</Badge>
-                {lastWithdrawn.cueText && (
-                  <p className="text-lg text-ink-3">
-                    <del>{lastWithdrawn.cueText}</del>
-                  </p>
+                className={cn(
+                  'shrink-0',
+                  layoutMode === 'split_strip' ? 'text-left pt-2 border-t border-line' : 'text-left sm:text-right'
                 )}
-                <p className="text-xs text-resolved font-medium">
-                  {WITHDRAWAL_REASON_LABELS[lastWithdrawn.reason] ?? lastWithdrawn.reason}
-                </p>
-              </div>
-            ) : (
-              <div className="text-center space-y-3" data-testid="focus-l0-quiet">
-                <div className="w-3 h-3 rounded-full bg-resolved/70 mx-auto animate-pulse" />
-                <div className="text-lg sm:text-xl font-medium text-ink">
-                  L0 · 正在持续理解，当前无需干预
+              >
+                <div
+                  className={cn(
+                    'font-mono font-semibold tabular-nums text-ink tracking-tight',
+                    layoutMode === 'split_strip' ? 'text-2xl sm:text-3xl' : 'text-3xl sm:text-4xl'
+                  )}
+                  data-testid="focus-timer"
+                >
+                  {formatDuration(pres?.elapsedSec ?? 0)}
+                  <span className="text-lg text-ink-3 font-normal">
+                    {' '}
+                    / {formatDuration(pres?.targetDurationSec ?? activePack?.targetDurationSec ?? 300)}
+                  </span>
                 </div>
-                <p className="text-xs text-ink-3 max-w-md">
-                  保持你的正常节奏即可；只有当出现显著偏离、遗漏或现场问答时，CueX 才会以最小必要方式接住你。
-                </p>
-                {pres && pres.missedKeyPoints.length > 0 && (
-                  <div className="flex flex-wrap justify-center gap-1.5 pt-2">
-                    <span className="text-[11px] text-ink-3">当前章节待覆盖：</span>
-                    {pres.missedKeyPoints.slice(0, 4).map((m) => (
+                <div className="text-xs text-ink-3 mt-1">
+                  当前注意态：{ATTENTION_SIGNAL_LABELS[cog?.attentionSignal ?? 'fluent']} · 干预上限{' '}
+                  <span className="font-mono font-semibold text-ink">
+                    {session.maxInterventionLevel}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Rehearsal Prompt Strip */}
+            {state.rehearsalContext && (
+              <div
+                className="border border-violet/35 bg-violet-tint/50 rounded-md p-4 text-xs space-y-2"
+                data-testid="rehearsal-banner"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-violet-ink">
+                    单点重练模式 · 目标片段：{state.rehearsalContext.weakSegment.chapterTitle}
+                  </span>
+                  <Badge variant="violet">Rehearsal Target</Badge>
+                </div>
+                <p className="text-ink leading-relaxed">{state.rehearsalContext.promptText}</p>
+                {state.rehearsalContext.supportingEvidence.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {state.rehearsalContext.supportingEvidence.map((ev) => (
                       <span
-                        key={m.pointId}
-                        className="text-[11px] px-2 py-0.5 rounded bg-ground border border-line text-ink-2"
+                        key={ev.id}
+                        className="px-2.5 py-1 rounded bg-surface border border-violet/25 text-ink-2 text-xs"
                       >
-                        {m.label}
+                        依据：{ev.text}
                       </span>
                     ))}
                   </div>
                 )}
               </div>
             )}
-          </div>
 
-          {/* Minimal Speaker Controls Bar */}
-          <div className="border border-line bg-surface rounded-md p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                variant={isPaused ? 'amber' : 'quiet'}
-                size="sm"
-                onClick={isPaused ? runtime.resumeSession : runtime.pauseSession}
-                data-testid="toggle-pause-btn"
-              >
-                {isPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
-                <span>{isPaused ? '恢复监听' : '暂停监听'}</span>
-              </Button>
-
-              <Button
-                type="button"
-                variant={isSilent ? 'default' : 'quiet'}
-                size="sm"
-                onClick={() => runtime.setSilentMode(!isSilent)}
-                data-testid="toggle-silent-btn"
-              >
-                <VolumeX className="w-3.5 h-3.5" />
-                <span>{isSilent ? '关闭静默模式' : '静默模式 (L0)'}</span>
-              </Button>
-
-              <Button
-                type="button"
-                variant="quiet"
-                size="sm"
-                onClick={() => runtime.requestHelp('L2')}
-                data-testid="request-help-l2-btn"
-              >
-                <HelpCircle className="w-3.5 h-3.5 text-amber" />
-                <span>请求提示 (L2)</span>
-              </Button>
-
-              <Button
-                type="button"
-                variant="quiet"
-                size="sm"
-                onClick={() => runtime.requestHelp('L3')}
-                data-testid="request-help-l3-btn"
-              >
-                <Layers className="w-3.5 h-3.5 text-violet" />
-                <span>展开要点 (L3)</span>
-              </Button>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="flex items-center gap-1.5 text-ink-2">
-                <span>最高级别：</span>
-                <select
-                  value={session.maxInterventionLevel}
-                  onChange={(e) => runtime.setCeilingLevel(e.target.value as InterventionLevel)}
-                  data-testid="ceiling-select"
-                  className="border border-line bg-ground rounded px-2 py-1 text-ink font-mono"
-                >
-                  <option value="L0">L0</option>
-                  <option value="L1">L1</option>
-                  <option value="L2">L2</option>
-                  <option value="L3">L3</option>
-                </select>
-              </label>
-
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setShowInputDrawer((v) => !v)}
-              >
-                <MessageSquare className="w-3.5 h-3.5" />
-                <span>{showInputDrawer ? '收起语音与测试面板' : '展开语音与测试面板'}</span>
-              </Button>
-            </div>
-
+            {/* Central Peripheral-Vision Cue Stage */}
             <div
-              className="w-full pt-2 border-t border-line/70 flex flex-wrap items-center justify-between gap-2 text-[11px] text-ink-3"
-              data-testid="keyboard-shortcuts-hint"
+              className={cn(
+                'flex flex-col items-center justify-center border border-line bg-surface rounded-md relative',
+                layoutMode === 'split_strip'
+                  ? 'min-h-[210px] p-4 sm:p-5'
+                  : 'flex-1 min-h-[260px] p-6 sm:p-10'
+              )}
+              aria-live="polite"
+              aria-atomic="true"
+              data-testid="focus-cue-stage"
             >
-              <span className="inline-flex items-center gap-1.5">
-                <Keyboard className="w-3.5 h-3.5" />
-                <span>
-                  快捷键：<code>Space</code> 暂停/恢复 · <code>M</code> 静默(L0) · <code>H</code>{' '}
-                  请求帮助 · <code>Esc</code> 忽略提示
+              {isSilent ? (
+                <div className="text-center space-y-3" data-testid="focus-silent-state">
+                  <VolumeX className="w-8 h-8 text-ink-3 mx-auto" />
+                  <div className="text-xl font-semibold text-ink">L0 · 静默模式已开启</div>
+                  <p className="text-xs text-ink-2 max-w-md leading-relaxed">
+                    系统仍在静默记录转写与覆盖率，但不会向画面输出任何 L1–L3 干预提示。
+                  </p>
+                </div>
+              ) : activeIntervention ? (
+                <div
+                  className="w-full max-w-2xl text-center space-y-4"
+                  data-testid="focus-active-intervention"
+                  data-level={activeIntervention.level}
+                  data-grounded={activeIntervention.grounded}
+                >
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    <Badge
+                      variant={activeIntervention.level === 'L3' ? 'violet' : 'amber'}
+                      className="font-mono"
+                    >
+                      {INTERVENTION_LEVEL_LABELS[activeIntervention.level]}
+                    </Badge>
+                    {activeIntervention.grounded ? (
+                      <Badge variant="resolved">
+                        <ShieldCheck className="w-3 h-3" />
+                        已核验事实依据 ({activeIntervention.evidenceIds.length})
+                      </Badge>
+                    ) : (
+                      <Badge variant="amber">
+                        <ShieldAlert className="w-3 h-3" />
+                        资料未覆盖 · 勿现场编造
+                      </Badge>
+                    )}
+                  </div>
+
+                  {/* L1: Subtle minimal whisper */}
+                  {activeIntervention.level === 'L1' && (
+                    <div className="space-y-2">
+                      <div className="text-2xl sm:text-3xl font-semibold text-amber-ink tracking-tight">
+                        {activeIntervention.title}
+                      </div>
+                      <p className="text-sm text-ink-2">{activeIntervention.cueText}</p>
+                    </div>
+                  )}
+
+                  {/* L2: Crisp large 2-6+ char keyword pill readable by peripheral vision (flattened, <= 1 border) */}
+                  {activeIntervention.level === 'L2' && (
+                    <div className="space-y-3">
+                      <div className="inline-block max-w-full break-words px-5 sm:px-6 py-3 rounded-md bg-amber-tint border border-amber/40 text-2xl sm:text-5xl font-bold tracking-tight text-ink">
+                        {activeIntervention.cueText}
+                      </div>
+                      <p className="text-sm text-ink-2">{activeIntervention.title}</p>
+                    </div>
+                  )}
+
+                  {/* L3: Concise 2-3 bullet scaffold */}
+                  {activeIntervention.level === 'L3' && (
+                    <div className="space-y-3.5 text-left bg-violet-tint/35 border border-violet/30 rounded-md p-5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-base sm:text-lg font-bold text-ink">
+                          {activeIntervention.title}
+                        </span>
+                        <span className="text-xs font-mono text-violet-ink">L3 脚手架</span>
+                      </div>
+                      <p className="text-lg sm:text-2xl font-semibold text-ink leading-snug">
+                        {activeIntervention.cueText}
+                      </p>
+                      {activeIntervention.bullets && activeIntervention.bullets.length > 0 && (
+                        <ul className="space-y-2 pt-1 text-sm sm:text-base text-ink-2 list-disc pl-5">
+                          {activeIntervention.bullets.slice(0, 3).map((b, idx) => (
+                            <li key={idx}>{b}</li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+
+                  {activeIntervention.missingEvidenceNotice && (
+                    <div
+                      className="border border-amber/40 bg-amber-tint rounded p-3 text-xs text-amber-ink text-left flex items-start gap-2"
+                      data-testid="missing-evidence-warning"
+                    >
+                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>{activeIntervention.missingEvidenceNotice}</span>
+                    </div>
+                  )}
+
+                  {matchedEvidence.length > 0 && (
+                    <div className="flex flex-wrap justify-center gap-2 pt-1 text-xs text-ink-2">
+                      {matchedEvidence.map((ev) => (
+                        <span
+                          key={ev.id}
+                          className="px-2.5 py-1 rounded bg-surface-muted"
+                        >
+                          出处：{ev.source} · {ev.text}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Micro-feedback (H/I) + Dismiss suppression */}
+                  <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
+                    <Button
+                      type="button"
+                      variant={activeIntervention.userFeedback === 'helpful' ? 'resolved' : 'quiet'}
+                      size="sm"
+                      onClick={() => runtime.sendFeedback(activeIntervention.interventionId, 'helpful')}
+                      data-testid="feedback-helpful-btn"
+                      className="min-h-9"
+                    >
+                      <ThumbsUp className="w-3.5 h-3.5" />
+                      <span>有效 (H)</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={activeIntervention.userFeedback === 'distracting' ? 'amber' : 'quiet'}
+                      size="sm"
+                      onClick={() =>
+                        runtime.sendFeedback(activeIntervention.interventionId, 'distracting')
+                      }
+                      data-testid="feedback-distracting-btn"
+                      className="min-h-9"
+                    >
+                      <ThumbsDown className="w-3.5 h-3.5" />
+                      <span>打扰 (I)</span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => runtime.dismissHint('user_dismissed_in_focus')}
+                      data-testid="dismiss-hint-btn"
+                      className="min-h-9"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>忽略并抑制此提示</span>
+                    </Button>
+                  </div>
+                </div>
+              ) : lastWithdrawn ? (
+                <div
+                  className="text-center space-y-2 max-w-lg border border-resolved/35 bg-resolved-tint/60 rounded-md px-6 py-5"
+                  data-testid="focus-withdrawn-banner"
+                >
+                  <Badge variant="resolved">主动退出 · 已自动撤回</Badge>
+                  {lastWithdrawn.cueText && (
+                    <p className="text-lg text-ink-3">
+                      <del>{lastWithdrawn.cueText}</del>
+                    </p>
+                  )}
+                  <p className="text-xs text-resolved font-medium">
+                    {WITHDRAWAL_REASON_LABELS[lastWithdrawn.reason] ?? lastWithdrawn.reason}
+                  </p>
+                </div>
+              ) : (
+                <div className="text-center space-y-3" data-testid="focus-l0-quiet">
+                  <div className="w-2.5 h-2.5 rounded-full bg-resolved mx-auto" />
+                  <div className="text-lg sm:text-xl font-medium text-ink">
+                    L0 · 正在持续理解，当前无需干预
+                  </div>
+                  <p className="text-xs text-ink-3 max-w-md leading-relaxed">
+                    保持你的正常节奏即可；只有当出现显著偏离、遗漏或现场问答时，CueX 才会以最小必要方式接住你。
+                  </p>
+                  {pres && pres.missedKeyPoints.length > 0 && (
+                    <div className="flex flex-wrap justify-center items-center gap-1.5 pt-2">
+                      <span className="text-xs text-ink-3">当前章节待覆盖：</span>
+                      {pres.missedKeyPoints.slice(0, 4).map((m) => (
+                        <span
+                          key={m.pointId}
+                          className="text-xs px-2.5 py-0.5 rounded bg-surface-muted text-ink-2"
+                        >
+                          {m.label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Minimal Speaker Controls Bar */}
+            <div className="border border-line bg-surface rounded-md p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant={isPaused ? 'amber' : 'quiet'}
+                  size="sm"
+                  onClick={isPaused ? runtime.resumeSession : runtime.pauseSession}
+                  data-testid="toggle-pause-btn"
+                >
+                  {isPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
+                  <span>{isPaused ? '恢复监听' : '暂停监听'}</span>
+                </Button>
+
+                <Button
+                  type="button"
+                  variant={isSilent ? 'default' : 'quiet'}
+                  size="sm"
+                  onClick={() => runtime.setSilentMode(!isSilent)}
+                  data-testid="toggle-silent-btn"
+                >
+                  <VolumeX className="w-3.5 h-3.5" />
+                  <span>{isSilent ? '关闭静默模式' : '静默模式 (L0)'}</span>
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="quiet"
+                  size="sm"
+                  onClick={() => runtime.requestHelp('L2')}
+                  data-testid="request-help-l2-btn"
+                >
+                  <HelpCircle className="w-3.5 h-3.5 text-amber" />
+                  <span>请求提示 (L2)</span>
+                </Button>
+
+                <Button
+                  type="button"
+                  variant="quiet"
+                  size="sm"
+                  onClick={() => runtime.requestHelp('L3')}
+                  data-testid="request-help-l3-btn"
+                >
+                  <Layers className="w-3.5 h-3.5 text-violet" />
+                  <span>展开要点 (L3)</span>
+                </Button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="flex items-center gap-1.5 text-ink-2">
+                  <span>最高级别：</span>
+                  <select
+                    value={session.maxInterventionLevel}
+                    onChange={(e) => runtime.setCeilingLevel(e.target.value as InterventionLevel)}
+                    data-testid="ceiling-select"
+                    className="h-8 border border-line bg-ground rounded px-2 text-ink font-mono focus-visible:outline-none focus-visible:border-ink"
+                  >
+                    <option value="L0">L0</option>
+                    <option value="L1">L1</option>
+                    <option value="L2">L2</option>
+                    <option value="L3">L3</option>
+                  </select>
+                </label>
+
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowInputDrawer((v) => !v)}
+                >
+                  <MessageSquare className="w-3.5 h-3.5" />
+                  <span>{showInputDrawer ? '收起语音与测试面板' : '展开语音与测试面板'}</span>
+                </Button>
+              </div>
+
+              <div
+                className="w-full pt-2 border-t border-line flex flex-wrap items-center justify-between gap-2 text-xs text-ink-3"
+                data-testid="keyboard-shortcuts-hint"
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <Keyboard className="w-3.5 h-3.5 shrink-0" />
+                  <span>
+                    快捷键：<code>Space</code> 暂停/恢复 · <code>M</code> 静默(L0) · <code>H</code>{' '}
+                    请求帮助 · <code>Esc</code> 忽略提示
+                  </span>
                 </span>
-              </span>
-              <span className="font-mono">
-                {layoutMode === 'split_strip' ? 'Split Strip 模式已开启' : '全宽编辑/演练视图'}
-              </span>
+                <span className="font-mono whitespace-nowrap">
+                  {layoutMode === 'split_strip' ? 'Split Strip 伴随栏模式' : '标准双栏视角'}
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Speech Input & Honest ASR / Text Simulation Panel */}
+          {/* Secondary Column: Speech Input & Honest ASR / Text Simulation Panel */}
           {showInputDrawer && (
             <div
-              className="border border-line bg-surface rounded-md p-4 space-y-4 text-xs shadow-sm"
+              className={cn(
+                'border border-line bg-surface rounded-md p-4 space-y-4 text-xs',
+                layoutMode === 'split_strip' && 'lg:col-span-7'
+              )}
               data-testid="stage-input-panel"
             >
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
@@ -1017,8 +1103,13 @@ export const StageView: React.FC<StageViewProps> = ({
                   >
                     {ASR_MODE_LABELS[activeAsrMode]}
                   </Badge>
-                  {state.asrStatus && (
-                    <span className="text-[11px] text-ink-3">{state.asrStatus.detail}</span>
+                  {asrLifecycle && (
+                    <Badge variant={getColabLifecycleBadgeVariant(asrLifecycle)}>
+                      {COLAB_ASR_LIFECYCLE_LABELS[asrLifecycle]}
+                    </Badge>
+                  )}
+                  {state.asrStatus?.detail && (
+                    <span className="text-xs text-ink-3">{state.asrStatus.detail}</span>
                   )}
                 </div>
 
@@ -1074,8 +1165,29 @@ export const StageView: React.FC<StageViewProps> = ({
                 </div>
               </div>
 
+              {(state.asrStatus?.gpuName ||
+                state.asrStatus?.modelId ||
+                state.asrStatus?.rtf !== undefined ||
+                state.asrStatus?.fallbackActive) && (
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-mono text-ink-2 bg-surface-muted/70 rounded px-3 py-2 tabular-nums">
+                  {state.asrStatus.gpuName && <span>GPU: {state.asrStatus.gpuName}</span>}
+                  {state.asrStatus.modelId && <span>模型: {state.asrStatus.modelId}</span>}
+                  {state.asrStatus.rtf !== undefined && (
+                    <span>RTF: {state.asrStatus.rtf.toFixed(3)}</span>
+                  )}
+                  {state.asrStatus.lastHealthCheckAt && (
+                    <span>心跳: {formatTime(state.asrStatus.lastHealthCheckAt)}</span>
+                  )}
+                  {state.asrStatus.fallbackActive && (
+                    <span className="text-amber-ink">
+                      已回退：{state.asrStatus.fallbackReason ?? '备用链路'}
+                    </span>
+                  )}
+                </div>
+              )}
+
               {runtime.micMode === 'pcm_mic' && (
-                <div className="flex items-center gap-3 bg-ground rounded px-3 py-2">
+                <div className="flex items-center gap-3 bg-surface-muted rounded px-3 py-2">
                   <span className="text-ink-2">麦克风电平：</span>
                   <meter min={0} max={1} value={runtime.micVolume} className="w-40" />
                   {state.asrStatus?.mode === 'text_simulation' && (
@@ -1087,17 +1199,20 @@ export const StageView: React.FC<StageViewProps> = ({
               )}
 
               {runtime.micError && (
-                <p className="text-amber-ink bg-amber-tint border border-amber/30 rounded px-3 py-2">
+                <p
+                  role="alert"
+                  className="text-amber-ink bg-amber-tint border border-amber/30 rounded px-3 py-2"
+                >
                   {runtime.micError}
                 </p>
               )}
 
               {/* Explicitly labeled Text Simulation Panel */}
-              <div className="bg-ground/70 border border-line rounded p-3.5 space-y-3">
+              <div className="bg-surface-muted/70 border border-line rounded p-3.5 space-y-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="amber">文本仿真输入 · 非真实麦克风 ASR</Badge>
-                    <span className="text-ink-3">
+                    <span className="text-ink-3 text-xs">
                       用于快速验证 L0/L1/L2/L3 判定、自动撤回与现场 Q&amp;A 事实核验
                     </span>
                   </div>
@@ -1116,8 +1231,9 @@ export const StageView: React.FC<StageViewProps> = ({
                   <select
                     value={simSpeaker}
                     onChange={(e) => setSimSpeaker(e.target.value as TranscriptSpeaker)}
+                    aria-label="选择仿真发言身份"
                     data-testid="sim-speaker-select"
-                    className="border border-line bg-surface rounded px-2.5 py-2 text-ink sm:w-36"
+                    className="border border-line bg-surface rounded px-2.5 py-2 text-ink sm:w-36 focus-visible:outline-none focus-visible:border-ink"
                   >
                     <option value="presenter">演讲者 (Presenter)</option>
                     <option value="audience">观众提问 (Audience)</option>
@@ -1126,10 +1242,11 @@ export const StageView: React.FC<StageViewProps> = ({
                     type="text"
                     value={simText}
                     onChange={(e) => setSimText(e.target.value)}
+                    aria-label="输入仿真话术或观众追问"
                     placeholder="输入仿真话术或观众追问，按 Enter 提交..."
                     disabled={isEnded}
                     data-testid="sim-speech-input"
-                    className="flex-1 border border-line bg-surface rounded px-3 py-2 text-ink"
+                    className="flex-1 border border-line bg-surface rounded px-3 py-2 text-ink focus-visible:outline-none focus-visible:border-ink"
                   />
                   <Button
                     type="submit"
@@ -1144,7 +1261,7 @@ export const StageView: React.FC<StageViewProps> = ({
 
                 {/* Quick E2E / Demo Simulation Snippets */}
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[11px] text-ink-3 mr-1">示例话术片段：</span>
+                  <span className="text-xs text-ink-3 mr-1">示例话术片段：</span>
                   <button
                     type="button"
                     onClick={() =>
@@ -1153,7 +1270,7 @@ export const StageView: React.FC<StageViewProps> = ({
                         'presenter'
                       )
                     }
-                    className="px-2 py-1 rounded border border-line bg-surface hover:bg-ground-2 text-[11px] text-ink-2"
+                    className="px-2.5 py-1.5 rounded border border-line bg-surface hover:bg-surface-muted text-xs text-ink-2"
                   >
                     1. 流畅开场（应保持 L0）
                   </button>
@@ -1165,7 +1282,7 @@ export const StageView: React.FC<StageViewProps> = ({
                         'presenter'
                       )
                     }
-                    className="px-2 py-1 rounded border border-line bg-surface hover:bg-ground-2 text-[11px] text-amber-ink"
+                    className="px-2.5 py-1.5 rounded border border-line bg-surface hover:bg-surface-muted text-xs text-amber-ink"
                   >
                     2. 跑偏/遗漏（触发提示）
                   </button>
@@ -1177,7 +1294,7 @@ export const StageView: React.FC<StageViewProps> = ({
                         'presenter'
                       )
                     }
-                    className="px-2 py-1 rounded border border-line bg-surface hover:bg-ground-2 text-[11px] text-resolved"
+                    className="px-2.5 py-1.5 rounded border border-line bg-surface hover:bg-surface-muted text-xs text-resolved"
                   >
                     3. 主动补正（应自动撤回）
                   </button>
@@ -1189,7 +1306,7 @@ export const StageView: React.FC<StageViewProps> = ({
                         'audience'
                       )
                     }
-                    className="px-2 py-1 rounded border border-line bg-surface hover:bg-ground-2 text-[11px] text-violet-ink"
+                    className="px-2.5 py-1.5 rounded border border-line bg-surface hover:bg-surface-muted text-xs text-violet-ink"
                   >
                     4. 观众追问（白名单有依据）
                   </button>
@@ -1201,7 +1318,7 @@ export const StageView: React.FC<StageViewProps> = ({
                         'audience'
                       )
                     }
-                    className="px-2 py-1 rounded border border-line bg-surface hover:bg-ground-2 text-[11px] text-amber-ink"
+                    className="px-2.5 py-1.5 rounded border border-line bg-surface hover:bg-surface-muted text-xs text-amber-ink"
                   >
                     5. 观众追问（资料未覆盖 · 警示勿编造）
                   </button>
@@ -1218,55 +1335,64 @@ export const StageView: React.FC<StageViewProps> = ({
           className="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-6 space-y-5"
           data-testid="inspector-view"
         >
-          {/* Top Real Telemetry Strip */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 text-xs">
-            <div className="border border-line bg-surface rounded p-3 space-y-0.5">
-              <span className="text-[11px] text-ink-3 block">contextVersion</span>
-              <span className="font-mono text-lg font-bold text-ink" data-testid="inspector-ctx-ver">
+          {/* Top Real Telemetry Strip (Achromatic Ledger) */}
+          <div className="border border-line bg-surface rounded-md grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 divide-y sm:divide-y-0 sm:divide-x divide-line text-xs">
+            <div className="p-3.5 space-y-1">
+              <span className="text-xs text-ink-3 block">contextVersion</span>
+              <span
+                className="font-mono text-xl font-bold text-ink tabular-nums block"
+                data-testid="inspector-ctx-ver"
+              >
                 v{cog?.contextVersion ?? 0}
               </span>
             </div>
-            <div className="border border-line bg-surface rounded p-3 space-y-0.5">
-              <span className="text-[11px] text-ink-3 block">System 1 / P95 延迟</span>
-              <span className="font-mono text-lg font-bold text-amber-ink">
+            <div className="p-3.5 space-y-1">
+              <span className="text-xs text-ink-3 block">System 1 / P95 延迟</span>
+              <span className="font-mono text-xl font-bold text-amber-ink tabular-nums block">
                 {state.telemetry?.lastSystem1LatencyMs ?? latestVerdict?.latencyMs ?? 0} ms
               </span>
               {state.telemetry?.latencyStats && (
-                <span className="text-[10px] font-mono text-ink-3 block">
+                <span className="text-xs font-mono text-ink-3 block tabular-nums">
                   avg {state.telemetry.latencyStats.avgMs}ms · p95 {state.telemetry.latencyStats.p95Ms}ms
                 </span>
               )}
             </div>
-            <div className="border border-line bg-surface rounded p-3 space-y-0.5">
-              <span className="text-[11px] text-ink-3 block">模型调用 / 本地规则</span>
-              <span className="font-mono text-lg font-bold text-ink">
+            <div className="p-3.5 space-y-1">
+              <span className="text-xs text-ink-3 block">模型调用 / 本地规则</span>
+              <span className="font-mono text-xl font-bold text-ink tabular-nums block">
                 {state.telemetry?.modelCalls ?? 0} / {state.telemetry?.localRuleEvaluations ?? 0}
               </span>
               {state.telemetry && state.telemetry.retries > 0 && (
-                <span className="text-[10px] font-mono text-amber-ink block">
+                <span className="text-xs font-mono text-amber-ink block tabular-nums">
                   retries: {state.telemetry.retries}
                 </span>
               )}
             </div>
-            <div className="border border-line bg-surface rounded p-3 space-y-0.5">
-              <span className="text-[11px] text-ink-3 block">真实 Token / 费用</span>
-              <span className="font-mono text-lg font-bold text-violet-ink" data-testid="inspector-tokens">
+            <div className="p-3.5 space-y-1">
+              <span className="text-xs text-ink-3 block">真实 Token / 费用</span>
+              <span
+                className="font-mono text-xl font-bold text-violet-ink tabular-nums block"
+                data-testid="inspector-tokens"
+              >
                 {state.telemetry?.totalTokens ?? 0}
               </span>
-              <span className="text-[10px] font-mono text-ink-3 block" data-testid="inspector-cost">
+              <span className="text-xs font-mono text-ink-3 block tabular-nums" data-testid="inspector-cost">
                 {formatMoneyFen(state.telemetry?.cost ?? state.telemetry?.costFen)}
               </span>
             </div>
-            <div className="border border-line bg-surface rounded p-3 space-y-0.5">
-              <span className="text-[11px] text-ink-3 block">Cached Tokens</span>
-              <span className="font-mono text-lg font-bold text-ink">
+            <div className="p-3.5 space-y-1">
+              <span className="text-xs text-ink-3 block">Cached / Reasoning</span>
+              <span className="font-mono text-xl font-bold text-ink tabular-nums block">
                 {state.telemetry?.cachedInputTokens ?? 0}
               </span>
+              <span className="text-xs font-mono text-ink-3 block tabular-nums">
+                reasoning: {state.telemetry?.reasoningTokens ?? 0}
+              </span>
             </div>
-            <div className="border border-line bg-surface rounded p-3 space-y-0.5">
-              <span className="text-[11px] text-ink-3 block">计量口径 (usageSource)</span>
+            <div className="p-3.5 space-y-1">
+              <span className="text-xs text-ink-3 block">计量口径 (usageSource)</span>
               <span
-                className="text-[11px] font-semibold text-ink block mt-1 leading-snug"
+                className="text-xs font-semibold text-ink block mt-1 leading-snug"
                 data-testid="inspector-usage-source"
               >
                 {state.telemetry?.usageSource
@@ -1275,6 +1401,94 @@ export const StageView: React.FC<StageViewProps> = ({
                     ? '本地规则零 Token 回退'
                     : '待统计'}
               </span>
+              {state.telemetry?.usageSource === 'provider_unreported' && (
+                <span className="text-xs text-amber-ink block">
+                  外部模型已调用但上游未回传用量
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Runtime Subsystems Ledger Bar (Colab 7-State ASR + S1/S2 CPA Models) */}
+          <div
+            className="border border-line bg-surface rounded-md grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-line text-xs"
+            data-testid="inspector-subsystems"
+          >
+            <div className="p-3.5 space-y-1">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-semibold text-ink">ASR 通道能力</span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Badge variant="outline">
+                    {state.asrStatus ? ASR_MODE_LABELS[state.asrStatus.mode] : '未知'}
+                  </Badge>
+                  {asrLifecycle && (
+                    <Badge variant={getColabLifecycleBadgeVariant(asrLifecycle)}>
+                      {COLAB_ASR_LIFECYCLE_LABELS[asrLifecycle]}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+              <div className="font-mono text-xs text-ink-2 tabular-nums">
+                {(state.asrStatus?.gpuName ?? health?.asr.gpuName)
+                  ? `${state.asrStatus?.gpuName ?? health?.asr.gpuName} · `
+                  : ''}
+                {state.asrStatus?.modelId ?? health?.asr.modelId ?? state.asrStatus?.backend ?? '—'}
+                {(state.asrStatus?.rtf ?? health?.asr.rtf) !== undefined
+                  ? ` · RTF ${(state.asrStatus?.rtf ?? health?.asr.rtf)!.toFixed(3)}`
+                  : ''}
+              </div>
+              {(state.asrStatus?.lastHealthCheckAt ||
+                health?.asr.lastHealthCheckAt ||
+                state.asrStatus?.fallbackActive ||
+                health?.asr.fallbackActive) && (
+                <div className="text-xs text-ink-3">
+                  {(state.asrStatus?.lastHealthCheckAt ?? health?.asr.lastHealthCheckAt) && (
+                    <span>
+                      心跳 {formatTime((state.asrStatus?.lastHealthCheckAt ?? health?.asr.lastHealthCheckAt)!)}
+                    </span>
+                  )}
+                  {(state.asrStatus?.fallbackActive || health?.asr.fallbackActive) && (
+                    <span className="text-amber-ink ml-2">
+                      回退原因：
+                      {state.asrStatus?.fallbackReason ??
+                        health?.asr.fallbackReason ??
+                        '备用链路接管'}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="p-3.5 space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold text-ink">System 1 快速判决器</span>
+                <Badge variant={health?.system1.degraded ? 'amber' : 'secondary'}>
+                  {health?.system1.mode ?? 'unknown'}
+                </Badge>
+              </div>
+              <div className="font-mono text-xs text-ink-2">
+                {health?.system1.provider ? `${health.system1.provider} · ` : ''}
+                {health?.system1.model ?? health?.system1.backend ?? '—'}
+              </div>
+              {health?.system1.detail && (
+                <p className="text-xs text-ink-3 break-words">{health.system1.detail}</p>
+              )}
+            </div>
+
+            <div className="p-3.5 space-y-1">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-semibold text-ink">System 2 慢速推理器</span>
+                <Badge variant={health?.system2.degraded ? 'amber' : 'secondary'}>
+                  {health?.system2.mode ?? 'unknown'}
+                </Badge>
+              </div>
+              <div className="font-mono text-xs text-ink-2">
+                {health?.system2.provider ? `${health.system2.provider} · ` : ''}
+                {health?.system2.model ?? health?.system2.backend ?? '—'}
+              </div>
+              {health?.system2.detail && (
+                <p className="text-xs text-ink-3 break-words">{health.system2.detail}</p>
+              )}
             </div>
           </div>
 
@@ -1287,35 +1501,45 @@ export const StageView: React.FC<StageViewProps> = ({
               >
                 <div className="flex items-center justify-between border-b border-line pb-2">
                   <span className="font-bold text-ink">ASR 能力与转写流</span>
-                  <Badge variant="outline" className="text-[10px]">
+                  <Badge variant="outline">
                     {state.asrStatus ? ASR_MODE_LABELS[state.asrStatus.mode] : '未知'}
                   </Badge>
                 </div>
                 {state.asrStatus && (
-                  <p className="text-[11px] text-ink-3">
-                    backend: <span className="font-mono">{state.asrStatus.backend}</span> · available:{' '}
-                    {String(state.asrStatus.available)} · {state.asrStatus.detail}
+                  <p className="text-xs text-ink-3 leading-relaxed">
+                    backend: <span className="font-mono text-ink-2">{state.asrStatus.backend}</span> · available:{' '}
+                    <span className="font-mono text-ink-2">{String(state.asrStatus.available)}</span> · {state.asrStatus.detail}
                   </p>
                 )}
-                <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+                <div className="max-h-64 overflow-y-auto divide-y divide-line pr-1">
                   {state.transcripts.length === 0 ? (
-                    <p className="text-ink-3">等待语音或文本仿真输入...</p>
+                    <p className="text-ink-3 py-2">等待语音或文本仿真输入...</p>
                   ) : (
-                    state.transcripts.map((seg) => (
-                      <div
-                        key={seg.segmentId}
-                        className="p-2 rounded bg-ground border border-line space-y-1"
-                      >
-                        <div className="flex items-center justify-between text-[10px] font-mono text-ink-3">
-                          <span>
-                            {seg.speaker} · {seg.source ?? 'unknown'} ·{' '}
-                            {seg.isFinal ? 'FINAL' : 'PARTIAL'}
-                          </span>
-                          <span>{formatMs(seg.startMs)}</span>
-                        </div>
-                        <p className="text-ink leading-relaxed">{seg.text}</p>
-                      </div>
-                    ))
+                    (() => {
+                      const epochTimes = state.transcripts
+                        .map((s) => s.startMs)
+                        .filter((t) => Number.isFinite(t) && t >= 1_000_000_000_000);
+                      const baseEpochMs =
+                        epochTimes.length > 0 ? Math.min(...epochTimes) : 0;
+                      return state.transcripts.map((seg) => {
+                        const displayMs =
+                          seg.startMs >= 1_000_000_000_000
+                            ? Math.max(0, seg.startMs - baseEpochMs)
+                            : seg.startMs;
+                        return (
+                          <div key={seg.segmentId} className="py-2.5 space-y-1">
+                            <div className="flex items-center justify-between text-xs font-mono text-ink-3 tabular-nums">
+                              <span>
+                                {seg.speaker} · {seg.source ?? 'unknown'} ·{' '}
+                                {seg.isFinal ? 'FINAL' : 'PARTIAL'}
+                              </span>
+                              <span>{formatMs(displayMs)}</span>
+                            </div>
+                            <p className="text-ink leading-relaxed">{seg.text}</p>
+                          </div>
+                        );
+                      });
+                    })()
                   )}
                 </div>
               </section>
@@ -1326,11 +1550,11 @@ export const StageView: React.FC<StageViewProps> = ({
               >
                 <div className="flex items-center justify-between border-b border-line pb-2">
                   <span className="font-bold text-ink">SharedCognitiveState</span>
-                  <Badge variant="secondary" className="font-mono text-[10px]">
+                  <Badge variant="secondary" className="font-mono">
                     {ATTENTION_SIGNAL_LABELS[cog?.attentionSignal ?? 'fluent']}
                   </Badge>
                 </div>
-                <div className="space-y-1.5 text-[11px]">
+                <div className="space-y-2 text-xs">
                   <div>
                     <span className="text-ink-3">当前章节：</span>
                     <span className="font-medium text-ink">{cog?.activeChapterTitle ?? '—'}</span>
@@ -1343,7 +1567,7 @@ export const StageView: React.FC<StageViewProps> = ({
                   </div>
                   <div>
                     <span className="text-ink-3">冷却时间：</span>
-                    <span className="font-mono text-ink">
+                    <span className="font-mono text-ink tabular-nums">
                       {(() => {
                         const cooldownMs = cog?.cooldownUntil ? Date.parse(cog.cooldownUntil) : 0;
                         return Number.isFinite(cooldownMs) && cooldownMs > Date.now()
@@ -1354,7 +1578,7 @@ export const StageView: React.FC<StageViewProps> = ({
                   </div>
                   <div>
                     <span className="text-ink-3">抑制条目数：</span>
-                    <span className="font-mono text-ink">{cog?.suppressions.length ?? 0}</span>
+                    <span className="font-mono text-ink tabular-nums">{cog?.suppressions.length ?? 0}</span>
                   </div>
                 </div>
               </section>
@@ -1371,32 +1595,30 @@ export const StageView: React.FC<StageViewProps> = ({
                     <span className="w-2 h-2 rounded-full bg-amber" />
                     System 1 · 快速判决流
                   </span>
-                  <span className="font-mono text-[10px] text-ink-3">
+                  <span className="font-mono text-xs text-ink-3 tabular-nums">
                     {state.verdicts.length} 条记录
                   </span>
                 </div>
-                <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+                <div className="max-h-60 overflow-y-auto divide-y divide-line pr-1">
                   {state.verdicts.length === 0 ? (
-                    <p className="text-ink-3">等待 System 1 评估...</p>
+                    <p className="text-ink-3 py-2">等待 System 1 评估...</p>
                   ) : (
                     [...state.verdicts].reverse().map((v) => (
-                      <div
-                        key={v.requestId}
-                        className="p-2.5 rounded bg-ground border border-line space-y-1"
-                      >
-                        <div className="flex items-center justify-between">
+                      <div key={v.requestId} className="py-2.5 space-y-1.5">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
                           <Badge variant={v.driftDetected ? 'amber' : 'resolved'}>
                             {v.cognitiveState} → {v.interventionNeed}
                           </Badge>
-                          <span className="font-mono text-[10px] text-ink-3">
+                          <span className="font-mono text-xs text-ink-3 tabular-nums">
                             {v.latencyMs}ms · {v.backend}
                           </span>
                         </div>
-                        <p className="text-ink-2">{v.reason}</p>
-                        <div className="text-[10px] font-mono text-ink-3">
+                        <p className="text-ink-2 leading-relaxed">{v.reason}</p>
+                        <div className="text-xs font-mono text-ink-3 break-words tabular-nums">
                           omission={String(v.signals.semanticOmission)} · drift=
                           {String(v.signals.topicDrift)} · qa={String(v.signals.openQuestion)} ·
-                          recovery={String(v.signals.recovery)}
+                          recovery={String(v.signals.recovery)} · req={v.requestId.slice(0, 8)}
+                          {v.usage?.correlationId ? ` · corr=${v.usage.correlationId.slice(0, 8)}` : ''}
                         </div>
                       </div>
                     ))
@@ -1413,21 +1635,18 @@ export const StageView: React.FC<StageViewProps> = ({
                     <span className="w-2 h-2 rounded-full bg-violet" />
                     System 2 · 候选与事实绑定
                   </span>
-                  <span className="font-mono text-[10px] text-ink-3">
+                  <span className="font-mono text-xs text-ink-3 tabular-nums">
                     {state.candidates.length} 个候选
                   </span>
                 </div>
-                <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+                <div className="max-h-64 overflow-y-auto divide-y divide-line pr-1">
                   {state.candidates.length === 0 ? (
-                    <p className="text-ink-3">暂无 System 2 候选提示。</p>
+                    <p className="text-ink-3 py-2">暂无 System 2 候选提示。</p>
                   ) : (
                     [...state.candidates].reverse().map((c) => (
-                      <div
-                        key={c.candidateId}
-                        className="p-2.5 rounded bg-ground border border-line space-y-1"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-1.5">
+                      <div key={c.candidateId} className="py-2.5 space-y-1.5">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div className="flex flex-wrap items-center gap-1.5">
                             <Badge variant={c.status === 'withdrawn' ? 'resolved' : 'violet'}>
                               {c.level} · {c.status}
                             </Badge>
@@ -1435,19 +1654,19 @@ export const StageView: React.FC<StageViewProps> = ({
                               {c.grounded ? `grounded (${c.evidenceIds.length})` : 'ungrounded'}
                             </Badge>
                           </div>
-                          <span className="font-mono text-[10px] text-ink-3">
+                          <span className="font-mono text-xs text-ink-3 tabular-nums">
                             v{c.contextVersion}
                           </span>
                         </div>
                         <div className="font-semibold text-ink">{c.title}</div>
-                        <p className="text-ink-2">{c.cueText}</p>
+                        <p className="text-ink-2 leading-relaxed">{c.cueText}</p>
                         {c.evidenceIds.length > 0 && (
-                          <div className="text-[10px] font-mono text-ink-3">
+                          <div className="text-xs font-mono text-ink-3 break-all">
                             Retrieval IDs: {c.evidenceIds.join(', ')}
                           </div>
                         )}
                         {c.withdrawalReason && (
-                          <p className="text-[11px] text-resolved">
+                          <p className="text-xs text-resolved">
                             撤回原因：{c.withdrawalReason}
                           </p>
                         )}
@@ -1469,19 +1688,19 @@ export const StageView: React.FC<StageViewProps> = ({
                     <Activity className="w-3.5 h-3.5 text-ink" />
                     InterventionController 仲裁日志
                   </span>
-                  <span className="font-mono text-[10px] text-ink-3">
+                  <span className="font-mono text-xs text-ink-3 tabular-nums">
                     {state.decisions.length} 条裁决
                   </span>
                 </div>
-                <div className="max-h-[540px] overflow-y-auto space-y-2 pr-1">
+                <div className="max-h-[540px] overflow-y-auto divide-y divide-line pr-1">
                   {state.decisions.length === 0 ? (
-                    <p className="text-ink-3">等待 Controller 裁决...</p>
+                    <p className="text-ink-3 py-2">等待 Controller 裁决...</p>
                   ) : (
                     [...state.decisions].reverse().map((d) => (
                       <div
                         key={d.decisionId}
                         data-testid="controller-decision-row"
-                        className="p-2.5 rounded bg-ground border border-line space-y-1"
+                        className="py-2.5 space-y-1.5"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <Badge
@@ -1495,13 +1714,13 @@ export const StageView: React.FC<StageViewProps> = ({
                           >
                             {CONTROLLER_ACTION_LABELS[d.selectedAction] ?? d.selectedAction}
                           </Badge>
-                          <span className="font-mono text-[10px] text-ink-3">
-                            v{d.contextVersion}
+                          <span className="font-mono text-xs text-ink-3 tabular-nums">
+                            v{d.contextVersion} · {d.decisionId.slice(0, 8)}
                           </span>
                         </div>
-                        <p className="text-ink">{d.reason}</p>
+                        <p className="text-ink leading-relaxed">{d.reason}</p>
                         {d.suppressReason && (
-                          <p className="text-[11px] text-ink-3">
+                          <p className="text-xs text-ink-3">
                             抑制理由：
                             {SUPPRESS_REASON_LABELS[
                               d.suppressReason as keyof typeof SUPPRESS_REASON_LABELS
@@ -1509,11 +1728,11 @@ export const StageView: React.FC<StageViewProps> = ({
                           </p>
                         )}
                         {d.withdrawalReason && (
-                          <p className="text-[11px] text-resolved">
+                          <p className="text-xs text-resolved">
                             撤回理由：{WITHDRAWAL_REASON_LABELS[d.withdrawalReason]}
                           </p>
                         )}
-                        <div className="text-[10px] font-mono text-ink-3">
+                        <div className="text-xs font-mono text-ink-3 break-words tabular-nums">
                           ceiling={d.trace.ceilingLevel} · cooldown={d.trace.cooldownRemainingMs}ms ·
                           evidence={d.trace.evidenceCount} · rules=[
                           {d.trace.rulesApplied.join(', ')}]
@@ -1533,39 +1752,41 @@ export const StageView: React.FC<StageViewProps> = ({
           >
             <div className="flex items-center justify-between border-b border-line pb-2">
               <span className="font-bold text-ink">CognitiveEvent 事件时间线</span>
-              <span className="font-mono text-[10px] text-ink-3">
+              <span className="font-mono text-xs text-ink-3 tabular-nums">
                 {state.events.length} 条记录
               </span>
             </div>
             {state.events.length === 0 ? (
               <p className="text-ink-3">尚无事件流记录。</p>
             ) : (
-              <div className="max-h-44 overflow-y-auto divide-y divide-line border border-line rounded">
+              <div className="max-h-48 overflow-y-auto divide-y divide-line border border-line rounded">
                 {[...state.events]
                   .reverse()
                   .slice(0, 30)
                   .map((ev) => (
                     <div
                       key={ev.event_id}
-                      className="px-3 py-1.5 flex flex-wrap items-center justify-between gap-2 text-[11px]"
+                      className="px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs"
                     >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Badge variant="secondary" className="font-mono text-[10px]">
+                      <div className="flex flex-wrap items-center gap-2 min-w-0">
+                        <Badge variant="secondary" className="font-mono">
                           {ev.event_type}
                         </Badge>
-                        <span className="font-mono text-ink-3">v{ev.context_version}</span>
+                        <span className="font-mono text-ink-3 tabular-nums">v{ev.context_version}</span>
                         <span className="text-ink-2 truncate max-w-[380px]">
                           来源 {ev.source}
                         </span>
                       </div>
-                      <span className="font-mono text-ink-3">{formatTime(ev.timestamp)}</span>
+                      <span className="font-mono text-ink-3 tabular-nums whitespace-nowrap">
+                        {formatTime(ev.timestamp)}
+                      </span>
                     </div>
                   ))}
               </div>
             )}
           </section>
 
-          {/* Also provide simulation / audio control strip inside Inspector for effortless testing */}
+          {/* Also provide simulation / audio control strip inside Inspector for quick verification */}
           <div className="border border-line bg-surface rounded-md p-4 text-xs">
             <form onSubmit={handleSimSubmit} className="flex flex-col sm:flex-row gap-2 items-center">
               <Badge variant="amber" className="shrink-0">
@@ -1575,7 +1796,8 @@ export const StageView: React.FC<StageViewProps> = ({
               <select
                 value={simSpeaker}
                 onChange={(e) => setSimSpeaker(e.target.value as TranscriptSpeaker)}
-                className="border border-line bg-ground rounded px-2.5 py-1.5 text-ink"
+                aria-label="选择快速仿真发言身份"
+                className="border border-line bg-ground rounded px-2.5 py-2 text-ink focus-visible:outline-none focus-visible:border-ink"
               >
                 <option value="presenter">演讲者</option>
                 <option value="audience">观众提问</option>
@@ -1584,8 +1806,9 @@ export const StageView: React.FC<StageViewProps> = ({
                 type="text"
                 value={simText}
                 onChange={(e) => setSimText(e.target.value)}
+                aria-label="输入快速仿真测试话术"
                 placeholder="输入测试话术直接观察 System 1/2 与 Controller 仲裁日志..."
-                className="flex-1 w-full border border-line bg-ground rounded px-3 py-1.5 text-ink"
+                className="flex-1 w-full border border-line bg-ground rounded px-3 py-2 text-ink focus-visible:outline-none focus-visible:border-ink"
               />
               <Button type="submit" size="sm" disabled={isEnded || !simText.trim()}>
                 注入测试文本
@@ -1594,6 +1817,6 @@ export const StageView: React.FC<StageViewProps> = ({
           </div>
         </div>
       )}
-    </div>
+    </main>
   );
 };

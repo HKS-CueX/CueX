@@ -8,6 +8,7 @@ import {
   EVENT_ENVELOPE_VERSION,
   MEMORY_SCHEMA_VERSION,
   PACK_SCHEMA_VERSION,
+  PROTOCOL_PACKAGE_VERSION,
   WS_PROTOCOL_VERSION,
   createApiErrorResponse,
   createEventEnvelope,
@@ -18,6 +19,7 @@ import {
 } from '#src/index';
 
 test('schema & protocol version constants match 2026-11 v2 contract', () => {
+  assert.equal(PROTOCOL_PACKAGE_VERSION, '2.1.0');
   assert.equal(API_VERSION, '2026-11');
   assert.equal(WS_PROTOCOL_VERSION, '2.0');
   assert.equal(PACK_SCHEMA_VERSION, 2);

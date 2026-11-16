@@ -2,9 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  AsrCapabilityStatusSchema,
+  COLAB_ASR_LIFECYCLE_STATES,
+  ColabAsrLifecycleStateSchema,
   EVIDENCE_SCHEMA_VERSION,
   MEMORY_SCHEMA_VERSION,
   PACK_SCHEMA_VERSION,
+  ProviderUsageRecordSchema,
+  validateAsrCapabilityStatus,
   validateAuthSessionInput,
   validateClientMessage,
   validateContextPack,
@@ -18,6 +23,7 @@ import {
   validatePresentationContextPack,
   validatePresentationExtractInput,
   validatePresentationPackPatchInput,
+  validateProviderUsageRecord,
   validateTelemetryUsage,
   validateUsageRecord,
 } from '#src/index';
@@ -331,5 +337,100 @@ test('validateClientMessage handles envelope/idempotency metadata and rejects un
       payload: {},
     }).ok,
     false,
+  );
+});
+
+test('Phase 3 schemas validate Colab GPU ASR lifecycle/capability and honest provider usage', () => {
+  assert.deepEqual(COLAB_ASR_LIFECYCLE_STATES, [
+    'not_configured',
+    'starting',
+    'ready',
+    'degraded',
+    'disconnected',
+    'restarting',
+    'unavailable',
+  ]);
+  for (const state of COLAB_ASR_LIFECYCLE_STATES) {
+    assert.equal(ColabAsrLifecycleStateSchema.safeParse(state).success, true);
+  }
+  assert.equal(ColabAsrLifecycleStateSchema.safeParse('sleeping').success, false);
+  assert.throws(() => ColabAsrLifecycleStateSchema.parse('sleeping'), TypeError);
+
+  const colabStatus = {
+    backend: 'colab-gpu-asr',
+    mode: 'colab_gpu',
+    available: true,
+    streaming: true,
+    detail: 'Colab G4 streaming active',
+    lifecycleState: 'ready',
+    gpuName: 'NVIDIA L4',
+    modelId: 'iic/SenseVoiceSmall',
+    rtf: 0.08,
+    lastHealthCheckAt: NOW,
+    fallbackActive: false,
+  };
+  assert.equal(validateAsrCapabilityStatus(colabStatus).ok, true);
+  assert.equal(AsrCapabilityStatusSchema.safeParse(colabStatus).success, true);
+  assert.equal(
+    AsrCapabilityStatusSchema.safeParse({
+      ...colabStatus,
+      lifecycleState: 'invalid_state',
+    }).success,
+    false,
+  );
+  assert.equal(
+    AsrCapabilityStatusSchema.safeParse({
+      ...colabStatus,
+      lastHealthCheckAt: '2026-11-16T04:00:00+08:00',
+    }).success,
+    false,
+  );
+
+  const unreportedUsage = {
+    inputTokens: 0,
+    outputTokens: 0,
+    cachedInputTokens: 0,
+    reasoningTokens: 0,
+    modelCalls: 1,
+    usageSource: 'provider_unreported',
+    degraded: false,
+    provider: 'cpa-gateway',
+    model: 'gemini-4-hydrogen',
+    correlationId: 'corr_cpa_unreported_1',
+  };
+  assert.equal(validateProviderUsageRecord(unreportedUsage).ok, true);
+  assert.equal(ProviderUsageRecordSchema.safeParse(unreportedUsage).success, true);
+  assert.equal(
+    ProviderUsageRecordSchema.safeParse({
+      ...unreportedUsage,
+      reasoningTokens: -5,
+    }).success,
+    false,
+  );
+
+  assert.equal(
+    validateTelemetryUsage({
+      sessionId: 'sess_cpa_1',
+      updatedAt: NOW,
+      usageSource: 'provider_unreported',
+      inputTokens: 0,
+      outputTokens: 0,
+      cachedInputTokens: 0,
+      reasoningTokens: 0,
+      totalTokens: 0,
+      modelCalls: 1,
+      retries: 0,
+      localRuleEvaluations: 0,
+      latencyMs: 320,
+      latencyStats: { avgMs: 320, p95Ms: 320, maxMs: 320 },
+      degraded: false,
+      usingLocalFallback: false,
+      asrProvider: 'colab-gpu-asr',
+      asrDurationMs: 4200,
+      costFen: 0,
+      cost: { amountFen: 0, currency: 'CNY' },
+      estimation: { isEstimated: false, source: 'provider_unreported', usingLocalFallback: false },
+    }).ok,
+    true,
   );
 });

@@ -6,12 +6,23 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import type { AsrCapabilityStatus } from '@cuex/protocol';
+import { ColabAsrProvider } from './asr-colab';
 import { LocalSherpaAsr } from './asr-local';
 import { RemoteSherpaAsr } from './asr-remote';
 import type { AsrCallbacks, AsrEngine, AsrStream } from './types';
 
 export type { AsrCorrection, AsrCallbacks, AsrEngine, AsrStream } from './types';
 export { correctAsrText } from './corrections';
+export {
+  ColabAsrProvider,
+  resolveColabAsrConfig,
+  type ColabAsrConfig,
+  type ColabAsrHttpResponse,
+  type ColabAsrProviderOptions,
+  type ColabBatchTranscribeResult,
+  type ColabHttpRequestFn,
+  type ColabWebSocketFactory,
+} from './asr-colab';
 export { LocalSherpaAsr } from './asr-local';
 export { RemoteSherpaAsr } from './asr-remote';
 
@@ -60,10 +71,13 @@ export function createAsrEngine(source: Source = process.env): AsrEngine {
   if (mode !== 'real') {
     engine = new TextOnlyAsr('CUEX_ASR=fake: use browser Web Speech API or speech.delta simulation.');
   } else {
+    const colabUrl = env('CUEX_COLAB_ASR_URL') ?? env('COLAB_ASR_URL');
     const url = env('CUEX_ASR_URL');
     const fallbackDir = defaultAsrModelDir(source);
     const modelDir = env('CUEX_ASR_MODEL_DIR') ?? (existsSync(join(fallbackDir, 'tokens.txt')) ? fallbackDir : undefined);
-    if (url) {
+    if (colabUrl) {
+      engine = new ColabAsrProvider({ env: source });
+    } else if (url) {
       engine = new RemoteSherpaAsr({ url, connectTimeoutMs: num('CUEX_ASR_CONNECT_TIMEOUT_MS', 4000) });
     } else if (modelDir) {
       engine = new LocalSherpaAsr({
@@ -83,6 +97,9 @@ export function createAsrEngine(source: Source = process.env): AsrEngine {
 }
 
 export async function describeAsrCapability(engine: AsrEngine, source: Source = process.env): Promise<AsrCapabilityStatus> {
+  if (engine instanceof ColabAsrProvider) {
+    return engine.probe();
+  }
   if (engine instanceof LocalSherpaAsr) {
     return {
       backend: engine.backend,
@@ -127,6 +144,9 @@ export async function warmupVoice(): Promise<void> {
   const started = Date.now();
   const jobs: Array<Promise<string>> = [];
   const speech = createAsrEngine();
+  if (speech instanceof ColabAsrProvider) {
+    jobs.push(speech.probe().then((st) => `colab=${st.lifecycleState ?? 'unknown'} (${st.detail})`));
+  }
   if (speech instanceof LocalSherpaAsr) jobs.push(Promise.resolve().then(() => { speech.warmup(); return 'asr model loaded'; }));
   if (speech instanceof RemoteSherpaAsr) jobs.push(speech.probe().then(() => 'asr server reachable'));
   const results = await Promise.allSettled(jobs);

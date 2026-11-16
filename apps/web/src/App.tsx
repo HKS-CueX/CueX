@@ -85,7 +85,7 @@ export function App() {
     const url = new URL(window.location.href);
     url.searchParams.set('view', nextView);
     window.history.pushState({}, '', url.toString());
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: 'auto' });
   }, []);
 
   const handleAuthChanged = useCallback(
@@ -190,7 +190,7 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-ground text-ink font-ui antialiased overflow-x-hidden">
+    <div className="min-h-dvh flex flex-col bg-ground text-ink font-ui antialiased">
       <Navbar
         currentView={view}
         onSelectView={navigate}
@@ -264,16 +264,16 @@ export function App() {
       {/* Global Account, Plans, Usage & Data Sovereignty Dialog */}
       <Dialog.Root open={accountModalOpen} onOpenChange={setAccountModalOpen}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-ink/40 backdrop-blur-[2px] z-50" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(94vw,860px)] max-h-[88vh] overflow-y-auto bg-surface border border-line rounded-md p-5 sm:p-6 shadow-xl z-50 space-y-4">
+          <Dialog.Overlay className="fixed inset-0 bg-ink/40 z-50" />
+          <Dialog.Content className="cuex-dialog-panel fixed left-1/2 top-1/2 w-[min(94vw,880px)] max-h-[88dvh] overflow-y-auto bg-surface border border-line-strong rounded-md p-5 sm:p-6 shadow-xl z-50 space-y-4">
             <div className="flex items-center justify-between border-b border-line pb-3">
-              <Dialog.Title className="text-base font-bold text-ink">
+              <Dialog.Title className="text-base font-semibold text-ink">
                 账户隔离、套餐用量与数据主权控制台
               </Dialog.Title>
               <Dialog.Close asChild>
                 <button
                   type="button"
-                  className="p-1 rounded hover:bg-ground-2 text-ink-2"
+                  className="cuex-btn h-9 w-9 inline-flex items-center justify-center rounded hover:bg-ground-2 text-ink-2 active:scale-[0.97]"
                   aria-label="关闭账户控制台"
                 >
                   <X className="w-4 h-4" />
@@ -298,16 +298,16 @@ export function App() {
       {/* Global Opt-in Memory Governance Drawer/Dialog */}
       <Dialog.Root open={memoryModalOpen} onOpenChange={setMemoryModalOpen}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-ink/40 backdrop-blur-[2px] z-50" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(92vw,720px)] max-h-[85vh] overflow-y-auto bg-surface border border-line rounded-md p-6 shadow-xl z-50 space-y-4">
+          <Dialog.Overlay className="fixed inset-0 bg-ink/40 z-50" />
+          <Dialog.Content className="cuex-dialog-panel fixed left-1/2 top-1/2 w-[min(92vw,740px)] max-h-[86dvh] overflow-y-auto bg-surface border border-line-strong rounded-md p-5 sm:p-6 shadow-xl z-50 space-y-4">
             <div className="flex items-center justify-between border-b border-line pb-3">
-              <Dialog.Title className="text-base font-bold text-ink">
+              <Dialog.Title className="text-base font-semibold text-ink">
                 个人记忆治理与隐私检查
               </Dialog.Title>
               <Dialog.Close asChild>
                 <button
                   type="button"
-                  className="p-1 rounded hover:bg-ground-2 text-ink-2"
+                  className="cuex-btn h-9 w-9 inline-flex items-center justify-center rounded hover:bg-ground-2 text-ink-2 active:scale-[0.97]"
                   aria-label="关闭记忆治理弹窗"
                 >
                   <X className="w-4 h-4" />

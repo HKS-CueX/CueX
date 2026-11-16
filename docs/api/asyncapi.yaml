@@ -3,7 +3,7 @@ info:
   title: CueX Cognitive Runtime WebSocket Protocol
   version: '2.0'
   description: |
-    Stage C Synced WebSocket Contract matching `apps/server/src/gateway/GatewayServer.ts` (`/ws`) and `@cuex/protocol` (`WS_PROTOCOL_VERSION = '2.0'`).
+    Stage C Synced WebSocket Contract matching `apps/server/src/gateway/GatewayServer.ts` (`/ws`) and `@cuex/protocol` (`WS_PROTOCOL_VERSION = '2.0'`, v2.1.0 Colab GPU ASR & CPA telemetry additions).
     Transport path is `/ws` authenticated by `?token=<bearer>` (or HTTP `Authorization: Bearer <token>` header).
     Reconnect state recovery and event replay happen during WebSocket upgrade via `?token=<bearer>&sessionId=<id>&lastSeenSeq=<int>`, calling `reconcileBeforeReconnect()` and replaying missed `ws_server` frames strictly once while omitting already-withdrawn `intervention.shown` cards.
     Carries real-time audio/speech inputs, `L0–L3` intervention delivery, 7 automatic withdrawal transitions, `EventEnvelopeMeta`, monotonic `serverSeq`, and client `idempotencyKey` deduplication.
@@ -188,6 +188,136 @@ components:
           type: string
         envelope:
           $ref: '#/components/schemas/EventEnvelopeMeta'
+
+    ColabAsrLifecycleState:
+      type: string
+      enum:
+        - not_configured
+        - starting
+        - ready
+        - degraded
+        - disconnected
+        - restarting
+        - unavailable
+
+    AsrBackendMode:
+      type: string
+      enum: [colab_gpu, local_sherpa, remote_sherpa, browser_webspeech, text_simulation]
+
+    AsrCapabilityStatus:
+      type: object
+      required: [backend, mode, available, streaming, detail]
+      properties:
+        backend:
+          type: string
+        mode:
+          $ref: '#/components/schemas/AsrBackendMode'
+        available:
+          type: boolean
+        streaming:
+          type: boolean
+        detail:
+          type: string
+        lifecycleState:
+          $ref: '#/components/schemas/ColabAsrLifecycleState'
+        gpuName:
+          type: string
+        modelId:
+          type: string
+        rtf:
+          type: number
+          minimum: 0
+        lastHealthCheckAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        fallbackActive:
+          type: boolean
+        fallbackReason:
+          type: string
+
+    TelemetryUsageSource:
+      type: string
+      enum: [provider_reported, provider_unreported, local_rule_zero, estimated]
+
+    TelemetryUsage:
+      type: object
+      required:
+        - sessionId
+        - updatedAt
+        - usageSource
+        - inputTokens
+        - outputTokens
+        - cachedInputTokens
+        - totalTokens
+        - modelCalls
+        - retries
+        - localRuleEvaluations
+        - latencyMs
+        - latencyStats
+        - degraded
+        - usingLocalFallback
+        - asrProvider
+        - asrDurationMs
+        - costFen
+        - cost
+        - estimation
+      properties:
+        sessionId:
+          type: string
+        updatedAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        usageSource:
+          $ref: '#/components/schemas/TelemetryUsageSource'
+        inputTokens:
+          type: integer
+          minimum: 0
+        outputTokens:
+          type: integer
+          minimum: 0
+        cachedInputTokens:
+          type: integer
+          minimum: 0
+        reasoningTokens:
+          type: integer
+          minimum: 0
+        totalTokens:
+          type: integer
+          minimum: 0
+        modelCalls:
+          type: integer
+          minimum: 0
+        retries:
+          type: integer
+          minimum: 0
+        localRuleEvaluations:
+          type: integer
+          minimum: 0
+        latencyMs:
+          type: number
+          minimum: 0
+        latencyStats:
+          type: object
+          additionalProperties: true
+        degraded:
+          type: boolean
+        usingLocalFallback:
+          type: boolean
+        asrProvider:
+          type: string
+        asrDurationMs:
+          type: number
+          minimum: 0
+        costFen:
+          type: integer
+          minimum: 0
+        cost:
+          type: object
+          additionalProperties: true
+        estimation:
+          type: object
+          additionalProperties: true
+        byTier:
+          type: object
+          additionalProperties: true
 
   messages:
     ClientPing:
@@ -607,8 +737,7 @@ components:
                     type: object
                     additionalProperties: true
                   asrStatus:
-                    type: object
-                    additionalProperties: true
+                    $ref: '#/components/schemas/AsrCapabilityStatus'
                   initialState:
                     type: object
                     additionalProperties: true
@@ -671,8 +800,7 @@ components:
               type:
                 const: asr.status
               payload:
-                type: object
-                additionalProperties: true
+                $ref: '#/components/schemas/AsrCapabilityStatus'
 
     ServerAsrTranscript:
       payload:
@@ -685,7 +813,13 @@ components:
                 const: asr.transcript
               payload:
                 type: object
-                additionalProperties: true
+                required: [segment]
+                properties:
+                  segment:
+                    type: object
+                    additionalProperties: true
+                  asrStatus:
+                    $ref: '#/components/schemas/AsrCapabilityStatus'
 
     ServerCognitiveEvent:
       payload:
@@ -824,8 +958,7 @@ components:
               type:
                 const: telemetry.updated
               payload:
-                type: object
-                additionalProperties: true
+                $ref: '#/components/schemas/TelemetryUsage'
 
     ServerSessionEnded:
       payload:

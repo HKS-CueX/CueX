@@ -1,58 +1,50 @@
-# CueX Next — Refactor & Phase 2 Changelog (`refactor/universal-runtime-presentation`)
+# CueX Next — Refactor, Phase 2 & Phase 3 Changelog (`refactor/universal-runtime-presentation`)
 
 > **Base Commit**: `96cd742523d5b0fea5aafdb65944d421938a0a43` (`main` — `chore: initialize HKS-CueX repository`)  
-> **Phase 1 Commits**: `e2cb6370a8df68f77440d6d0a09adaf4fa98d66f`, `6804f5a2788f809f3c8f466c612cdf1f5e65bfb4`  
+> **Prior Commits**: `e2cb6370a8df68f77440d6d0a09adaf4fa98d66f` (Phase 1), `6804f5a2788f809f3c8f466c612cdf1f5e65bfb4` (Deliverables Tracking), `7ad6ccb1caf4d8c6743bc0c22a3dcd981c719d04` (Phase 2)  
 > **Target Branch**: `refactor/universal-runtime-presentation`  
-> **Summary**: Phase 1 purged the legacy single-domain roleplay prototype (`历史单领域角色扮演原型 / 旧领域遗留模块`) and built the domain-agnostic **Universal Cognitive Runtime + CueX Presentation** MVP; Phase 2 hardened shared protocol v2.0 contracts, SQLite persistence, multi-tenant auth/isolation, document & prompt security, commercial entitlement/usage ledger + sandbox billing, unified OpenAPI/AsyncAPI specs, CI/CD + SBOM automation, and externally verified commercial/unit-economics deliverables.
+> **Summary**: Phase 1 purged the legacy single-domain roleplay prototype (`历史单领域角色扮演原型 / 旧领域遗留模块`) and built the domain-agnostic **Universal Cognitive Runtime + CueX Presentation**; Phase 2 added SQLite persistence, multi-tenant auth/isolation, document hardening, commercial ledger/sandbox billing, CI/SBOM, and OpenAPI/AsyncAPI specs; Phase 3 added real Google Colab G4 GPU ASR (`FunAudioLLM/SenseVoiceSmall`), unified `CpaProviderAdapter` (`gemini-4-hydrogen`), a dual-track Warm Paper / Achromatic Ledger UI redesign (`6` viewports + WCAG AA), real end-to-end silent validation, and HKS mandatory & commercial deliverables packaging.
 
 ---
 
 ## 1. Protocol Layer & Shared Contracts (`packages/protocol/`)
 
-- **Phase 1 Rebuild**: Removed legacy roleplay schemas (`jev.ts`, `piagent.ts`, `library.ts`) and rebuilt domain-agnostic protocol modules (`common.ts`, `entities.ts`, `state.ts`, `reasoning.ts`, `controller.ts`, `scenario.ts`, `presentation.ts`, `audio.ts`, `api.ts`, `events.ts`, `index.ts`).
-- **Phase 2 v2.0.0 Contracts & Validation (`0` new npm dependencies)**:
-  - Added `src/versions.ts` (`API_VERSION = '2026-11'`, `WS_PROTOCOL_VERSION = '2.0'`, schema version constants `2`, `EVENT_ENVELOPE_VERSION = 1`, `UtcIso8601`, safe integer `MoneyAmount { amountFen, currency: 'CNY' }`).
-  - Added `src/errors.ts` (`14` unified `API_ERROR_CODES`, `ERROR_HTTP_STATUS`, `createApiErrorResponse`).
-  - Added `src/envelope.ts` (`CloudEvents 1.0.2`-inspired `EventEnvelope<TPayload>`, `PrivacyClass`, `createEventEnvelope`).
-  - Added `src/commercial.ts` (`UserAccount`, `AuthSessionResponse`, `PlanDefinition`, `Entitlement`, `UsageRecord`, `AccountUsageSummary`, `BillingAuditRecord`, `PaymentCheckoutPreview*`, `PaymentWebhookEvent`, `UserDataExportBundle`, `DataDeletionReceipt`).
-  - Added `src/validation.ts` (zero-dependency runtime `validate*` guards, `isUtcIso8601`, `isSafeMoneyAmount`) & `compatibility/v1-to-v2.ts` (`toUtcIso8601` & legacy payload normalizers).
-  - Added `schemas/*.schema.json` (`10` draft 2020-12 JSON Schemas), `examples/*.example.json` (`10` canonical payloads), `#src/*`/`#compat/*` subpath exports, and `test/*.test.ts` (`4` Node native TypeScript suites, `12/12` pass).
+- **Phase 1–2 Rebuild (`v2.0.0`)**: Replaced legacy roleplay schemas with `common.ts`, `entities.ts`, `state.ts`, `reasoning.ts`, `controller.ts`, `scenario.ts`, `presentation.ts`, `audio.ts`, `api.ts`, `events.ts`, `versions.ts`, `errors.ts` (`14` unified codes), `envelope.ts` (`EventEnvelope<TPayload>`), `commercial.ts`, `validation.ts`, `compatibility/v1-to-v2.ts`, `10` JSON Schemas, and `10` canonical examples.
+- **Phase 3 Backward-Compatible Extensions (`v2.1.0`, `0` new npm dependencies)**:
+  - `src/versions.ts` & `package.json`: Bumped package version to `2.1.0` and exported `PROTOCOL_PACKAGE_VERSION = '2.1.0'` (`API_VERSION = '2026-11'`, `WS_PROTOCOL_VERSION = '2.0'`).
+  - `src/audio.ts` & `src/api.ts`: Exported 7-state `COLAB_ASR_LIFECYCLE_STATES` / `ColabAsrLifecycleState`, extended `AsrBackendMode` with `'colab_gpu'`, enriched `AsrCapabilityStatus` (`lifecycleState`, `gpuName`, `modelId`, `rtf`, `lastHealthCheckAt`, `fallbackActive`, `fallbackReason`), and added `LlmSubsystemHealthStatus` on `HealthStatusResponse`.
+  - `src/common.ts`, `src/reasoning.ts`, `src/validation.ts`, `compatibility/v1-to-v2.ts`: Exported `TELEMETRY_USAGE_SOURCES` with `'provider_unreported'`, added optional `reasoningTokens` & `correlationId`, added runtime schemas/validators (`ColabAsrLifecycleStateSchema`, `AsrCapabilityStatusSchema`, `ProviderUsageRecordSchema`), updated `schemas/` & `examples/`, and synced `docs/api/{openapi,asyncapi}.yaml` (`13/13` tests pass).
 
 ---
 
-## 2. Universal Runtime, Storage, Security, Commercial Backend & Infra (`apps/server/`, `infra/`, `scripts/`, `.github/`)
+## 2. Universal Runtime, Storage, Security, Real GPU ASR & Unified CPA Gateway (`apps/server/`, `infra/`, `scripts/`, `.github/`)
 
-- **Phase 1 Purge**: Removed all legacy single-domain roleplay agents, scripts, tests, 3D avatar meshes (`assets/models/*.glb`), and vertical hotwords while preserving universal PCM16 capture, Sherpa ASR (`voice/{asr-local,asr-remote,sherpa,wav}.ts`), `LlamaSystemOne` `/completion` client, `redact()`, `numbersIn()`, and `check-public-data.mjs`.
-- **Phase 2 Dead Speech-Synthesis (TTS) Retirement (`ADR-004`)**:
-  - Retired incompatible speech-synthesis server/client files (`apps/server/src/voice/` retired speech-synthesis files, `apps/server/scripts/` retired synthesis service script), root synthesis bridge/tunnel/demo scripts, and Windows speech-synthesis infra (`infra/windows/tts/**`).
-  - Removed obsolete speech-synthesis & `three` entries from `.env.example`, root `package.json`, `apps/server/package.json`, and synced `pnpm-lock.yaml` (`pnpm install --frozen-lockfile` exits `0`).
-- **Phase 2 Persistence, Security, Pipeline, Observability & Commercial Backend**:
-  - `apps/server/src/storage/`: `StorageRepository` interface, `SqliteRepository` (`node:sqlite` `DatabaseSync`, WAL, `foreign_keys = ON`, `withTransaction()`), `migrations.ts` (`schema_migrations`, idempotent legacy v1 JSON migration with backup), plus `scripts/db-backup-restore.mjs` (`backup`/`restore`/`verify`/`--self-test`).
-  - `apps/server/src/security/`: `AuthService` (SHA-256 bearer auth, `401/403` multi-tenant ownership enforcement on packs, sessions, memories, exports, wipes), `OriginGuard` (strict CORS/WS origin validation), `PromptGuard` (data-only prompt delimiters & schema validation), and `RateLimiter` (`429 + Retry-After`).
-  - `DocumentExtractor` & `PresentationCompiler` hardening: magic-byte checks, `15 MB` size limit, ZIP entry/compression-ratio guards against ZIP bombs, path-traversal/NUL-byte/XXE/`<!ENTITY`/encrypted-PDF rejections (`unreadable`/`rejected`), and immutable `locked: true` Fact Whitelist enforcement.
-  - `apps/server/src/pipeline/` & `providers/ProviderResilience.ts`: `EventEnvelope` 9-stage trace tracking, monotonic `serverSeq`, client `idempotencyKey` dedup, reconnect cue reconciliation (never re-emitting expired/withdrawn cues), bounded retries, `AbortController` timeouts, and circuit-breaker degraded state reporting.
-  - `apps/server/src/observability/`: redacted `Logger` & `MetricsCollector` exposing `/api/observability/summary`.
-  - `apps/server/src/commercial/`: `PlanCatalog` (`Free ¥0 / 2 sessions / 20m cloud ASR`, `Event ¥29 / 14d / 120m`, `Pro ¥59/mo · ¥499/yr / 240m`, `Team ¥199/seat/mo planned`), atomic `Entitlement` & `UsageLedger`, `PaymentProviderAdapter` sandbox + HMAC webhook verification (`501 PAYMENT_NOT_CONFIGURED` when secret unset), JSON/Markdown `export`, and `DataDeletionReceipt` preserving minimized `billing_audit_log`.
-  - Added `.github/workflows/ci.yml`, `scripts/check-legacy-domain.mjs` (`--staged` + working-tree guard), and `scripts/generate-sbom.mjs` (`sbom-and-checksums.json`); expanded `apps/server/test/` to `10` test files (`23/23` pass).
+- **Phase 1–2 Foundation**: Removed legacy roleplay modules, 3D avatars, and retired speech-synthesis artifacts (`ADR-004`); built `storage/` (`StorageRepository`, `SqliteRepository` using `node:sqlite`, `migrations.ts`), `security/` (`AuthService`, `OriginGuard`, `PromptGuard`, `RateLimiter`), `observability/` (`Logger`, `MetricsCollector`), `pipeline/` (`PipelineTracker`), `commercial/` (`PlanCatalog`, `CommercialService`, `PaymentProviderAdapter` sandbox), hardened `DocumentExtractor`, `.github/workflows/ci.yml`, `scripts/{check-legacy-domain,db-backup-restore,generate-sbom}.mjs`.
+- **Phase 3 Real Colab GPU ASR (`infra/colab/`, `apps/server/src/voice/asr-colab.ts`)**:
+  - Deployed `FunAudioLLM/SenseVoiceSmall` + `funasr/fsmn-vad` on Google Colab G4 (`NVIDIA RTX PRO 6000 Blackwell Server Edition`, CUDA `13.0`) behind pinned self-signed SAN TLS (`.cuex-runtime/colab-asr-cert.pem`) and constant-time Bearer auth (`infra/colab/{start_asr.py,healthcheck.py,cuex-asr-deployment.ipynb,requirements.txt,README.md,.env.example}`, zero secrets, zero raw audio disk writes).
+  - Implemented `ColabAsrProvider` (`asr-colab.ts`, `voice/types.ts` `flush()` support, `Connection: 'close'` keep-alive fix) with 7-state health checks, `/v1/asr/transcribe` batch & WSS `/v1/asr/stream` binary PCM16LE streaming, reconnect recovery, and honest `ASR_UNAVAILABLE` / `fallbackActive` surfacing.
+- **Phase 3 Unified CPA LLM Gateway (`CpaProviderAdapter.ts` & `CognitiveRuntime.ts`)**:
+  - Consolidated all real LLM tiers (`system1`, `system2`, `compiler`, `reflection`) into `CpaProviderAdapter.ts` (`DEFAULT_CPA_SYSTEM1_MODEL = 'gemini-4-hydrogen'`, `reasoningEffort: 'low'` for S1, `/v1/responses` + `/v1/chat/completions`, `completeStreamText` SSE, `CpaHttpError` 4xx fast-fail, `provider_reported` vs `provider_unreported` vs `local_rule_zero`).
+  - Added presenter greeting guard (`isPresenterGreetingText()`), async S2 candidate lifetime re-anchoring (`reanchorCandidateLifetime`), and interim-partial S1 throttling in `CognitiveRuntime.ts`.
+  - Added `apps/server/scripts/{validate-cpa-live.ts,validate-real-e2e.ts}` and new test suites (`colab-asr-provider.test.ts`, `cpa-provider.test.ts` — `34/34` tests pass across `12` server test files).
 
 ---
 
-## 3. Web Frontend (`apps/web/`)
+## 3. Web Frontend Redesign (`apps/web/`, `docs/design/`)
 
-- **Phase 1 Rebuild**: Removed legacy 3D avatar/HUD/replay views & unused 3D/puppeteer deps; built Warm Paper Daylight (`#F8F7F3`) + Amber/Violet `X` `HomeView`, `CompilerView`, `StageView`, and `ReflectionView`.
-- **Phase 2 Hardening & Commercial UX**:
-  - Updated `src/lib/{api,format,validation}.ts`, `CueXWSClient.ts`, `presentationSession.ts`, and `usePresentationSession.ts` to `@cuex/protocol` v2.0.0 (`UtcIso8601` browser-local formatting, unified `ApiErrorResponse` handling, Bearer auth persistence & profile switching, `serverSeq` reconnect deduplication, `15 MB`/type pre-upload checks).
-  - Updated `CompilerView.tsx` (`AbortController` upload cancel/retry, `unreadable/rejected` warning cards, `locationRef`/`contentHash` provenance, `locked` edit/delete guards, `AI 预测` & `unpreparedGaps` cards) and `StageView.tsx` (`Focus` / `Split Strip` narrow companion toggle, keyboard shortcuts `Space`/`M`/`H`/`Esc`, `aria-live="polite"`, honest `text_simulation` / degraded banners, `Inspector` telemetry & `CognitiveEvent` timeline).
-  - Added `src/components/AccountPanel.tsx` & updated `Navbar.tsx` / `ReflectionView.tsx` (multi-user switch, server `PlanCatalog` & `Pro ¥59.00` sandbox checkout preview with `Team` disabled, `UsageLedger`, session history, JSON/Markdown export, `DataDeletionReceipt`, `420×900` zero horizontal overflow).
-  - Aligned `apps/web/package.json` `postcss` (`^8.4.49`) and expanded tests (`web-helpers.test.ts` + `presentation-reducer.test.ts` `9/9` pass; Playwright `presentation-e2e.test.mjs` covering `1280×800`, `1920×1080`, `420×900` & `User B` Live mode pass).
+- **Phase 1–2 Baseline**: Warm Paper UI views, `CueXWSClient` `serverSeq` deduplication, `AccountPanel` multi-tenant usage/export/`DataDeletionReceipt`, and Playwright E2E.
+- **Phase 3 Visual, Motion & Accessibility Overhaul**:
+  - Audited with 4 design skills (`design-taste-frontend`, `frontend-design`, `impeccable`, `emil-design-eng`) into `docs/design/{FRONTEND_AUDIT,CUEX_DESIGN_BRIEF,DESIGN_SYSTEM,COMPONENT_INVENTORY,FRONTEND_QA_REPORT}.md`.
+  - Updated `vite.config.ts` (`cuexScopedPublicAssets()` bundling `/fonts` & `/brand` only), `tailwind.config.js`, `index.css` (WCAG AA `--amber-ink #A84B07`, `--ink-3 #626774`, Emil `--ease-*` transitions, `prefers-reduced-motion: reduce` `0.001s` guard), `format.ts` (`'colab_gpu'` & `'provider_unreported'`).
+  - Rebuilt `HomeView` (`The printed annual` + interactive `One Live Thing` widget), unified single `<nav>` in `Navbar`, refined `CompilerView`, `StageView` (restricted `CueEdgeLight` to `focus`, `colab_gpu` 7-state & telemetry inspector, `480px`/`520px` split-strip safety), `ReflectionView`, `AccountPanel`, and `MemoryInspectorPanel`.
+  - Verified `10/10` Vitest (`web-helpers.test.ts` `7`, `presentation-reducer.test.ts` `3`), silent `--mute-audio` Playwright E2E (`1/1`), `42/42` 6-viewport layout checks (`0` overflow/`<11px`), and `9/9` ARIA landmarks.
 
 ---
 
-## 4. Documentation, Contracts, Slides & Final Deliverables (`docs/`, `ppt/`, `deliverables/`)
+## 4. Docs, Validation Reports, Mandatory Deliverables & Packaging (`docs/`, `ppt/`, `deliverables/`, `.gitignore`)
 
-- **Historical Doc Neutralization**: Isolated and neutralized all pre-refactor domain proper nouns across `docs/engineering/{BASELINE,CURRENT_ARCHITECTURE,AUDIT,LEGACY_CLEANUP,MIGRATION_PLAN}.md` (`[Historical Engineering Archive — Isolated from Active Product Docs]`).
-- **Complete Engineering, API, Security, Privacy, Operations & Product Docs**:
-  - Updated `README.md`, `docs/DEPLOYMENT.md`, `docs/product/{PRODUCT_VISION,PRESENTATION_PRD,USER_FLOWS,PRODUCT_METRICS}.md`, `docs/architecture/*`, and added `docs/api/{openapi.yaml,asyncapi.yaml}` (`OpenAPI 3.2.1` & `AsyncAPI 3.1.0`), `docs/data/{DATA_PIPELINE,DATA_DICTIONARY,EVENT_CATALOG,SCHEMA_VERSIONING}.md`, `docs/security/SECURITY_MODEL.md` (`OWASP ASVS 5.0.0` reference), `docs/privacy/{PRIVACY_DATA_MAP,DATA_RETENTION,CONSENT_FLOW}.md`, `docs/operations/{OBSERVABILITY,INCIDENT_RESPONSE,BACKUP_AND_RECOVERY,DEPLOYMENT}.md`, and `docs/engineering/{PHASE2_AUDIT,PHASE2_PLAN,PHASE2_RISK_REGISTER,TEST_STRATEGY,RELEASE_PROCESS,TEST_REPORT,CHANGELOG}.md` + `DECISIONS/ADR-001..004.md`.
-- **External Competitive Research, Unit Economics Fix & Single-Source Deliverables**:
-  - Updated `docs/business/` (`COMPETITIVE_ANALYSIS.md` with 7 categories + WeChat/Alipay official rules via `search_web`, `UNIT_ECONOMICS.md`, `BUSINESS_MODEL.md`, `ROADMAP.md`, and new `CUSTOMER_VALIDATION.md`, `GTM_PLAN.md`, `PRICING_AND_PACKAGING.md`); unified seed cohorts (`第 1 轮 20–30 人 -> 第 2 轮 30–50 人`) and renamed `maxAffordableSessionsPerProMonth` (`companyBreakeven: UNMODELED`).
-  - Re-locked `ppt/scripts/cuex-final-metrics.json` (`2026-11-15T21:09:07.360Z`), added `ppt/scripts/verify-metrics-sync.mjs` (`20` files verified), rebuilt [`deliverables/cuex-final/`](../../deliverables/cuex-final/README.md) (`28` files incl. `sbom-and-checksums.json`, tracked via `.gitignore`) and [`CueX-Universal-Presentation-Final.zip`](../../CueX-Universal-Presentation-Final.zip) (`34` ZIP entries, tracked via `.gitignore`), while keeping `.cuex-runtime/reference-archives/` gitignored.
+- **Phase 3 Documentation & Truth Alignment**: Added `docs/{ARCHITECTURE,PRODUCT_TRUTH_TABLE}.md`, `docs/phase3/{EXECUTION_BASELINE,IMPLEMENTATION_PLAN,RISK_REGISTER,REAL_WORLD_VALIDATION_REPORT}.md`, updated `README.md`, synced `docs/api/{openapi,asyncapi}.yaml`, and reconciled `docs/business/*.md`.
+- **Mandatory & Commercial Deliverables (`deliverables/cuex-final/`, `ppt/`, `scripts/{generate-deliverables,verify-metrics-sync}.mjs`)**:
+  - Generated 14-clip offline neural TTS+DSP audio corpus (`225.344 s`, `notLiveHumanRoomRecording: true`) + `demo-pack/`, sanitized `colab-asr-report.json`, `cpa-llm-report.json` (`cpa:<redacted-host>`), and `real-e2e-validation.json` (`cpa:<redacted-host>`).
+  - Built mandatory `mandatory/business-model-canvas/` (**2p A4 landscape**), `mandatory/ai-employee-job-spec/` (**1p A4 portrait**), `mandatory/ai-employee-demo/`, `business/` (`CueX-Business-Plan.pdf` **8p**, `CueX-Unit-Economics.pdf` **1p** w/ `#12` CPA calibration, `CueX-Competitive-Analysis.pdf` **2p**, submission copy & scripts), `demo/token-usage-proof.png`, `assets/CueX-Cover.png` & `15` UI previews, `sbom-and-checksums.json`, and [`verification/{verification.json,test-report.md,SHA256SUMS.txt}`](../../deliverables/cuex-final/verification/test-report.md).
+  - Added `*.pem` to `.gitignore`, verified clean non-self-referential `CueX-Universal-Presentation-Final.zip` (`deliverables/cuex-final/` & repo root), and verified zero legacy/public-data findings across working tree and staged index.

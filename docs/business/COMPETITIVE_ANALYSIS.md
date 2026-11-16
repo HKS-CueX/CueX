@@ -207,3 +207,5 @@
 3. **场前本人锁定 `Evidence[]` + 诚实 `unpreparedGaps` 防幻觉边界**：绝不在高风险路演/答辩中由 AI 现场捏造核心数字；缺依据时直接提示未准备（`missingEvidenceNotice`）。
 4. **探索性 `V = H − λI` 量化复盘 + 人工审批 `MemoryStore`**：把“多嘴打扰”设为 `2×` 惩罚纳入反馈闭环，并通过显式勾选（`userConfirmed === true`）与一键全擦除构建信任复利。
 5. **Universal Runtime + `ScenarioAdapter` 解耦架构**：同一个核心状态机与仲裁门控从已落地的 `CueX Presentation` 向未上线的 `Sales / Teaching / Social / Custom` 平滑迁移，摊薄长期研发成本。
+6. **Phase 3 实机全链路验证背书（不替代真人现场测试）**：已在零扬声器静音闭环下完成 Google Colab GPU ASR（`FunAudioLLM/SenseVoiceSmall` `14/14` 合成测试音 `52.57 ms` 均延迟、`0.00327` RTF、数字定价片 `0.0` CER）+ 统一 CPA 网关（`gemini-4-hydrogen` 6/6 S1 判定 `100%` vs `gemini-3.5-flash-lite` `4/6`）+ `14/14` Section 5.2 端到端行为与断网降级诚实披露验收；**`46,357` 实测特征 Token 在保守全计高阶推理单价下仍保持 `80.2%` Pro 直接贡献率**（详见 [单位经济模型 §1.2 与 §6 #12](UNIT_ECONOMICS.md)）。
+

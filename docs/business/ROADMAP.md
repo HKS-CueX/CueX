@@ -8,7 +8,7 @@
 
 | 阶段 | 时间窗口 | 核心目标 | 协议与工程交付状态 | 关键定量 / 定性退出门槛（Exit Gate） |
 | :--- | :--- | :--- | :--- | :--- |
-| **Stage 0：通用运行时、Presentation MVP 与 Phase 2 可靠性封版** | 2026-11 *(进行中)* | 完成早期单领域原型剥离，落地 Universal Runtime、`CueX Presentation`、`EventEnvelope`、持久化契约、`UsageLedger/Entitlement`、Payment Sandbox、CI & SBOM | `presentation: status='implemented'`<br>`social/teaching/sales/custom: status='roadmap'`<br>`Team Tier: Planned`<br>`Payment: Sandbox / 未开通实单收银` | Typecheck / Build / Protocol+Server+Web 单测 / `eval-presentation.ts` / Playwright E2E / Legacy+Public-Data Check / PDF&Sync 校验全通 |
+| **Stage 0：通用运行时、Presentation MVP 与 Phase 3/4 实机验证封版** | 2026-11 *(已完成)* | 完成早期单领域原型剥离，落地 Universal Runtime、`CueX Presentation`、`EventEnvelope`、持久化契约、`UsageLedger/Entitlement`、Payment Sandbox，并在 Phase 3 打通实机 Colab GPU ASR (`SenseVoiceSmall`) + 统一 CPA 网关 (`gemini-4-hydrogen`) 与极简前端重设计 | `presentation: status='implemented'`<br>`social/teaching/sales/custom: status='roadmap'`<br>`Team Tier: Planned`<br>`Payment: Sandbox / 未开通实单收银` | Typecheck / Build / Protocol+Server+Web 单测 / `eval-presentation.ts` (`0.88 ms` / `6/6`) / **Colab ASR `14/14` + CPA `21` reqs + 14/14 实机 E2E** / 6 视口静默 Playwright / Legacy+Public-Data Check / PDF&Sync 校验全通 |
 | **Stage 1：两轮种子实测与商业化灰度** | 2026-12 ~ 2027-Q1 | 验证真实路演/答辩临场价值与 `Free / Event (¥19–39) / Pro (¥59/月)` 付费转化 | **第 1 轮 20–30 名真实目标用户**深度盲测 → **第 2 轮扩展至 30–50 人**；接通真实微信/支付宝商户号及云端 ASR 资源包 | 完成 ≥3 轮/人的真机闭环；核心留存/净推荐及 `Event` 付费意愿达到预设及格线（见 `CUSTOMER_VALIDATION.md`） |
 | **Stage 2：多场景 `ScenarioAdapter` 扩展与 Team 版本试点** | 2027-Q2 ~ Q3 | 严格复用核心 Controller、UsageLedger 与 MemoryStore，按商业清晰度激活新适配器 | 依次发布 `CueX Sales` → `CueX Teaching` → `CueX Social` → `CueX Custom SDK` 与 `CueX Team` 内测 | 不重写独立门控与计费台账底座，仅新增场景协议包与提示策略即可驱动端到端会话 |
 | **Stage 3：桌面端极简悬浮窗与智能眼镜演进** | 2027-Q4+ | 突破浏览器标签页视觉依赖，向 OS 全局浮窗、可穿戴 HUD 与端侧小模型进化 | Electron/Tauri 低透明窄条浮窗、AR/智能眼镜提示协议、0.5B–3B 端侧 System 1 蒸馏实验 | 实现全屏共享 PPT 时零切屏余光提示；云端依赖进一步下探至端侧轻量优先 |
@@ -17,19 +17,20 @@
 
 ## 阶段零详解：当前真实实现与诚实边界（Stage 0）
 
-### 已实现与正在加固的能力
-1. **Universal Cognitive Runtime（已实现 & Phase 2 加固）**：
-   - `@cuex/protocol`（`API_VERSION = '2026-11'`、`WS_PROTOCOL_VERSION = '2.0'`、`EventEnvelope`、UTC ISO-8601 时间戳、整数分 `amountFen`、零依赖运行时校验器）。
+### 已实现与已实机验证的能力
+1. **Universal Cognitive Runtime（已实现 & Phase 3 实机全链路验证）**：
+   - `@cuex/protocol`（`API_VERSION = '2026-11'`、`WS_PROTOCOL_VERSION = '2.0'`、`EventEnvelope`、7 态 `ColabAsrLifecycleState`、`provider_unreported` 账本来源、UTC ISO-8601 时间戳、整数分 `amountFen`、零依赖运行时校验器）。
    - `ContextStore`、`CognitiveEventBus`、`SharedCognitiveStateStore`、独立 `InterventionController`（5 道门控 + 7 类 `WithdrawalReason` 自动撤回）。
    - 多租户会话鉴权、持久化存储接口、`Entitlement` 配额校验、`UsageLedger` 幂等记账、数据导出与合规删除回执、`PaymentProviderAdapter` 沙盒契约。
+   - **实机异构推理闭环**：Google Colab G4（`NVIDIA RTX PRO 6000`）托管 `FunAudioLLM/SenseVoiceSmall + fsmn-vad` 加密 TLS/Bearer 流式 ASR（`14/14` 合成测试集均耗时 `52.57 ms`、`0.00327` RTF）；统一 `CpaProviderAdapter` 驱动 `gemini-4-hydrogen`（S1 基准 `6/6`、`14/14` Section 5.2 全场景 E2E 通过）。
 2. **`CueX Presentation`（唯一可实际运行场景）**：
    - 场前：`DocumentExtractor`（`.md/.txt/.pptx` 真实抽取 + `.pdf` 尽力提取，`unreadable` 诚实拒收机制）→ `PresentationCompiler` 生成 `PresentationContextPack`（`PresentationCueSheet`、可锁定 `facts`、显式 `isPrediction: true` `qaCards`、`unpreparedGaps`、`progressNodes`、`evidence`）。
-   - 场中：`Focus`（余光低打扰 `CueEdgeLight` + 短锚点 + 自动撤回）与 `Inspector`（控制器仲裁明细、真实 ASR 状态、Token/规则来源）双视图；支持流式语音、`Dismiss` 驳回、`helpful/distracting` 微反馈。
+   - 场中：`Focus`（余光低打扰 `CueEdgeLight` + 短锚点 + 自动撤回）、`Split-Strip` 与 `Inspector`（控制器仲裁明细、真实 ASR 生命周期与降级披露、Token/规则来源）；支持流式语音、`Dismiss` 驳回、`helpful/distracting` 微反馈。
    - 场后：`PresentationReflection`（计算探索性净效用 `V = H − λI`，默认 `λ = 2`）、弱项单点重练直入、`MemoryStore` 人工逐条审批（`userConfirmed: true`）与彻底擦除。
-3. **工程质控自动化**：GitHub Actions CI 工作流、遗留领域自动化扫描、敏感信息扫描与 SBOM 清单自动化导出。
+3. **工程与前端质控自动化**：GitHub Actions CI 工作流、遗留领域扫描、敏感信息扫描、`Warm Paper / Achromatic ledger` 6 视口（`1440–360px`）无声 Playwright + 无障碍终验、SBOM 清单与 PDF/Metrics 双向同步校验。
 
 ### 当前明确未实现边界（Honest Limitations）
-- **ASR 与大模型实机前提**：离线规则/文本模拟模式开箱必过；云端 LLM 与商用流式 ASR 需填入真实服务商凭据，端侧 Sherpa 需本地挂载模型文件；系统绝不将文本注入伪装成真实麦克风流。
+- **ASR 与真人现场语料边界**：离线规则/文本模拟模式开箱必过；`colab_gpu` 已完成 14 段合成普通话/双语语料（`225.344s`）静音端到端实测，尚未完成多麦克风线下物理会场真人队列采集（留待第 1 轮 `20–30` 名种子期补齐）；云端商用流式 ASR 与独立商用模型按需配额接入。
 - **商业收单**：`PaymentProviderAdapter` 处于接口与沙盒校验阶段，**尚未绑定真实微信支付/支付宝签约商户号，零线上真实付费流水**。
 - **非演讲场景与团队版**：`Social / Teaching / Sales / Custom` 仅协议注册不可运行；`CueX Team（¥199/席/月）` 属于后期路线图 `Planned`。
 - **OCR 边界**：扫描版/加密 PDF 返回 `unreadable` 警告提示补充文本，尚未内置重型 OCR 引擎。

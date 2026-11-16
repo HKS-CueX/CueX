@@ -5,12 +5,14 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
+  validateAsrCapabilityStatus,
   validateClientMessage,
   validateContextPack,
   validateEventEnvelope,
   validateEvidence,
   validateMemoryItem,
   validatePresentationContextPack,
+  validateProviderUsageRecord,
   validateTelemetryUsage,
   validateUsageRecord,
 } from '#src/index';
@@ -56,4 +58,13 @@ test('all canonical JSON examples parse and pass corresponding v2 runtime valida
   const srvMsg = readExample('server-message-intervention-shown.example.json');
   assert.equal(srvMsg.type, 'intervention.shown');
   assert.equal(typeof srvMsg.serverSeq, 'number');
+
+  assert.equal(
+    validateAsrCapabilityStatus(readExample('asr-capability-status.example.json')).ok,
+    true,
+  );
+  assert.equal(
+    validateProviderUsageRecord(readExample('provider-usage-record.example.json')).ok,
+    true,
+  );
 });

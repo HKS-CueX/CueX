@@ -81,6 +81,7 @@ export class SharedCognitiveStateStore {
       inputTokens: 0,
       outputTokens: 0,
       cachedInputTokens: 0,
+      reasoningTokens: 0,
       totalTokens: 0,
       modelCalls: 0,
       retries: 0,
@@ -325,6 +326,7 @@ export class SharedCognitiveStateStore {
       inputTokens: 0,
       outputTokens: 0,
       cachedInputTokens: 0,
+      reasoningTokens: 0,
       latencyMsTotal: 0,
       latencyMsAvg: 0,
       usageSource: usage?.usageSource ?? 'local_rule_zero',
@@ -337,6 +339,7 @@ export class SharedCognitiveStateStore {
     const inputTokens = usage?.inputTokens ?? 0;
     const outputTokens = usage?.outputTokens ?? 0;
     const cachedInputTokens = usage?.cachedInputTokens ?? 0;
+    const reasoningTokens = usage?.reasoningTokens ?? 0;
     const costFen = Math.max(0, Math.round(usage?.costFen ?? 0));
     const degraded = Boolean(usage?.degraded);
     const isLocalRule = !usage || usage.usageSource === 'local_rule_zero' || calls === 0;
@@ -353,6 +356,7 @@ export class SharedCognitiveStateStore {
       this.telemetry.inputTokens += inputTokens;
       this.telemetry.outputTokens += outputTokens;
       this.telemetry.cachedInputTokens += cachedInputTokens;
+      this.telemetry.reasoningTokens = (this.telemetry.reasoningTokens ?? 0) + reasoningTokens;
       this.telemetry.totalTokens = this.telemetry.inputTokens + this.telemetry.outputTokens;
       this.telemetry.costFen += costFen;
       this.telemetry.cost = createMoneyAmount(this.telemetry.costFen);
@@ -368,6 +372,7 @@ export class SharedCognitiveStateStore {
       inputTokens: prev.inputTokens + inputTokens,
       outputTokens: prev.outputTokens + outputTokens,
       cachedInputTokens: prev.cachedInputTokens + cachedInputTokens,
+      reasoningTokens: (prev.reasoningTokens ?? 0) + reasoningTokens,
       latencyMsTotal: prev.latencyMsTotal + cleanLatency,
       latencyMsAvg: Math.round((prev.latencyMsTotal + cleanLatency) / Math.max(1, totalTierOps)),
       usageSource: isLocalRule ? prev.usageSource : usage.usageSource,
@@ -380,13 +385,28 @@ export class SharedCognitiveStateStore {
     this.telemetry.usingLocalFallback = usingFallback;
 
     if (this.telemetry.modelCalls > 0) {
-      const source = usage?.usageSource === 'estimated' ? 'estimated' : 'provider_reported';
+      const hasReportedTokens =
+        this.telemetry.inputTokens > 0 ||
+        this.telemetry.outputTokens > 0 ||
+        Object.values(byTier).some((b) => b.usageSource === 'provider_reported');
+      const hasUnreportedCalls = Object.values(byTier).some(
+        (b) => b.calls > 0 && b.usageSource === 'provider_unreported',
+      );
+      const source =
+        usage?.usageSource === 'estimated'
+          ? 'estimated'
+          : hasUnreportedCalls && !hasReportedTokens
+            ? 'provider_unreported'
+            : 'provider_reported';
       this.telemetry.usageSource = source;
       this.telemetry.estimation = {
         isEstimated: source === 'estimated',
         source,
         usingLocalFallback: usingFallback,
-        notes: 'Exact provider-reported tokens for model calls; 0 tokens for deterministic local rule steps.',
+        notes:
+          source === 'provider_unreported'
+            ? 'Real LLM provider call executed, but upstream did not report token usage counts.'
+            : 'Exact provider-reported tokens for model calls; 0 tokens for deterministic local rule steps.',
       };
     } else {
       this.telemetry.usageSource = 'local_rule_zero';

@@ -33,11 +33,35 @@ import {
   formatDuration,
   formatMoneyFen,
   formatMs,
+  formatTime,
   MEMORY_CATEGORY_LABELS,
   USAGE_SOURCE_LABELS,
   WITHDRAWAL_REASON_LABELS,
 } from '@/lib/format';
 import { cn } from '@/lib/utils';
+
+function getTimelineBaseEpochMs(timeline: PresentationReflection['timeline']): number | null {
+  let minEpoch: number | null = null;
+  for (const ev of timeline) {
+    if (Number.isFinite(ev.atMs) && ev.atMs > 1_000_000_000_000) {
+      if (minEpoch === null || ev.atMs < minEpoch) {
+        minEpoch = ev.atMs;
+      }
+    }
+  }
+  return minEpoch;
+}
+
+function formatTimelineOffset(atMs: number, baseEpochMs: number | null): string {
+  if (!Number.isFinite(atMs)) return '00:00';
+  if (atMs > 1_000_000_000_000) {
+    if (baseEpochMs !== null) {
+      return formatMs(Math.max(0, atMs - baseEpochMs));
+    }
+    return formatTime(new Date(atMs).toISOString());
+  }
+  return formatMs(Math.max(0, atMs));
+}
 
 interface ReflectionViewProps {
   sessionId: string | null;
@@ -179,22 +203,20 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
     reflection?.weakSegments[0] ??
     null;
 
+  const timelineBaseEpochMs = getTimelineBaseEpochMs(reflection?.timeline ?? []);
+
   return (
-    <div className="bg-ground text-ink min-h-[calc(100vh-3.5rem)]" data-testid="reflection-view">
+    <div className="bg-ground text-ink min-h-[calc(100dvh-3.5rem)]" data-testid="reflection-view">
       <main className="max-w-[1440px] mx-auto px-4 sm:px-6 py-8 space-y-8">
         {/* Header */}
         <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-line pb-5">
           <div className="space-y-1.5">
-            <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-ink-3">
-              <span className="text-violet font-semibold">STAGE 03</span>
-              <span>/</span>
-              <span>POST-SESSION REFLECTION &amp; MEMORY GOVERNANCE</span>
-            </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink">
               场后复盘 · 净有效介入评估、单点重练与记忆治理
             </h1>
-            <p className="text-xs sm:text-sm text-ink-2">
-              基于真实转写、控制器裁决与用户微反馈计算 <span className="font-mono font-semibold text-ink">V = H - λI</span>，并支持单点重练与可控记忆落盘。
+            <p className="text-sm text-ink-2 leading-relaxed">
+              基于真实转写、控制器裁决与用户微反馈计算{' '}
+              <span className="font-mono font-semibold text-ink">V = H - λI</span>，并支持单点重练与可控记忆落盘。
             </p>
           </div>
 
@@ -234,17 +256,17 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2 font-semibold text-resolved">
-                <ShieldCheck className="w-4 h-4" />
+                <ShieldCheck className="w-4 h-4 shrink-0" />
                 <span>会话数据销毁合规回执 (DataDeletionReceipt)</span>
               </div>
-              <span className="font-mono text-[11px] text-ink-3">{deletionReceipt.receiptId}</span>
+              <span className="font-mono text-xs text-ink-3">{deletionReceipt.receiptId}</span>
             </div>
-            <p className="text-[11px] text-ink-2">
+            <p className="text-xs text-ink-2 leading-relaxed">
               完成时间：{formatDateTime(deletionReceipt.completedAt)} · 已清除范围：
               {deletionReceipt.deletedScopes.map((s) => `${s.scope}: ${s.deletedCount}`).join(' · ')}
             </p>
             {deletionReceipt.preservedRecords.length > 0 && (
-              <p className="text-[11px] text-ink-3">
+              <p className="text-xs text-ink-3">
                 保留合规项：
                 {deletionReceipt.preservedRecords
                   .map((p) => `${p.category} (${p.count})`)
@@ -261,10 +283,10 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
         )}
 
         {!reflection && !loading ? (
-          <div className="border border-dashed border-line-strong bg-surface/70 rounded-md p-8 text-center space-y-3">
+          <div className="border border-line bg-surface rounded-md p-8 text-center space-y-3">
             <Clock className="w-7 h-7 text-ink-3 mx-auto" />
             <h2 className="text-base font-semibold text-ink">暂无可复盘的已完成会话</h2>
-            <p className="text-xs text-ink-2 max-w-md mx-auto">
+            <p className="text-sm text-ink-2 max-w-md mx-auto leading-relaxed">
               在「场中协同」完成一轮演讲并点击「结束并进入复盘」后，系统将生成真实的时间线、V = H - λI 评分与单点重练任务。
             </p>
             <div className="flex justify-center gap-2 pt-1">
@@ -279,27 +301,22 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
         ) : (
           reflection && (
             <>
-              {/* 1. V = H - λI & Diagnosis Cards */}
-              <section className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-                {/* V = H - λI Utility Score Hero */}
+              {/* 1. V = H - λI & Diagnosis Summary (Natural height, zero bottom void) */}
+              <section className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+                {/* V = H - λI Utility Score */}
                 <div
-                  className="lg:col-span-5 border-2 border-ink bg-surface rounded-md p-5 flex flex-col justify-between space-y-4 shadow-sm"
+                  className="lg:col-span-5 border border-ink/25 bg-surface rounded-md p-5 space-y-4"
                   data-testid="utility-score-card"
                 >
-                  <div className="flex items-center justify-between border-b border-line pb-3">
-                    <div>
-                      <span className="text-xs font-mono uppercase tracking-wider text-ink-3 block">
-                        NET UTILITY OBJECTIVE
-                      </span>
-                      <h2 className="text-base font-bold text-ink">净有效介入评分 (V = H - λI)</h2>
-                    </div>
-                    <label className="flex items-center gap-1.5 text-xs text-ink-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
+                    <h2 className="text-base font-bold text-ink">净有效介入评分 (V = H - λI)</h2>
+                    <label className="flex items-center gap-1.5 text-xs text-ink-2 whitespace-nowrap shrink-0">
                       <span>惩罚系数 λ：</span>
                       <select
                         value={lambda}
                         onChange={(e) => setLambda(Number(e.target.value))}
                         data-testid="lambda-select"
-                        className="border border-line bg-ground rounded px-2 py-1 text-ink font-mono"
+                        className="h-8 border border-line bg-ground rounded px-2 text-ink font-mono focus-visible:outline-none focus-visible:border-ink"
                       >
                         <option value={1}>1</option>
                         <option value={2}>2 (默认)</option>
@@ -308,17 +325,17 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                     </label>
                   </div>
 
-                  <div className="flex items-baseline gap-4">
+                  <div className="flex flex-wrap items-baseline gap-5">
                     <span
                       className={cn(
-                        'font-mono text-5xl font-bold num',
+                        'font-mono text-5xl font-bold tabular-nums',
                         reflection.utility.netUtilityScore >= 0 ? 'text-resolved' : 'text-amber-ink'
                       )}
                       data-testid="utility-net-score"
                     >
                       {reflection.utility.netUtilityScore}
                     </span>
-                    <div className="text-xs text-ink-2 space-y-0.5 font-mono">
+                    <div className="text-xs text-ink-2 space-y-1 font-mono tabular-nums">
                       <div>
                         H (有效帮助) = {reflection.utility.helpfulCount} · 显式点赞{' '}
                         {reflection.utility.explicitHelpfulCount}
@@ -335,7 +352,7 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                   </div>
 
                   <p
-                    className="text-[11px] text-ink-3 border-t border-line pt-2.5 leading-relaxed"
+                    className="text-xs text-ink-3 border-t border-line pt-3 leading-relaxed"
                     data-testid="utility-formula-note"
                   >
                     公式口径：<strong>H</strong> = 有效帮助介入次数（非提示总次数），<strong>I</strong>{' '}
@@ -345,66 +362,72 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                 </div>
 
                 {/* Diagnosis Summary */}
-                <div className="lg:col-span-7 border border-line bg-surface rounded-md p-5 space-y-4 shadow-sm">
+                <div className="lg:col-span-7 border border-line bg-surface rounded-md p-5 space-y-4">
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
                     <h2 className="text-base font-bold text-ink">结构化诊断摘要</h2>
-                    <div className="flex flex-wrap gap-1.5">
-                      <Badge variant="outline" className="font-mono text-[10px]">
+                    <div className="flex flex-wrap gap-1.5 min-w-0 max-w-full">
+                      <Badge variant="outline" className="font-mono">
                         模式：{reflection.mode === 'rehearsal' ? '彩排' : '正式'}
                       </Badge>
-                      <Badge variant="secondary" className="font-mono text-[10px]">
+                      <Badge variant="secondary" className="font-mono tabular-nums">
                         时长：{formatDuration(reflection.durationMs / 1000)}
                       </Badge>
-                      <Badge variant="outline" className="font-mono text-[10px]">
-                        Tokens：{reflection.telemetry.totalTokens}（
+                      <Badge variant="outline" className="font-mono tabular-nums">
+                        Tokens：{reflection.telemetry.totalTokens} ·{' '}
+                        {formatMoneyFen(reflection.telemetry.cost ?? reflection.telemetry.costFen)}
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className="font-mono whitespace-normal text-left max-w-full"
+                      >
                         {USAGE_SOURCE_LABELS[reflection.telemetry.usageSource] ??
                           (reflection.telemetry.estimation.usingLocalFallback
                             ? '本地规则零 Token'
                             : '模型实计')}
-                        · {formatMoneyFen(reflection.telemetry.cost ?? reflection.telemetry.costFen)}）
                       </Badge>
                     </div>
                   </div>
 
-                  <p className="text-xs sm:text-sm text-ink-2 leading-relaxed">
+                  <p className="text-sm text-ink-2 leading-relaxed">
                     {reflection.diagnosis.overallSummary}
                   </p>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                    <div className="p-3 bg-ground rounded border border-line">
-                      <span className="text-[11px] text-ink-3 block">要点覆盖率</span>
-                      <span className="font-mono text-lg font-bold text-ink">
+                  {/* 4-column Achromatic Ledger Metric Strip */}
+                  <div className="border border-line bg-surface-muted/40 rounded grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-line text-xs">
+                    <div className="p-3 space-y-0.5">
+                      <span className="text-xs text-ink-3 block">要点覆盖率</span>
+                      <span className="font-mono text-xl font-bold text-ink tabular-nums">
                         {Math.round(reflection.diagnosis.coverageRatio * 100)}%
                       </span>
                     </div>
-                    <div className="p-3 bg-ground rounded border border-line">
-                      <span className="text-[11px] text-ink-3 block">遗漏要点</span>
-                      <span className="font-mono text-lg font-bold text-amber-ink">
+                    <div className="p-3 space-y-0.5">
+                      <span className="text-xs text-ink-3 block">遗漏要点</span>
+                      <span className="font-mono text-xl font-bold text-amber-ink tabular-nums">
                         {reflection.diagnosis.missedPoints.length} 项
                       </span>
                     </div>
-                    <div className="p-3 bg-ground rounded border border-line">
-                      <span className="text-[11px] text-ink-3 block">超时章节</span>
-                      <span className="font-mono text-lg font-bold text-ink">
+                    <div className="p-3 space-y-0.5">
+                      <span className="text-xs text-ink-3 block">超时章节</span>
+                      <span className="font-mono text-xl font-bold text-ink tabular-nums">
                         {reflection.diagnosis.overtimeChapters.length} 章
                       </span>
                     </div>
-                    <div className="p-3 bg-ground rounded border border-line">
-                      <span className="text-[11px] text-ink-3 block">偏离 / 自动撤回</span>
-                      <span className="font-mono text-lg font-bold text-resolved">
+                    <div className="p-3 space-y-0.5">
+                      <span className="text-xs text-ink-3 block">偏离 / 自动撤回</span>
+                      <span className="font-mono text-xl font-bold text-resolved tabular-nums">
                         {reflection.diagnosis.driftCount} / {reflection.diagnosis.autoWithdrawCount}
                       </span>
                     </div>
                   </div>
 
-                  {/* Missed / Overtime / Unanswered details */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px]">
-                    <div className="p-2.5 bg-ground/70 border border-line rounded space-y-1">
+                  {/* Missed / Overtime / Unanswered details (unified divided row, zero stretched empty voids) */}
+                  <div className="border border-line bg-surface-muted/30 rounded grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-line text-xs">
+                    <div className="p-3 space-y-1">
                       <strong className="text-ink block">遗漏关键点</strong>
                       {reflection.diagnosis.missedPoints.length === 0 ? (
-                        <span className="text-resolved">全部关键要点均已覆盖</span>
+                        <span className="text-resolved block">全部关键要点均已覆盖</span>
                       ) : (
-                        <ul className="list-disc pl-4 text-ink-2 space-y-0.5">
+                        <ul className="list-disc pl-4 text-ink-2 space-y-0.5 leading-relaxed">
                           {reflection.diagnosis.missedPoints.map((mp) => (
                             <li key={mp.pointId}>
                               [{mp.chapterTitle}] {mp.label}
@@ -414,12 +437,12 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                       )}
                     </div>
 
-                    <div className="p-2.5 bg-ground/70 border border-line rounded space-y-1">
+                    <div className="p-3 space-y-1">
                       <strong className="text-ink block">超时章节</strong>
                       {reflection.diagnosis.overtimeChapters.length === 0 ? (
-                        <span className="text-resolved">无明显超时章节</span>
+                        <span className="text-resolved block">无明显超时章节</span>
                       ) : (
-                        <ul className="list-disc pl-4 text-amber-ink space-y-0.5">
+                        <ul className="list-disc pl-4 text-amber-ink space-y-0.5 leading-relaxed tabular-nums">
                           {reflection.diagnosis.overtimeChapters.map((oc) => (
                             <li key={oc.chapterId}>
                               {oc.title}：{oc.actualSec}s / {oc.targetSec}s
@@ -429,12 +452,12 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                       )}
                     </div>
 
-                    <div className="p-2.5 bg-ground/70 border border-line rounded space-y-1">
+                    <div className="p-3 space-y-1">
                       <strong className="text-ink block">未准备/缺失事实问答</strong>
                       {reflection.diagnosis.unansweredQuestions.length === 0 ? (
-                        <span className="text-resolved">暂无未覆盖提问</span>
+                        <span className="text-resolved block">暂无未覆盖提问</span>
                       ) : (
-                        <ul className="list-disc pl-4 text-amber-ink space-y-0.5">
+                        <ul className="list-disc pl-4 text-amber-ink space-y-0.5 leading-relaxed">
                           {reflection.diagnosis.unansweredQuestions.map((uq) => (
                             <li key={uq.segmentId}>{uq.question}</li>
                           ))}
@@ -449,12 +472,12 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
               <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 {/* Timeline */}
                 <div
-                  className="lg:col-span-7 border border-line bg-surface rounded-md p-5 space-y-4 shadow-sm"
+                  className="lg:col-span-7 border border-line bg-surface rounded-md p-5 space-y-4"
                   data-testid="reflection-timeline"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
                     <h2 className="text-base font-bold text-ink">演讲全流程时间线</h2>
-                    <div className="flex items-center gap-1 text-[11px]">
+                    <div className="flex flex-wrap items-center gap-1 text-xs">
                       <Filter className="w-3.5 h-3.5 text-ink-3 mr-1" />
                       {(
                         [
@@ -469,10 +492,10 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                           type="button"
                           onClick={() => setTimelineFilter(k)}
                           className={cn(
-                            'px-2 py-1 rounded border transition-colors',
+                            'px-2.5 py-1 min-h-8 rounded border',
                             timelineFilter === k
-                              ? 'bg-ink text-ground border-ink'
-                              : 'bg-ground text-ink-2 border-line hover:bg-ground-2'
+                              ? 'bg-ink text-ground border-ink font-medium'
+                              : 'bg-surface-muted/60 text-ink-2 border-line hover:bg-surface-muted'
                           )}
                         >
                           {label}
@@ -487,8 +510,8 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                     <ol className="divide-y divide-line text-xs max-h-[460px] overflow-y-auto pr-1">
                       {filteredTimeline.map((ev) => (
                         <li key={ev.id} className="py-3 flex items-start gap-3">
-                          <span className="font-mono text-[11px] text-ink-3 w-12 shrink-0 pt-0.5">
-                            {formatMs(ev.atMs)}
+                          <span className="font-mono text-xs text-ink-3 w-20 whitespace-nowrap shrink-0 pt-0.5 tabular-nums">
+                            {formatTimelineOffset(ev.atMs, timelineBaseEpochMs)}
                           </span>
                           <div className="flex-1 space-y-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-1.5">
@@ -502,20 +525,18 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                                         ? 'violet'
                                         : 'secondary'
                                 }
-                                className="text-[10px]"
                               >
                                 {ev.kind}
                               </Badge>
                               {ev.level && (
-                                <span className="font-mono text-[10px] text-ink-3">{ev.level}</span>
+                                <span className="font-mono text-xs text-ink-3">{ev.level}</span>
                               )}
                               {ev.speaker && (
-                                <span className="text-[10px] text-ink-3">· {ev.speaker}</span>
+                                <span className="text-xs text-ink-3">· {ev.speaker}</span>
                               )}
                               {ev.userFeedback && (
                                 <Badge
                                   variant={ev.userFeedback === 'helpful' ? 'resolved' : 'amber'}
-                                  className="text-[10px]"
                                 >
                                   {ev.userFeedback === 'helpful' ? '有效 (H)' : '打扰 (I)'}
                                 </Badge>
@@ -523,7 +544,7 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                             </div>
                             <p
                               className={cn(
-                                'leading-relaxed',
+                                'leading-relaxed break-words',
                                 ev.kind === 'intervention_withdrawn'
                                   ? 'text-ink-3 line-through'
                                   : 'text-ink'
@@ -532,11 +553,11 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                               {ev.text}
                             </p>
                             {ev.withdrawalReason && (
-                              <p className="text-[11px] text-resolved">
+                              <p className="text-xs text-resolved">
                                 撤回原因：{WITHDRAWAL_REASON_LABELS[ev.withdrawalReason]}
                               </p>
                             )}
-                            {ev.detail && <p className="text-[11px] text-ink-3">{ev.detail}</p>}
+                            {ev.detail && <p className="text-xs text-ink-3">{ev.detail}</p>}
                           </div>
                         </li>
                       ))}
@@ -546,19 +567,17 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
 
                 {/* Single-Point Rehearsal Panel */}
                 <div
-                  className="lg:col-span-5 border border-line bg-surface rounded-md p-5 space-y-4 shadow-sm"
+                  className="lg:col-span-5 border border-line bg-surface rounded-md p-5 space-y-4"
                   data-testid="single-point-rehearsal"
                 >
-                  <div className="flex items-center justify-between border-b border-line pb-3">
-                    <div>
-                      <h2 className="text-base font-bold text-ink flex items-center gap-1.5">
-                        <RotateCcw className="w-4 h-4 text-violet" />
-                        <span>单点重练（针对薄弱或遗漏时刻）</span>
-                      </h2>
-                      <p className="text-[11px] text-ink-3 mt-0.5">
-                        选定任一薄弱片段，带着已核验事实依据重新演练并获得实时控制器反馈。
-                      </p>
-                    </div>
+                  <div className="border-b border-line pb-3">
+                    <h2 className="text-base font-bold text-ink flex items-center gap-1.5">
+                      <RotateCcw className="w-4 h-4 text-violet shrink-0" />
+                      <span>单点重练（针对薄弱或遗漏时刻）</span>
+                    </h2>
+                    <p className="text-xs text-ink-3 mt-1 leading-relaxed">
+                      选定任一薄弱片段，带着已核验事实依据重新演练并获得实时控制器反馈。
+                    </p>
                   </div>
 
                   {reflection.weakSegments.length === 0 ? (
@@ -577,28 +596,28 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                               onClick={() => setSelectedWeakId(ws.weakSegmentId)}
                               data-testid={`weak-segment-${ws.weakSegmentId}`}
                               className={cn(
-                                'w-full text-left p-3 rounded border text-xs transition-colors space-y-1',
+                                'w-full text-left p-3.5 rounded border text-xs transition-colors space-y-1',
                                 active
                                   ? 'border-violet bg-violet-tint/35'
-                                  : 'border-line bg-ground/60 hover:bg-ground-2'
+                                  : 'border-line bg-surface-muted/60 hover:bg-surface-muted'
                               )}
                             >
-                              <div className="flex items-center justify-between gap-2">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
                                 <span className="font-semibold text-ink">{ws.chapterTitle}</span>
-                                <Badge variant="amber" className="text-[10px]">
+                                <Badge variant="amber">
                                   {WEAK_REASON_LABELS[ws.reason] ?? ws.reason}
                                 </Badge>
                               </div>
-                              <p className="text-ink-2 line-clamp-2">{ws.promptText}</p>
+                              <p className="text-ink-2 line-clamp-2 leading-relaxed">{ws.promptText}</p>
                             </button>
                           );
                         })}
                       </div>
 
                       {selectedWeak && (
-                        <div className="border border-violet/35 bg-ground rounded p-4 space-y-3 text-xs">
+                        <div className="border border-violet/30 bg-surface-muted/50 rounded p-4 space-y-3 text-xs">
                           <div className="space-y-1">
-                            <span className="text-[11px] font-semibold text-violet-ink block">
+                            <span className="text-xs font-semibold text-violet-ink block">
                               重练引导词
                             </span>
                             <p className="text-ink leading-relaxed">{selectedWeak.promptText}</p>
@@ -606,8 +625,8 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
 
                           {selectedWeak.excerptText && (
                             <div className="space-y-1">
-                              <span className="text-[11px] text-ink-3 block">原场片段回放：</span>
-                              <p className="p-2 bg-surface border border-line rounded text-ink-2">
+                              <span className="text-xs text-ink-3 block">原场片段回放：</span>
+                              <p className="p-2.5 bg-surface border border-line rounded text-ink-2 leading-relaxed">
                                 {selectedWeak.excerptText}
                               </p>
                             </div>
@@ -615,7 +634,7 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
 
                           {selectedWeak.supportingEvidence.length > 0 && (
                             <div className="space-y-1">
-                              <span className="text-[11px] text-ink-3 block">可用事实依据：</span>
+                              <span className="text-xs text-ink-3 block">可用事实依据：</span>
                               <ul className="space-y-1">
                                 {selectedWeak.supportingEvidence.map((ev) => (
                                   <li
@@ -629,14 +648,14 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                             </div>
                           )}
 
-                          <p className="text-[11px] text-amber-ink">
+                          <p className="text-xs text-amber-ink">
                             建议提示词：{selectedWeak.recommendedCue}
                           </p>
 
                           <Button
                             type="button"
                             variant="violet"
-                            className="w-full gap-1.5"
+                            className="w-full gap-1.5 min-h-[40px]"
                             data-testid="start-single-rehearsal-btn"
                             onClick={() =>
                               onStartRehearsal(
@@ -655,18 +674,18 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                 </div>
               </section>
 
-              {/* 3. Opt-in Proposed Memory Updates */}
+              {/* 3. Opt-in Proposed Memory Updates (Adaptive columns: 1 / 2 / 3 cols, zero orphan white space) */}
               <section
-                className="border border-line bg-surface rounded-md p-5 space-y-4 shadow-sm"
+                className="border border-line bg-surface rounded-md p-5 space-y-4"
                 data-testid="memory-proposals-section"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
                   <div>
                     <h2 className="text-base font-bold text-ink flex items-center gap-1.5">
-                      <Sparkles className="w-4 h-4 text-amber" />
+                      <Sparkles className="w-4 h-4 text-amber shrink-0" />
                       <span>待确认个人记忆更新建议（Opt-in Proposals）</span>
                     </h2>
-                    <p className="text-xs text-ink-3 mt-0.5">
+                    <p className="text-xs text-ink-3 mt-1">
                       以下记忆由本场复盘提炼，未经您点击「允许写入」前绝不会写入个人存储。
                     </p>
                   </div>
@@ -675,7 +694,16 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                 {reflection.memoryProposals.length === 0 ? (
                   <p className="text-xs text-ink-3">本场未产生新的个人记忆更新建议。</p>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                  <div
+                    className={cn(
+                      'grid gap-4 text-xs',
+                      reflection.memoryProposals.length === 1
+                        ? 'grid-cols-1'
+                        : reflection.memoryProposals.length === 2
+                          ? 'grid-cols-1 md:grid-cols-2'
+                          : 'grid-cols-1 md:grid-cols-2 xl:grid-cols-3'
+                    )}
+                  >
                     {reflection.memoryProposals.map((prop) => {
                       const decision = proposalStates[prop.proposalId] ?? prop.status;
                       const isEditing = editingProposalId === prop.proposalId;
@@ -683,7 +711,7 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                         <div
                           key={prop.proposalId}
                           data-testid={`memory-proposal-${prop.proposalId}`}
-                          className="border border-line bg-ground/60 rounded p-4 space-y-2.5"
+                          className="border border-line bg-surface-muted/50 rounded p-4 space-y-2.5"
                         >
                           <div className="flex items-center justify-between gap-2">
                             <Badge variant="secondary">
@@ -702,13 +730,13 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                                 type="text"
                                 value={proposalDraftTitle}
                                 onChange={(e) => setProposalDraftTitle(e.target.value)}
-                                className="w-full border border-line bg-surface rounded px-2.5 py-1.5 text-ink font-medium"
+                                className="w-full border border-line bg-surface rounded px-2.5 py-2 text-ink font-medium focus-visible:outline-none focus-visible:border-ink"
                               />
                               <textarea
-                                rows={2}
+                                rows={3}
                                 value={proposalDraftContent}
                                 onChange={(e) => setProposalDraftContent(e.target.value)}
-                                className="w-full border border-line bg-surface rounded px-2.5 py-1.5 text-ink"
+                                className="w-full border border-line bg-surface rounded px-2.5 py-2 text-ink leading-relaxed focus-visible:outline-none focus-visible:border-ink"
                               />
                               <div className="flex justify-end gap-2">
                                 <Button
@@ -739,7 +767,7 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                             <>
                               <h3 className="font-semibold text-sm text-ink">{prop.title}</h3>
                               <p className="text-ink-2 leading-relaxed">{prop.content}</p>
-                              <p className="text-[11px] text-ink-3">理由：{prop.rationale}</p>
+                              <p className="text-xs text-ink-3">理由：{prop.rationale}</p>
 
                               {decision === 'pending' && (
                                 <div className="flex flex-wrap items-center gap-2 pt-2">
@@ -791,7 +819,7 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
         )}
 
         {/* 4. Memory Governance Inspector (Always accessible) */}
-        <section className="border border-line bg-surface rounded-md p-5 shadow-sm">
+        <section className="border border-line bg-surface rounded-md p-5">
           <MemoryInspectorPanel refreshTrigger={memoryRefresh} />
         </section>
       </main>

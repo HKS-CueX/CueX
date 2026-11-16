@@ -11,6 +11,7 @@ export interface ProviderUsageRecord {
   inputTokens: number;
   outputTokens: number;
   cachedInputTokens: number;
+  reasoningTokens?: number;
   modelCalls: number;
   retries?: number;
   usageSource: TelemetryUsageSource;
@@ -18,6 +19,7 @@ export interface ProviderUsageRecord {
   costFen?: number;
   provider?: string;
   model?: string;
+  correlationId?: string;
 }
 
 export interface FastDecisionInput {

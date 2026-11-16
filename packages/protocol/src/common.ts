@@ -31,7 +31,14 @@ export type EvidenceSourceType =
 
 export type DocumentExtractionStatus = 'parsed' | 'unreadable' | 'rejected';
 
-export type TelemetryUsageSource = 'provider_reported' | 'local_rule_zero' | 'estimated';
+export const TELEMETRY_USAGE_SOURCES = [
+  'provider_reported',
+  'provider_unreported',
+  'local_rule_zero',
+  'estimated',
+] as const;
+
+export type TelemetryUsageSource = (typeof TELEMETRY_USAGE_SOURCES)[number];
 
 /** Compatibility alias for TelemetryUsageSource. */
 export type TelemetryMeasurementSource = TelemetryUsageSource;
@@ -45,6 +52,7 @@ export interface ModelCallBreakdown {
   inputTokens: number;
   outputTokens: number;
   cachedInputTokens: number;
+  reasoningTokens?: number;
   latencyMsTotal: number;
   latencyMsAvg: number;
   usageSource: TelemetryUsageSource;
@@ -78,6 +86,7 @@ export interface TelemetryUsage {
   inputTokens: number;
   outputTokens: number;
   cachedInputTokens: number;
+  reasoningTokens?: number;
   totalTokens: number;
   modelCalls: number;
   retries: number;

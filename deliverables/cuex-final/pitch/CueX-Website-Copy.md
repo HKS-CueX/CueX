@@ -1,58 +1,53 @@
 # CueX 竞赛官网提交文案（Website Submission Copy）
 
-> 所有项目描述严格对齐 `refactor/universal-runtime-presentation` 分支真实实现状态：已端到端实现 **Universal Cognitive Runtime 内核 + `CueX Presentation（演讲与答辩临场引导师）` 第一商业切口**；`Social / Teaching / Sales / Custom` 处于场景协议注册与路线图阶段；商业定价与单位经济均为标注清晰的商业假设与建模测算。
+> **口径声明**：本文案针对怀客松 2026 官网「我的作品」提交字段（见 `docs/hks.md` §7.2 与 OPC 命题手册）对齐 **Phase 3/4 已锁定实机遥测与重构后 Warm Paper UI**：严格区分 `6` 类评测维度，不虚构任何线下真人会议室录音或商业营收。
 
 ---
 
-## 1. 比赛报名与作品提交字段（可直接复制）
+## 一、官网可直接复制提交字段（HKS 2026 Official Submission Fields）
 
-### 1.1 作品名称
-**CueX — Universal Cognitive Runtime（你的快思考外挂）**  
-*首切场景已落地：`CueX Presentation（演讲与答辩临场引导师）`*
+### 1.1 作品名称（≤ 30 字建议）
+**CueX — 在深度思考之外，接住当下** *(通用实时认知外挂 · 首切 `CueX Presentation`)*
 
-### 1.2 参赛团队信息
+### 1.2 参赛团队与赛道
 - **团队名称**：记性好了一点
-- **赛道选择**：OPC 模式创新赛道
+- **赛道**：OPC 模式创新赛道
 
-### 1.3 一句话简介（≤ 45 字）
-**在深度思考之外，接住当下。以“最小必要干预”实时接住演讲与答辩临场的低分心快思考外挂。**
+### 1.3 一句话简介（30 字以内，可直接填入）
+**在深度思考之外，接住当下。以最小必要干预实时接住演讲答辩的认知外挂。** *(29 汉字，含标点 34 字符；超严控 30 字版：`你的快思考外挂：平时静默不打扰，卡壳偏航时最小干预即刻自动撤回。`)*
 
-### 1.4 产品痛点与核心方案（200–350 字精简版）
-创业者路演、研究生毕业答辩与专业讲者汇报时，往往面临“死背逐字稿僵硬、传统提词器遇即兴问答即失灵、常规 AI 副驾驶不断弹窗塞满长段文字反噬注意力”的三重困境。人类临场真正需要的不是一个替自己背书的聊天框，而是一位懂克制、能兜底的“快思考外挂”。
+### 1.4 项目介绍：解决什么问题、给谁用、怎么做的
+- **解决什么问题**：
+  创业者路演、硕博答辩与专业汇报时面临三重断层——① **传统提词器**只能线性滚屏，遇评委临时插话追问立即失效；② **常规实时 AI 副驾驶**动辄生成大段文本抢占屏幕视线，并存在无根据编造核心商业/学术数字的幻觉风险；③ **通用会议纪要**仅负责“散场后整理”，救不了台上 1–3 秒的卡壳断点。
+- **给谁用（优先级分层 `[商业假设]`）**：
+  **P1** OPC 一人公司主理人、早期融资路演创始人；**P2** 高校硕博开题、预答辩及毕业答辩研究生；**P3** 职业讲师、售前解决方案架构师（先通过 `20–30 → 30–50` 种子队列验证闭环）。
+- **怎么做的（已完整端到端实现的 `CueX Presentation` 工作流）**：
+  1. **台前编译与人工锁事实**：导入 `.pptx / .pdf / .md / .txt` 材料包，提取带原文编号 `Evidence[]`、章节推进图谱与预演 Q&A，支持开演前手工锁定核心数字不可篡改（`locked: true`）。
+  2. **台上“L0 静默 + L1–L3 克制触发 + 自动撤回”**：采用极低噪的 `Achromatic ledger` / 暖纸浅色界面；演讲顺畅时 **L0 零字静默**；仅当检测到遗漏要点、卡顿或偏航并经 `InterventionController` 五重门控放行后，推送 `L1` 边缘微光或 `L2` 极短锚点（≤6–8 字）；**一旦讲者开口接回正轨或切换章节，卡片瞬时自动撤回（7 类 `WithdrawalReason`）**。遭遇超出已准备材料边界的追问时，触发 `missingEvidenceNotice` 诚实拒答，严禁瞎编。
+  3. **真实推理链路与降级透明**：Phase 3 已打通 Google Colab G4 GPU 实机流式 ASR（`FunAudioLLM/SenseVoiceSmall + fsmn-vad`、`colab_gpu` 7 状态监控与断线回退）及统一 **CPA 模型网关**（`gemini-4-hydrogen` 等推理模型，严格隔离 `provider_reported`、`provider_unreported` 与本地确定性规则 `local_rule_zero`）。
+  4. **散场复盘与人类记忆主权**：基于真实日志输出遗漏项与探索性效用指标 **`V = H − λI (λ=2)`**，支持弱项一键单点重练；全部个人习惯记忆须经讲者显式勾选（`userConfirmed === true`）才允许入库，并支持 `/wipe` 一键彻底擦除。
 
-**CueX** 构建了基于**最小必要干预（Minimum Necessary Intervention）**的通用实时认知运行时：**平时保持 `L0` 静默不打扰；讲者节奏偏离或遗漏关键数据时按风险依次触发 `L1` 边缘轻信号、`L2` 关键词锚点卡或 `L3` 强纠偏提示，并在讲者自行接回话题或语境变更时自动撤回（Auto-Withdraw）**。
+### 1.5 OPC 赛前已有 vs 48 小时新增（诚实增量边界）
+- **赛前已有（`2026-11-01` 基础积累）**：曾完成单领域早期语音对练与底层 16 kHz 浏览器 `AudioWorklet` 音频采集、Sherpa ASR 接口调用及初始双进程对话原型验证。
+- **本次比赛 48 小时全新重构与新增**：
+  1. **彻底重构与多场景契约抽象**：完全清除早期单领域耦合代码，构建 `@cuex/protocol`（现已演进至 v2.1.0，支持 `colab_gpu` 7 态 ASR 与 `provider_unreported` 账本归因），通用化落地 `ContextStore` / `EventBus` / `InterventionController` 独立门控与 7 类自动撤回引擎（`Social / Teaching / Sales / Custom` 完成协议注册并划归路线图）。
+  2. **完整交付 `CueX Presentation` 商业闭环**：四格式讲稿编译（`locked: true` 防幻觉）+ 基于 `The printed annual / Achromatic ledger` 设计规范重制的 `Home / Compiler / Stage Focus / Inspector / Reflection / Account / Memory` 全套前端 + `UsageLedger / Entitlement` 商业配额与沙盒账本（`Free ¥0 / Event ¥29 / Pro ¥59·¥499` 假设体系）+ 10 项全可变单位经济测算模型。
+  3. **Phase 3 实机 GPU ASR + 统一 CPA 网关端到端验证**：打通带 TLS + Bearer 认证的 Colab GPU 流式 ASR 服务端、14 段普通话/中英双语实测语料集（离线神经音色合成用于无扬声器静音验证）以及统一 **`CpaProviderAdapter`**。
 
-本次比赛聚焦首个商业化垂直切口 **`CueX Presentation（演讲与答辩临场引导师）`**，已打通上台前 `.pptx/.pdf/.md/.txt` 多格式讲稿编译（提取带溯源依据的 `Evidence[]` 与章节锚点）-> 台上 **Focus 极简临场视图 / Inspector 实时透明调试视图**（流式语音识别 + 单点可控彩排 + `L0–L3` 分级干预与自动撤回）-> 散场后 **`V = H - λI`（`λ = 2`）量化复盘与人工审批记忆沉淀**全链路。
-
-### 1.5 技术亮点与架构说明
-1. **通用认知运行时内核（Universal Cognitive Runtime）**：完全解耦 `ContextStore`（统一上下文状态与单调递增值版本号）、`EventBus`、`SharedCognitiveStateStore` 与独立门控 `InterventionController`（`TTL` 超时清理、打断惩罚门控与 7 类精准自动撤回原因），不将特定行业话术写死在核心引擎中。
-2. **双系统协作与事实防幻觉编译**：上台前将讲者原始 `.pptx/.pdf/.md` 提取解析为带原文定位依据的 `Evidence[]`；台上以高敏捷 `System 1` 快判定配合可选 `System 2` 依据检索生成，结合 `numbersIn` 数值一致性与真实依据引用约束，显著降低临场提示“脱离讲稿瞎编”的风险。
-3. **可插拔场景适配器契约（Scenario Adapter Contract）**：通过 `@cuex/protocol` 统一定义场景标准接口；目前已完整交付 `presentation` 适配器（支持演讲/路演/学术/答辩场景参数化编译），`social`、`teaching`、`sales`、`custom` 四类场景已完成协议注册与阶段路线图设计。
-4. **探索性效用量化与用户主权治理**：在业内少数落地可复现计算公式 **`V = H - λI`**（探索性净效用度量，即有效帮助增益减去 `λ=2` 倍打断惩罚，待种子队列校准），并强制记忆写入经用户人工逐条审批且支持 `/api/sessions/:id/wipe` 一键全擦除。
-
-### 1.6 商业模式与闭环逻辑
-- **目标客群梯队**：**P1** OPC 一人公司主理人/创业者（路演、B2B 提案）-> **P2** 高校硕博研究生（毕业/开题答辩、学术会议）-> **P3** 专业讲师/技术布道者/顾问团队。
-- **定价假设（尚未形成商业营收）**：
-  - `CueX Free`（¥0，严格限额体验包，防范免费云端算力损耗）；
-  - `CueX Event`（¥19–39 / 场，单场答辩/路演低摩擦破冰产品）；
-  - `CueX Pro`（¥59 / 月 或 ¥499 / 年，高频讲者核心订阅）；
-  - `CueX Team`（¥199 / 席位 / 月，*规划中*）。
-- **诚实透明的 10 项单位经济模型**：拒绝将纯 LLM token 费用宣传为 SaaS 总成本，完整核算文档解析、流式 ASR（占单场主要比重）、System 1/2 推理、单会话同前缀缓存、证据检索、赛后复盘、云基础设施、微信/支付宝分渠道费率（0.6% 基准与退款损耗）、12:1 算力活跃免费用户摊销及客服支持；基准测算显示付费套餐在未计入公司级固定人力开销前具备正向直接贡献，当前处于 `UsageLedger / Entitlement / PaymentProviderAdapter` 沙盒阶段，尚未上线商业收单（详见《单位经济模型》与 BP 第 6 页）。
-
-### 1.7 赛前基础与本次比赛增量透明声明
-- 团队于 `2026-11-01` 曾完成一个单领域早期语音对练原型，积累了 16 kHz 浏览器端 AudioWorklet 采集、Sherpa ASR 接口与双系统调用封装骨架。
-- **本次比赛期间全新重构与研发交付**：彻底剥离历史窄场景代码，完成 `@cuex/protocol` 通用协议设计、`Universal Cognitive Runtime` 与 `InterventionController` 独立门控引擎、`CueX Presentation` 文档编译器（`.pptx/.pdf/.md/.txt`）、Focus/Inspector 双视图交互前端、`V = H - λI` 量化复盘评估管线以及全新统一品牌和商业资产体系。
+### 1.6 核心实测与透明指标摘要
+- **离线确定性基线 `[Cat 1 本地实测 Eval]`**（`2026-11-15T23:53:22.971Z`）：`6/6` 核心测试用例全过，`local_rule_zero` 平均延迟 **`0.88 ms`**（P50 **`0.66 ms`** / P95 **`1.66 ms`**），探索性 `V = H − 2I = +3`。
+- **Phase 3 实机全链路验收摘要 `[Cat 3 & Cat 4 实机遥测]`**：Colab RTX PRO 6000 (`SenseVoiceSmall`) `14/14` 片段（`225.344 s` TTS+DSP 可控语料，`notLiveHumanRoomRecording: true`）批处理均耗时 **`52.57 ms`**（P95 **`89.59 ms`** / RTF **`0.00327`** / 均值 CER **`0.0867`** / 数字 `clip_04` **CER `0.0`**），WSS 首包 **`772.1 ms`**；统一 CPA `gemini-4-hydrogen` S1 准确率 **`6/6 (100%)`**（vs `3.5-flash-lite` `4/6`），`12` 步主链实耗 **`15,399` Tokens**（`7,126` 思维链，`costFen: 0`）；全链路 **`14/14` Section 5.2 场景全过**（含 `80 ms` 超时降级与 `400/201/200/200` 主权擦除）；商业侧按实测分布外推 **`46,357` Tokens** 从严校验（敏感性 `#12`）Pro 贡献率仍达 **`80.2%`**。
 
 ---
 
-## 2. 本次最终交付包资产清单（对应 `deliverables/cuex-final/`）
+## 二、商业交付件索引（提交附件清单）
 
-| 序号 | 文件路径 | 核心用途 |
-| :---: | :--- | :--- |
-| 1 | `deliverables/cuex-final/brand/CueX-Cover.png` | 16:9 官网首页大图与封面视觉（Amber × Violet 交汇 `X`，暖纸底 `#F8F7F3`） |
-| 2 | `deliverables/cuex-final/pitch/CueX-BP.pdf` | **8 页完整商业计划书**（与 `business/CueX-Business-Plan.pdf` 内容同源一致） |
-| 3 | `deliverables/cuex-final/business/CueX-AI-Employee-Job-Spec.pdf` | **1 页 A4 《演讲与答辩临场引导师 AI 员工工作说明书》**（含 5 大强制模块） |
-| 4 | `deliverables/cuex-final/business/CueX-BMC-and-Unit-Economics.pdf` | **2 页 A4 横版**（P1 八要素商业画布 + P2 十项全链路单位经济模型，另附两张单页独立 PDF） |
-| 5 | `deliverables/cuex-final/pitch/CueX-Pitch-Script.md` | 5 分钟路演逐字稿（精确对应 P1–P8 时间轴与 2 分钟 Q&A 备答） |
-| 6 | `deliverables/cuex-final/pitch/CueX-Demo-Script.md` | 75–90 秒真实产品实机演示脚本（严格匹配实际界面与功能） |
-| 7 | `deliverables/cuex-final/evidence/token-usage-proof.png` | 基于真实本地 `eval-presentation.ts` 遥测与云端费率建模的成本透明可视化证明图 |
+| 分类 | 文件路径 | 用途与合规特征 |
+| :--- | :--- | :--- |
+| **品牌视觉封面** | `deliverables/cuex-final/brand/CueX-Cover.png` | 1920×1080 Warm Paper `#F8F7F3` × Amber/Violet `X` |
+| **必备 · 商业画布** | `deliverables/cuex-final/mandatory/business-model-canvas/CueX-Business-Model-Canvas.pdf` | **严格 2 页 A4 横版**：9 要素标准 Osterwalder 画布 + 8 栏位映射表 + `.md/.html` 源文件 |
+| **必备 · 岗位说明** | `deliverables/cuex-final/mandatory/ai-employee-job-spec/CueX-AI-Employee-Job-Specification.pdf` | **严格 1 页 A4**：业务语言全覆盖 12 项要素 + `.md/.html` 源文件 |
+| **必备 · 实机证据** | `deliverables/cuex-final/mandatory/ai-employee-demo/{demo-pack,evidence}` | Colab GPU ASR + CPA LLM + 实机 E2E 证据链（严格脱敏零密钥） |
+| **8 页商业计划** | `deliverables/cuex-final/pitch/CueX-BP.pdf`（同源 `business/CueX-Business-Plan.pdf`） | **严格 8 页 16:9** |
+| **单位经济与竞品** | `deliverables/cuex-final/business/{CueX-Unit-Economics,CueX-Competitive-Analysis,CueX-BMC-and-Unit-Economics}.pdf` | 10 项全成本与 `2026-11-16` 联网官方竞品事实核验 |
+| **演讲与演示脚本** | `deliverables/cuex-final/pitch/{CueX-Pitch-Script.md,CueX-Demo-Script.md}` | 5 分钟路演逐字稿 + 75–90s 无扬声器干扰演示剧本 |

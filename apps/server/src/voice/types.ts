@@ -11,6 +11,7 @@ export interface AsrCallbacks {
 
 export interface AsrStream {
   write(pcm16le: Buffer): void;
+  flush?(): void;
   end(): void;
 }
 

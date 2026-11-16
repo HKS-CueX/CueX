@@ -38,13 +38,17 @@ import { MetricsCollector, StructuredLogger } from '../observability';
 import { PipelineTracker } from '../pipeline';
 import {
   CognitiveRuntimeSession,
+  CpaClient,
   InterventionController,
   LexicalBm25RetrievalProvider,
   MemoryStore,
   createFastDecisionProvider,
   createSlowReasoningProvider,
+  enhanceCompiledPackWithCpa,
+  enhanceReflectionWithCpa,
   isoToMs,
   msToIso,
+  resolveCpaConfig,
   systemClock,
   type FastDecisionProvider,
   type RetrievalProvider,
@@ -73,6 +77,7 @@ import {
 } from '../security';
 import { SqliteRepository, type StorageRepository } from '../storage';
 import {
+  ColabAsrProvider,
   LocalSherpaAsr,
   RemoteSherpaAsr,
   TextOnlyAsr,
@@ -103,6 +108,7 @@ export interface GatewayServerOptions {
   packStore?: PresentationPackStore;
   memoryStore?: MemoryStore;
   asrEngine?: AsrEngine;
+  cpaClient?: CpaClient;
   fastDecision?: FastDecisionProvider;
   slowReasoning?: SlowReasoningProvider;
   retrieval?: RetrievalProvider;
@@ -147,6 +153,7 @@ export class CueXGatewayServer {
   readonly packStore: PresentationPackStore;
   readonly memoryStore: MemoryStore;
   readonly asrEngine: AsrEngine;
+  readonly cpaClient?: CpaClient;
   readonly fastDecision: FastDecisionProvider;
   readonly slowReasoning: SlowReasoningProvider;
   readonly retrieval: RetrievalProvider;
@@ -192,16 +199,25 @@ export class CueXGatewayServer {
     this.packStore = opts.packStore ?? new PresentationPackStore(this.repo);
     this.memoryStore = opts.memoryStore ?? new MemoryStore(this.repo);
     this.asrEngine = opts.asrEngine ?? defaultAsrEngine(opts.config);
-    this.fastDecision = opts.fastDecision ?? createFastDecisionProvider(opts.config.system1Mode);
+    const shouldInitCpa = opts.config.system1Mode === 'real' || opts.config.system2Mode === 'real';
+    const resolvedCpa = !opts.cpaClient && shouldInitCpa ? resolveCpaConfig() : null;
+    this.cpaClient = opts.cpaClient ?? (resolvedCpa ? new CpaClient(resolvedCpa) : undefined);
+    this.fastDecision =
+      opts.fastDecision ??
+      createFastDecisionProvider(opts.config.system1Mode, process.env, { cpaClient: this.cpaClient });
     this.slowReasoning =
       opts.slowReasoning ??
       createSlowReasoningProvider(opts.config.system2Mode, {
         candidateTtlMs: opts.config.candidateTtlMs,
+        cpaClient: this.cpaClient,
       });
     this.retrieval = opts.retrieval ?? new LexicalBm25RetrievalProvider();
   }
 
   getAsrCapability(): AsrCapabilityStatus {
+    if (this.asrEngine instanceof ColabAsrProvider) {
+      return this.asrEngine.getStatus();
+    }
     if (this.asrEngine instanceof TextOnlyAsr) {
       if (this.config.asrMode === 'real') {
         return {
@@ -209,6 +225,10 @@ export class CueXGatewayServer {
           mode: 'text_simulation',
           available: false,
           streaming: false,
+          lifecycleState: 'not_configured',
+          fallbackActive: true,
+          fallbackReason:
+            'CUEX_ASR=real requested without reachable Colab/Sherpa ASR host; degraded to Web Speech / text mode.',
           detail:
             'CUEX_ASR=real requested without reachable Sherpa host/model; degraded to Web Speech / text mode.',
         };
@@ -218,6 +238,8 @@ export class CueXGatewayServer {
         mode: 'text_simulation',
         available: true,
         streaming: false,
+        lifecycleState: 'not_configured',
+        fallbackActive: false,
         detail:
           'Server Sherpa ASR is in offline/text mode; browser Web Speech API and text simulation are active.',
       };
@@ -238,6 +260,13 @@ export class CueXGatewayServer {
       streaming: true,
       detail: 'Local Sherpa streaming ASR active (16kHz PCM16).',
     };
+  }
+
+  async probeAsrCapability(): Promise<AsrCapabilityStatus> {
+    if (this.asrEngine instanceof ColabAsrProvider) {
+      return this.asrEngine.probe();
+    }
+    return this.getAsrCapability();
   }
 
   async start(): Promise<{ host: string; port: number }> {
@@ -411,9 +440,10 @@ export class CueXGatewayServer {
 
     try {
       if (method === 'GET' && pathname === '/health') {
-        const [s1Health, s2Health] = await Promise.all([
+        const [s1Health, s2Health, asrStatus] = await Promise.all([
           this.fastDecision.health(),
           this.slowReasoning.health(),
+          this.probeAsrCapability(),
         ]);
         const repoOk = this.repo.ping();
         const health: HealthStatusResponse = {
@@ -423,18 +453,26 @@ export class CueXGatewayServer {
           apiVersion: API_VERSION,
           wsProtocolVersion: WS_PROTOCOL_VERSION,
           timestamp: nowUtcIso8601(),
-          asr: this.getAsrCapability(),
+          asr: asrStatus,
           system1: {
             backend: this.fastDecision.backend,
             mode: this.fastDecision.mode,
             healthy: s1Health.ok,
             detail: s1Health.detail,
+            ...(s1Health.provider ? { provider: s1Health.provider } : {}),
+            ...(s1Health.model ? { model: s1Health.model } : {}),
+            ...(s1Health.degraded !== undefined ? { degraded: s1Health.degraded } : {}),
+            ...(s1Health.lastHealthCheckAt ? { lastHealthCheckAt: s1Health.lastHealthCheckAt } : {}),
           },
           system2: {
             backend: this.slowReasoning.backend,
             mode: this.slowReasoning.mode,
             healthy: s2Health.ok,
             detail: s2Health.detail,
+            ...(s2Health.provider ? { provider: s2Health.provider } : {}),
+            ...(s2Health.model ? { model: s2Health.model } : {}),
+            ...(s2Health.degraded !== undefined ? { degraded: s2Health.degraded } : {}),
+            ...(s2Health.lastHealthCheckAt ? { lastHealthCheckAt: s2Health.lastHealthCheckAt } : {}),
           },
         };
         this.writeJson(res, repoOk ? 200 : 503, health, correlationId);
@@ -658,11 +696,30 @@ export class CueXGatewayServer {
           existingPack = this.packStore.get(validated.value.packId, auth.user.userId);
         }
 
-        const compiled = compilePresentationPack(validated.value, this.clock.now(), {
+        let compiled = compilePresentationPack(validated.value, this.clock.now(), {
           existingPack,
           userId: auth.user.userId,
           tenantId: auth.user.tenantId,
         });
+        if (this.cpaClient && this.config.system2Mode === 'real' && !validated.value.useSamplePack) {
+          try {
+            const enhanced = await enhanceCompiledPackWithCpa(
+              this.cpaClient,
+              compiled,
+              validated.value,
+            );
+            compiled = enhanced.pack;
+          } catch (error) {
+            const msg = error instanceof Error ? error.message : String(error);
+            compiled = {
+              ...compiled,
+              warnings: [
+                ...compiled.warnings,
+                `CPA 编译器不可用，已自动回退为本地确定性编排 (${msg})`,
+              ],
+            };
+          }
+        }
         const saved = this.packStore.save(compiled, {
           isSampleOverride: Boolean(compiled.isSample),
         });
@@ -885,6 +942,26 @@ export class CueXGatewayServer {
         let reflection: PresentationReflection | undefined;
         if (live?.runtime) {
           reflection = live.runtime.buildReflection(lambda);
+          if (this.cpaClient && this.config.system2Mode === 'real') {
+            try {
+              const enhanced = await enhanceReflectionWithCpa(this.cpaClient, reflection);
+              if (enhanced.usage) {
+                live.runtime.state.recordTelemetry(
+                  'reflection',
+                  enhanced.latencyMs ?? 0,
+                  { ...enhanced.usage, correlationId },
+                  this.cpaClient.config.providerLabel,
+                  this.clock.now(),
+                );
+              }
+              reflection = {
+                ...enhanced.reflection,
+                telemetry: live.runtime.state.getTelemetry(),
+              };
+            } catch {
+              // Keep deterministic reflection if CPA reflection enhancement fails.
+            }
+          }
           live.reflection = reflection;
           this.repo.saveReflection(reflection, auth.user.userId, auth.user.tenantId);
         } else {
@@ -1264,6 +1341,7 @@ export class CueXGatewayServer {
         }
       };
 
+      const initialAsrStatus = await this.probeAsrCapability();
       const runtime = new CognitiveRuntimeSession({
         sessionId,
         userId: user.userId,
@@ -1283,7 +1361,7 @@ export class CueXGatewayServer {
         initialChapterTitle:
           pack.progressNodes.find((n) => n.chapterId === params.rehearsalTarget?.chapterId)?.title ??
           pack.progressNodes[0]?.title,
-        asrStatus: this.getAsrCapability(),
+        asrStatus: initialAsrStatus,
         plugin,
         fastDecision: this.fastDecision,
         slowReasoning: this.slowReasoning,
@@ -1313,49 +1391,70 @@ export class CueXGatewayServer {
 
       if (!(this.asrEngine instanceof TextOnlyAsr)) {
         closeAsrStream();
-        try {
-          asrStream = await this.asrEngine.open(
-            { sampleRate: 16_000 },
-            {
-              onPartial: (text) => {
-                const fixed = correctAsrText(text, SAMPLE_ASR_CORRECTIONS);
-                if (!fixed.trim()) return;
-                serializeChain = serializeChain
-                  .then(() =>
-                    runtime.ingestSpeech({
-                      speaker: 'presenter',
-                      text: fixed,
-                      isFinal: false,
-                      source: this.asrEngine instanceof RemoteSherpaAsr ? 'remote_sherpa' : 'local_sherpa',
-                    }),
-                  )
-                  .then(() => undefined)
-                  .catch(() => undefined);
+        const shouldOpenColab = !(this.asrEngine instanceof ColabAsrProvider) || initialAsrStatus.available;
+        if (!shouldOpenColab) {
+          this.stateDegradeAsrNotice(runtime, initialAsrStatus.detail);
+        } else {
+          const transcriptSource =
+            this.asrEngine instanceof ColabAsrProvider
+              ? 'external_asr'
+              : this.asrEngine instanceof RemoteSherpaAsr
+                ? 'remote_sherpa'
+                : 'local_sherpa';
+          try {
+            asrStream = await this.asrEngine.open(
+              { sampleRate: 16_000 },
+              {
+                onPartial: (text) => {
+                  const fixed = correctAsrText(text, SAMPLE_ASR_CORRECTIONS);
+                  if (!fixed.trim()) return;
+                  serializeChain = serializeChain
+                    .then(() =>
+                      runtime.ingestSpeech({
+                        speaker: 'presenter',
+                        text: fixed,
+                        isFinal: false,
+                        source: transcriptSource,
+                      }),
+                    )
+                    .then(() => undefined)
+                    .catch(() => undefined);
+                },
+                onFinal: (text) => {
+                  const fixed = correctAsrText(text, SAMPLE_ASR_CORRECTIONS);
+                  if (!fixed.trim()) return;
+                  serializeChain = serializeChain
+                    .then(() =>
+                      runtime.ingestSpeech({
+                        speaker: 'presenter',
+                        text: fixed,
+                        isFinal: true,
+                        source: transcriptSource,
+                      }),
+                    )
+                    .then(() => undefined)
+                    .catch(() => undefined);
+                },
+                onError: (err) => {
+                  this.stateDegradeAsrNotice(runtime, err.message);
+                  sendRaw({
+                    type: 'asr.status',
+                    correlationId,
+                    payload: this.getAsrCapability(),
+                  });
+                  sendError('ASR_ERROR', err.message, sessionId, correlationId);
+                },
               },
-              onFinal: (text) => {
-                const fixed = correctAsrText(text, SAMPLE_ASR_CORRECTIONS);
-                if (!fixed.trim()) return;
-                serializeChain = serializeChain
-                  .then(() =>
-                    runtime.ingestSpeech({
-                      speaker: 'presenter',
-                      text: fixed,
-                      isFinal: true,
-                      source: this.asrEngine instanceof RemoteSherpaAsr ? 'remote_sherpa' : 'local_sherpa',
-                    }),
-                  )
-                  .then(() => undefined)
-                  .catch(() => undefined);
-              },
-              onError: (err) => {
-                this.stateDegradeAsrNotice(runtime, err.message);
-                sendError('ASR_ERROR', err.message, sessionId, correlationId);
-              },
-            },
-          );
-        } catch (err) {
-          this.stateDegradeAsrNotice(runtime, (err as Error).message);
-          sendError('ASR_ERROR', (err as Error).message, sessionId, correlationId);
+            );
+          } catch (err) {
+            this.stateDegradeAsrNotice(runtime, (err as Error).message);
+            sendRaw({
+              type: 'asr.status',
+              correlationId,
+              payload: this.getAsrCapability(),
+            });
+            sendError('ASR_ERROR', (err as Error).message, sessionId, correlationId);
+          }
         }
       }
 
@@ -1527,7 +1626,15 @@ export class CueXGatewayServer {
             return;
           }
           if (!asrStream) {
-            sendError('ASR_UNAVAILABLE', '流式 ASR 会话尚未打开或已关闭。', activeRuntime.sessionId, correlationId);
+            const st = this.getAsrCapability();
+            sendError(
+              'ASR_UNAVAILABLE',
+              this.asrEngine instanceof ColabAsrProvider
+                ? `Colab GPU ASR 不可用 (${st.detail})`
+                : '流式 ASR 会话尚未打开或已关闭。',
+              activeRuntime.sessionId,
+              correlationId,
+            );
             return;
           }
           const pcm = Buffer.from(msg.payload.data, 'base64');
@@ -1621,6 +1728,25 @@ export class CueXGatewayServer {
           stopTimers();
           closeAsrStream();
           const result = activeRuntime.end(this.config.defaultUtilityLambda, correlationId);
+          if (this.cpaClient && this.config.system2Mode === 'real') {
+            try {
+              const enhanced = await enhanceReflectionWithCpa(this.cpaClient, result.reflection);
+              if (enhanced.usage) {
+                activeRuntime.state.recordTelemetry(
+                  'reflection',
+                  enhanced.latencyMs ?? 0,
+                  { ...enhanced.usage, correlationId },
+                  this.cpaClient.config.providerLabel,
+                  this.clock.now(),
+                );
+              }
+              const updatedTelemetry = activeRuntime.state.getTelemetry();
+              result.reflection = { ...enhanced.reflection, telemetry: updatedTelemetry };
+              result.outcome = { ...result.outcome, telemetry: updatedTelemetry };
+            } catch {
+              // Keep deterministic reflection & outcome on CPA enhancement failure.
+            }
+          }
           const endedMs = isoToMs(result.endedAt, this.clock.now());
           const entry = this.sessions.get(activeRuntime.sessionId);
           if (entry) {

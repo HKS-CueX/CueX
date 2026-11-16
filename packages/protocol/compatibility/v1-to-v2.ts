@@ -259,6 +259,9 @@ export function normalizeTelemetryUsageV1ToV2(
     outputTokens: typeof raw.outputTokens === 'number' ? Math.max(0, Math.trunc(raw.outputTokens)) : 0,
     cachedInputTokens:
       typeof raw.cachedInputTokens === 'number' ? Math.max(0, Math.trunc(raw.cachedInputTokens)) : 0,
+    ...(typeof raw.reasoningTokens === 'number' && Number.isFinite(raw.reasoningTokens)
+      ? { reasoningTokens: Math.max(0, Math.trunc(raw.reasoningTokens)) }
+      : {}),
     totalTokens: typeof raw.totalTokens === 'number' ? Math.max(0, Math.trunc(raw.totalTokens)) : 0,
     modelCalls: typeof raw.modelCalls === 'number' ? Math.max(0, Math.trunc(raw.modelCalls)) : 0,
     retries: typeof raw.retries === 'number' ? Math.max(0, Math.trunc(raw.retries)) : 0,

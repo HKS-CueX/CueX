@@ -24,7 +24,7 @@ import { CognitiveEventBus } from './EventBus';
 import { InterventionController, type ControllerSignalContext } from './InterventionController';
 import type { MemoryStore } from './MemoryStore';
 import { SharedCognitiveStateStore } from './SharedCognitiveStateStore';
-import { msToIso } from './time';
+import { isoToMs, msToIso } from './time';
 import {
   systemClock,
   type FastDecisionProvider,
@@ -461,6 +461,38 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
       }
     }
 
+    // Real/remote System 1 models should evaluate finalized speech endpoints (`isFinal: true`) rather
+    // than blocking behind every ~450ms partial transcript, while still enabling instant local captions
+    // and deterministic self-recovery/chapter-change withdrawal on partials.
+    if (!segment.isFinal && this.fastDecision.mode !== 'local_fallback') {
+      const activeIv = this.state.getActiveIntervention();
+      if (activeIv) {
+        const partialWithdraw = this.controller.checkWithdrawals({
+          sessionId: this.sessionId,
+          state: this.state,
+          context: this.context,
+          signals: {
+            silenceMs: 0,
+            semanticGap: false,
+            drift: false,
+            openQuestion: false,
+            manualHelp: false,
+            recovery: Boolean(pluginResult.directRecoveryDetected),
+            topicChanged: Boolean(pluginResult.newlyCoveredPointIds?.length || pluginResult.chapterChangedTo),
+            coveredPointIds: pluginResult.newlyCoveredPointIds,
+          },
+          now: nowMs,
+        });
+        if (partialWithdraw) {
+          this.dispatchWithdrawalIfAny(partialWithdraw, nowMs, correlationId);
+          this.emitStateAndProjection(nowMs, correlationId);
+          return { segment, decision: partialWithdraw };
+        }
+      }
+      this.emitStateAndProjection(nowMs, correlationId);
+      return { segment };
+    }
+
     if (this.inFlightAbort) {
       this.inFlightAbort.abort();
     }
@@ -496,21 +528,25 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
       throw error;
     }
 
-    this.pipeline?.recordStageDuration('fast_decision', verdict.latencyMs, nowIso);
+    const postS1NowMs = this.clock.now();
+    const postS1NowIso = msToIso(postS1NowMs);
+    this.pipeline?.recordStageDuration('fast_decision', verdict.latencyMs, postS1NowIso);
+    const verdictUsage = verdict.usage ? { ...verdict.usage, correlationId } : undefined;
+    const verdictWithCorr = verdictUsage ? { ...verdict, usage: verdictUsage } : verdict;
     const telemetryAfterS1 = this.state.recordTelemetry(
       'system1',
       verdict.latencyMs,
-      verdict.usage,
+      verdictUsage,
       verdict.backend,
-      nowMs,
+      postS1NowMs,
     );
     this.send(
-      { type: 'system1.verdict', payload: verdict },
-      { stage: 'fast_decision', correlationId, occurredAt: nowIso },
+      { type: 'system1.verdict', payload: verdictWithCorr },
+      { stage: 'fast_decision', correlationId, occurredAt: postS1NowIso },
     );
     this.send(
       { type: 'telemetry.updated', payload: telemetryAfterS1 },
-      { stage: 'fast_decision', correlationId, occurredAt: nowIso },
+      { stage: 'fast_decision', correlationId, occurredAt: postS1NowIso },
     );
 
     const effectiveRecovery = verdict.recoveryDetected || Boolean(pluginResult.directRecoveryDetected);
@@ -536,7 +572,7 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
     const gapLabels = expectedPoints
       .filter((p) => verdict.missingPointIds.includes(p.id))
       .map((p) => p.label);
-    this.state.setAttentionAndGaps(attentionSignal, gapLabels, nowMs);
+    this.state.setAttentionAndGaps(attentionSignal, gapLabels, postS1NowMs);
 
     const signals: ControllerSignalContext = {
       verdict,
@@ -558,11 +594,11 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
       state: this.state,
       context: this.context,
       signals,
-      now: nowMs,
+      now: postS1NowMs,
     });
     if (withdrawnDecision) {
-      this.dispatchWithdrawalIfAny(withdrawnDecision, nowMs, correlationId);
-      this.emitStateAndProjection(nowMs, correlationId);
+      this.dispatchWithdrawalIfAny(withdrawnDecision, postS1NowMs, correlationId);
+      this.emitStateAndProjection(postS1NowMs, correlationId);
       return { segment, decision: withdrawnDecision };
     }
 
@@ -572,7 +608,7 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
       !effectiveDrift &&
       !pluginResult.preferredTriggerKind
     ) {
-      this.emitStateAndProjection(nowMs, correlationId);
+      this.emitStateAndProjection(postS1NowMs, correlationId);
       return { segment };
     }
 
@@ -604,21 +640,23 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
       topK: 3,
       minScore: 0.2,
     });
-    this.pipeline?.recordStageDuration('retrieval', performance.now() - retrievalStart, nowIso);
+    this.pipeline?.recordStageDuration('retrieval', performance.now() - retrievalStart, postS1NowIso);
 
     if (effectiveQuestion) {
       this.plugin.onQuestionEvidence?.(segment.segmentId, effectiveQuestion, retrieved);
     }
 
+    const preS2NowMs = this.clock.now();
+    const preS2NowIso = msToIso(preS2NowMs);
     let s2Result;
     try {
       s2Result = await this.slowReasoning.synthesize(
         {
-          requestId: `s2_${++this.s2Seq}_${nowMs}`,
+          requestId: `s2_${++this.s2Seq}_${preS2NowMs}`,
           sessionId: this.sessionId,
           scenarioId: this.plugin.scenarioId,
           contextVersion: this.state.getContextVersion(),
-          timestamp: nowIso,
+          timestamp: preS2NowIso,
           triggerKind,
           requestedLevel,
           activeGoal: targetCtx.goal,
@@ -643,40 +681,52 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
       throw error;
     }
 
-    this.pipeline?.recordStageDuration('slow_reasoning', s2Result.latencyMs, nowIso);
+    const postS2NowMs = this.clock.now();
+    const postS2NowIso = msToIso(postS2NowMs);
+    this.pipeline?.recordStageDuration('slow_reasoning', s2Result.latencyMs, postS2NowIso);
+    const anchoredCandidate = s2Result.candidate
+      ? this.reanchorCandidateLifetime(s2Result.candidate, preS2NowMs, postS2NowMs)
+      : undefined;
+    const s2Usage = s2Result.usage ? { ...s2Result.usage, correlationId } : undefined;
+    const s2ResultWithCorr = {
+      ...s2Result,
+      ...(anchoredCandidate ? { candidate: anchoredCandidate } : {}),
+      ...(s2Usage ? { usage: s2Usage } : {}),
+    };
     const telemetryAfterS2 = this.state.recordTelemetry(
       'system2',
       s2Result.latencyMs,
-      s2Result.usage,
+      s2Usage,
       s2Result.backend,
-      nowMs,
+      postS2NowMs,
     );
     this.send(
-      { type: 'system2.candidate', payload: s2Result },
-      { stage: 'slow_reasoning', correlationId, occurredAt: nowIso },
+      { type: 'system2.candidate', payload: s2ResultWithCorr },
+      { stage: 'slow_reasoning', correlationId, occurredAt: postS2NowIso },
     );
     this.send(
       { type: 'telemetry.updated', payload: telemetryAfterS2 },
-      { stage: 'slow_reasoning', correlationId, occurredAt: nowIso },
+      { stage: 'slow_reasoning', correlationId, occurredAt: postS2NowIso },
     );
 
     let finalDecision: ControllerDecision | undefined;
-    if (s2Result.candidate) {
-      this.state.upsertCandidate(s2Result.candidate, nowMs);
-      this.plugin.onCandidatePrepared?.(s2Result.candidate);
+    if (anchoredCandidate) {
+      this.state.upsertCandidate(anchoredCandidate, postS2NowMs);
+      this.plugin.onCandidatePrepared?.(anchoredCandidate);
       const outcome = this.controller.evaluateCandidates({
         sessionId: this.sessionId,
         state: this.state,
         context: this.context,
-        candidates: [s2Result.candidate, ...this.state.getPendingCandidates()],
+        candidates: [anchoredCandidate, ...this.state.getPendingCandidates()],
         signals,
-        now: nowMs,
+        now: postS2NowMs,
       });
-      this.dispatchControllerOutcome(outcome, nowMs, correlationId);
+      this.dispatchControllerOutcome(outcome, postS2NowMs, correlationId);
       finalDecision = outcome.decision;
+      this.lastEvaluatedSilenceSegId = segment.segmentId;
     }
 
-    this.emitStateAndProjection(nowMs, correlationId);
+    this.emitStateAndProjection(postS2NowMs, correlationId);
     return { segment, ...(finalDecision ? { decision: finalDecision } : {}) };
   }
 
@@ -749,36 +799,46 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
 
     const targetCtx = this.plugin.getTargetContextSnapshot();
     const expectedPoints = this.plugin.getExpectedPoints();
-    const verdict = await this.fastDecision.evaluate({
-      sessionId: this.sessionId,
-      scenarioId: this.plugin.scenarioId,
-      contextVersion: this.state.getContextVersion(),
-      timestamp: nowIso,
-      activeGoal: targetCtx.goal,
-      activeChapterId: targetCtx.chapterId,
-      activeChapterTitle: targetCtx.chapterTitle,
-      expectedPoints,
-      recentSegments: this.context.getRecentSegments(6),
-      recentTextDigest: this.context.getRecentTextDigest(),
-      silenceDurationMs: computedSilence,
-      activeCandidate: this.state.getActiveCandidate() ?? undefined,
-      activeIntervention: this.state.getActiveIntervention() ?? undefined,
-    });
-    const telemetry = this.state.recordTelemetry(
-      'system1',
-      verdict.latencyMs,
-      verdict.usage,
-      verdict.backend,
-      nowMs,
-    );
-    this.send(
-      { type: 'system1.verdict', payload: verdict },
-      { stage: 'fast_decision', correlationId, occurredAt: nowIso },
-    );
-    this.send(
-      { type: 'telemetry.updated', payload: telemetry },
-      { stage: 'fast_decision', correlationId, occurredAt: nowIso },
-    );
+    const needsFastEval =
+      this.fastDecision.mode === 'local_fallback' ||
+      isExplicitCallerTick ||
+      firstPauseCheckForSegment;
+
+    let verdict;
+    if (needsFastEval) {
+      verdict = await this.fastDecision.evaluate({
+        sessionId: this.sessionId,
+        scenarioId: this.plugin.scenarioId,
+        contextVersion: this.state.getContextVersion(),
+        timestamp: nowIso,
+        activeGoal: targetCtx.goal,
+        activeChapterId: targetCtx.chapterId,
+        activeChapterTitle: targetCtx.chapterTitle,
+        expectedPoints,
+        recentSegments: this.context.getRecentSegments(6),
+        recentTextDigest: this.context.getRecentTextDigest(),
+        silenceDurationMs: computedSilence,
+        activeCandidate: this.state.getActiveCandidate() ?? undefined,
+        activeIntervention: this.state.getActiveIntervention() ?? undefined,
+      });
+      const tickVerdictUsage = verdict.usage ? { ...verdict.usage, correlationId } : undefined;
+      const tickVerdictWithCorr = tickVerdictUsage ? { ...verdict, usage: tickVerdictUsage } : verdict;
+      const telemetry = this.state.recordTelemetry(
+        'system1',
+        verdict.latencyMs,
+        tickVerdictUsage,
+        verdict.backend,
+        nowMs,
+      );
+      this.send(
+        { type: 'system1.verdict', payload: tickVerdictWithCorr },
+        { stage: 'fast_decision', correlationId, occurredAt: nowIso },
+      );
+      this.send(
+        { type: 'telemetry.updated', payload: telemetry },
+        { stage: 'fast_decision', correlationId, occurredAt: nowIso },
+      );
+    }
 
     const candidateList: Candidate[] = [...pendingCandidates];
     if (pluginTick.triggerCandidate) {
@@ -809,28 +869,37 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
     }
 
     if (candidateList.length === 0) {
+      if (!verdict) {
+        this.emitStateAndProjection(nowMs, correlationId);
+        return null;
+      }
+      const hasSemanticTrigger =
+        verdict.signals.semanticOmission || verdict.signals.topicDrift || verdict.signals.openQuestion;
+      const probeCandidates: Candidate[] = hasSemanticTrigger
+        ? []
+        : [
+            {
+              candidateId: `cand_probe_pause_${nowMs}`,
+              sessionId: this.sessionId,
+              level: 'L1',
+              title: 'Pause Probe',
+              cueText: 'Continue when ready.',
+              priority: 10,
+              ttlMs: 1_000,
+              expiresAt: msToIso(nowMs + 1_000),
+              contextVersion: this.state.getContextVersion(),
+              evidenceIds: [],
+              basedOnSegmentId: lastSegId,
+              status: 'pending',
+              kind: 'omission_cue',
+              grounded: true,
+            },
+          ];
       const decision = this.controller.evaluateCandidates({
         sessionId: this.sessionId,
         state: this.state,
         context: this.context,
-        candidates: [
-          {
-            candidateId: `cand_probe_pause_${nowMs}`,
-            sessionId: this.sessionId,
-            level: 'L1',
-            title: 'Pause Probe',
-            cueText: 'Continue when ready.',
-            priority: 10,
-            ttlMs: 1_000,
-            expiresAt: msToIso(nowMs + 1_000),
-            contextVersion: this.state.getContextVersion(),
-            evidenceIds: [],
-            basedOnSegmentId: lastSegId,
-            status: 'pending',
-            kind: 'omission_cue',
-            grounded: true,
-          },
-        ],
+        candidates: probeCandidates,
         signals: {
           verdict,
           silenceMs: computedSilence,
@@ -856,13 +925,13 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
       context: this.context,
       candidates: candidateList,
       signals: {
-        verdict,
+        ...(verdict ? { verdict } : {}),
         silenceMs: computedSilence,
-        semanticGap: verdict.signals.semanticOmission,
-        drift: verdict.signals.topicDrift,
-        openQuestion: verdict.signals.openQuestion,
+        semanticGap: verdict ? verdict.signals.semanticOmission : Boolean(pluginTick.triggerCandidate),
+        drift: verdict ? verdict.signals.topicDrift : false,
+        openQuestion: verdict ? verdict.signals.openQuestion : false,
         manualHelp: false,
-        recovery: verdict.recoveryDetected,
+        recovery: verdict ? verdict.recoveryDetected : false,
       },
       now: nowMs,
     });
@@ -959,23 +1028,34 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
       basedOnSegmentId: this.context.getLastSegmentId(),
     });
 
+    const postS2NowMs = this.clock.now();
+    const postS2NowIso = msToIso(postS2NowMs);
+    const anchoredCandidate = s2Result.candidate
+      ? this.reanchorCandidateLifetime(s2Result.candidate, nowMs, postS2NowMs)
+      : undefined;
+    const manualS2Usage = s2Result.usage ? { ...s2Result.usage, correlationId } : undefined;
+    const manualS2WithCorr = {
+      ...s2Result,
+      ...(anchoredCandidate ? { candidate: anchoredCandidate } : {}),
+      ...(manualS2Usage ? { usage: manualS2Usage } : {}),
+    };
     const telemetry = this.state.recordTelemetry(
       'system2',
       s2Result.latencyMs,
-      s2Result.usage,
+      manualS2Usage,
       s2Result.backend,
-      nowMs,
+      postS2NowMs,
     );
     this.send(
-      { type: 'system2.candidate', payload: s2Result },
-      { stage: 'slow_reasoning', correlationId, occurredAt: nowIso },
+      { type: 'system2.candidate', payload: manualS2WithCorr },
+      { stage: 'slow_reasoning', correlationId, occurredAt: postS2NowIso },
     );
     this.send(
       { type: 'telemetry.updated', payload: telemetry },
-      { stage: 'slow_reasoning', correlationId, occurredAt: nowIso },
+      { stage: 'slow_reasoning', correlationId, occurredAt: postS2NowIso },
     );
 
-    if (!s2Result.candidate) {
+    if (!anchoredCandidate) {
       const outcome = this.controller.evaluateCandidates({
         sessionId: this.sessionId,
         state: this.state,
@@ -989,22 +1069,22 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
           manualHelp: true,
           recovery: false,
         },
-        now: nowMs,
+        now: postS2NowMs,
       });
       this.send(
         { type: 'controller.decision', payload: outcome.decision },
-        { stage: 'controller', correlationId, occurredAt: nowIso },
+        { stage: 'controller', correlationId, occurredAt: postS2NowIso },
       );
-      this.emitStateAndProjection(nowMs, correlationId);
+      this.emitStateAndProjection(postS2NowMs, correlationId);
       return outcome.decision;
     }
 
-    this.state.upsertCandidate(s2Result.candidate, nowMs);
+    this.state.upsertCandidate(anchoredCandidate, postS2NowMs);
     const outcome = this.controller.evaluateCandidates({
       sessionId: this.sessionId,
       state: this.state,
       context: this.context,
-      candidates: [s2Result.candidate],
+      candidates: [anchoredCandidate],
       signals: {
         silenceMs: 0,
         semanticGap: true,
@@ -1013,11 +1093,33 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
         manualHelp: true,
         recovery: false,
       },
-      now: nowMs,
+      now: postS2NowMs,
     });
-    this.dispatchControllerOutcome(outcome, nowMs, correlationId);
-    this.emitStateAndProjection(nowMs, correlationId);
+    this.dispatchControllerOutcome(outcome, postS2NowMs, correlationId);
+    this.emitStateAndProjection(postS2NowMs, correlationId);
     return outcome.decision;
+  }
+
+  /**
+   * Shifts newly synthesized candidate TTL forward by async System 2 inference latency so a slow
+   * remote LLM call never returns an already-expired candidate while preserving ManualClock tests.
+   */
+  private reanchorCandidateLifetime(
+    candidate: Candidate,
+    preSynthesisMs: number,
+    postSynthesisMs: number,
+  ): Candidate {
+    const elapsedMs = Math.max(0, postSynthesisMs - preSynthesisMs);
+    if (elapsedMs === 0) return candidate;
+    const createdMs = isoToMs(candidate.createdAt, preSynthesisMs);
+    const expiresMs = isoToMs(candidate.expiresAt, 0);
+    if (expiresMs <= createdMs) return candidate;
+    const ttlMs = candidate.ttlMs > 0 ? candidate.ttlMs : expiresMs - createdMs;
+    return {
+      ...candidate,
+      createdAt: msToIso(postSynthesisMs),
+      expiresAt: msToIso(postSynthesisMs + ttlMs),
+    };
   }
 
   setChapter(chapterId: string, correlationId?: string): void {

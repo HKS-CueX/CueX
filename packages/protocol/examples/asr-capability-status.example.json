@@ -1,0 +1,13 @@
+{
+  "backend": "colab-gpu-asr",
+  "mode": "colab_gpu",
+  "available": true,
+  "streaming": true,
+  "detail": "Colab G4 GPU streaming ASR ready",
+  "lifecycleState": "ready",
+  "gpuName": "NVIDIA L4",
+  "modelId": "iic/SenseVoiceSmall",
+  "rtf": 0.08,
+  "lastHealthCheckAt": "2026-11-16T05:52:00.000Z",
+  "fallbackActive": false
+}

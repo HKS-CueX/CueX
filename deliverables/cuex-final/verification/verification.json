@@ -1,0 +1,267 @@
+{
+  "schemaVersion": "cuex-phase3-qa-verification-v1",
+  "verifiedAt": "2026-11-16T00:05:30.000Z",
+  "branch": "refactor/universal-runtime-presentation",
+  "baseMainCommit": "96cd742523d5b0fea5aafdb65944d421938a0a43",
+  "priorCommits": [
+    "e2cb6370a8df68f77440d6d0a09adaf4fa98d66f",
+    "6804f5a2788f809f3c8f466c612cdf1f5e65bfb4",
+    "7ad6ccb1caf4d8c6743bc0c22a3dcd981c719d04"
+  ],
+  "verifier": "qa-verifier",
+  "silentValidationOnly": true,
+  "notLiveHumanRoomRecording": true,
+  "gates": {
+    "frozenLockfileInstall": {
+      "command": "pnpm install --frozen-lockfile",
+      "exitCode": 0,
+      "durationMs": 394,
+      "passed": true
+    },
+    "workspaceTypecheck": {
+      "command": "pnpm typecheck",
+      "exitCode": 0,
+      "errors": 0,
+      "passed": true
+    },
+    "webProductionBuild": {
+      "command": "pnpm build",
+      "exitCode": 0,
+      "modulesTransformed": 1678,
+      "durationMs": 947,
+      "jsBundleKb": 460.47,
+      "cssBundleKb": 31.14,
+      "passed": true
+    },
+    "protocolTests": {
+      "command": "pnpm --filter @cuex/protocol test",
+      "total": 13,
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 128.25,
+      "evidencePath": "docs/engineering/TEST_REPORT.md"
+    },
+    "serverOfflineTests": {
+      "command": "CUEX_TEST_OFFLINE=1 pnpm --filter @cuex/server test",
+      "suites": 12,
+      "total": 34,
+      "passed": 34,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 748.06,
+      "evidencePath": "docs/engineering/TEST_REPORT.md"
+    },
+    "webUnitTests": {
+      "command": "pnpm --filter @cuex/web test",
+      "files": 2,
+      "total": 10,
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 123,
+      "evidencePath": "docs/design/FRONTEND_QA_REPORT.md"
+    },
+    "playwrightBrowserE2E": {
+      "command": "CUEX_TEST_OFFLINE=1 node --test apps/web/test/presentation-e2e.test.mjs",
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "durationMs": 5202.57,
+      "muteAudio": true,
+      "evidencePath": "apps/web/test/presentation-e2e.test.mjs"
+    },
+    "offlinePresentationEval": {
+      "command": "pnpm --filter @cuex/server eval",
+      "generatedAt": "2026-11-15T23:53:22.971Z",
+      "total": 6,
+      "passed": 6,
+      "failed": 0,
+      "skipped": 0,
+      "avgLatencyMs": 0.88,
+      "p50LatencyMs": 0.66,
+      "p95LatencyMs": 1.66,
+      "precision": 1,
+      "falseInterventionRate": 0,
+      "withdrawalAccuracy": 1,
+      "totalNetUtilityV": 3,
+      "totalTokens": 0,
+      "localRuleEvaluations": 13,
+      "measurementSource": "local_rule_zero",
+      "evidencePath": "deliverables/cuex-final/evidence/evaluation-results.md"
+    },
+    "dbBackupRestoreSelfTest": {
+      "command": "node scripts/db-backup-restore.mjs --self-test",
+      "exitCode": 0,
+      "checksum": "009276f575db76cb212366c5359c1e6936ea8f8936360e6beac0335490f6545e",
+      "passed": true
+    },
+    "colabAsrLiveHealthcheck": {
+      "command": "python3 infra/colab/healthcheck.py --env-file .cuex-runtime/.env.phase3.local --verify-auth",
+      "exitCode": 0,
+      "healthStatus": 200,
+      "readyStatus": 200,
+      "unauthStatus": 401,
+      "lifecycleState": "ready",
+      "model": "FunAudioLLM/SenseVoiceSmall",
+      "gpuName": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+      "cudaVersion": "13.0",
+      "vramUsedMiB": 2425.6,
+      "vramTotalMiB": 97250.1,
+      "uptimeSec": 7155.79,
+      "evidencePath": "deliverables/cuex-final/mandatory/ai-employee-demo/evidence/colab-asr-report.json"
+    },
+    "cpaLiveSanityAndMatrix": {
+      "sanityPingOk": true,
+      "sanityModel": "gemini-4-hydrogen",
+      "sanityEndpoint": "responses",
+      "sanityLatencyMs": 3054,
+      "reportValidatedAt": "2026-11-15T23:29:37.171Z",
+      "requestCount": 21,
+      "successCount": 18,
+      "errorCount": 3,
+      "s1Benchmark": {
+        "gemini-4-hydrogen": { "passed": 6, "total": 6, "accuracy": 1, "p50LatencyMs": 4162, "p95LatencyMs": 5309 },
+        "gemini-3.5-flash-lite": { "passed": 4, "total": 6, "accuracy": 0.6667, "p50LatencyMs": 1511, "p95LatencyMs": 1638 }
+      },
+      "mainPipelineTokens": {
+        "calls": 12,
+        "inputTokens": 5904,
+        "outputTokens": 9495,
+        "reasoningTokens": 7126,
+        "totalTokens": 15399,
+        "usageSource": "provider_reported",
+        "costFen": 0
+      },
+      "evidencePath": "deliverables/cuex-final/mandatory/ai-employee-demo/evidence/cpa-llm-report.json"
+    },
+    "realE2eValidation": {
+      "validatedAt": "2026-11-15T23:27:42.641Z",
+      "scenariosTotal": 14,
+      "scenariosPassed": 14,
+      "scenariosFailed": 0,
+      "scenariosSkipped": 0,
+      "colabBatchClips": 14,
+      "colabBatchTotalDurationSec": 225.344,
+      "colabBatchAvgInferMs": 52.57,
+      "colabBatchP95InferMs": 89.59,
+      "colabBatchOverallRtf": 0.00327,
+      "colabBatchMeanClipCer": 0.0867,
+      "evidencePath": "deliverables/cuex-final/mandatory/ai-employee-demo/evidence/real-e2e-validation.json"
+    },
+    "frontendVisualA11yQA": {
+      "viewportsTested": [1440, 1280, 1024, 768, 390, 360],
+      "viewportChecksPassed": 42,
+      "viewportChecksTotal": 42,
+      "a11yLandmarksPassed": 9,
+      "a11yLandmarksTotal": 9,
+      "lintHomeViewFail": 0,
+      "lintHomeViewWarn": 0,
+      "evidencePath": "docs/design/FRONTEND_QA_REPORT.md"
+    },
+    "metricsAndDeliverablesSync": {
+      "command": "npm --prefix ppt run verify:sync",
+      "exitCode": 0,
+      "ok": true,
+      "scannedFiles": 45,
+      "errors": 0,
+      "warnings": 0,
+      "evidencePath": "deliverables/cuex-final/evidence/verification.json"
+    },
+    "legacyDomainAndPublicDataChecks": {
+      "legacyGuardExit": 0,
+      "legacyFindings": 0,
+      "publicDataExit": 0,
+      "publicDataFindings": 0,
+      "sbomCommand": "node scripts/generate-sbom.mjs",
+      "sbomWorkspaces": 5,
+      "sbomComponents": 751,
+      "sbomArtifacts": 151,
+      "evidencePath": "deliverables/cuex-final/sbom-and-checksums.json"
+    },
+    "dependencyAudit": {
+      "highSeverityCommand": "pnpm audit --audit-level=high",
+      "highSeverityExitCode": 0,
+      "fullAuditCommand": "pnpm audit",
+      "fullAuditExitCode": 1,
+      "advisoryCount": 1,
+      "lowSeverityAdvisory": "GHSA-73rr-hh4g-fpgx (apps/server > diff@8.0.2, patched >=8.0.3)"
+    }
+  },
+  "pdfChecks": [
+    {
+      "path": "deliverables/cuex-final/mandatory/business-model-canvas/CueX-Business-Model-Canvas.pdf",
+      "expectedPages": 2,
+      "actualPages": 2,
+      "sizePts": "841.92x594.96",
+      "passed": true
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-job-spec/CueX-AI-Employee-Job-Specification.pdf",
+      "expectedPages": 1,
+      "actualPages": 1,
+      "sizePts": "594.96x841.92",
+      "passed": true
+    },
+    {
+      "path": "deliverables/cuex-final/pitch/CueX-BP.pdf",
+      "expectedPages": 8,
+      "actualPages": 8,
+      "sizePts": "1440.00x810.00",
+      "passed": true
+    },
+    {
+      "path": "deliverables/cuex-final/business/CueX-Business-Plan.pdf",
+      "expectedPages": 8,
+      "actualPages": 8,
+      "sizePts": "1440.00x810.00",
+      "passed": true
+    },
+    {
+      "path": "deliverables/cuex-final/business/CueX-AI-Employee-Job-Spec.pdf",
+      "expectedPages": 1,
+      "actualPages": 1,
+      "sizePts": "594.96x840.00",
+      "passed": true
+    },
+    {
+      "path": "deliverables/cuex-final/business/CueX-Business-Model-Canvas.pdf",
+      "expectedPages": 1,
+      "actualPages": 1,
+      "sizePts": "841.92x594.00",
+      "passed": true
+    },
+    {
+      "path": "deliverables/cuex-final/business/CueX-Unit-Economics.pdf",
+      "expectedPages": 1,
+      "actualPages": 1,
+      "sizePts": "841.92x594.00",
+      "passed": true
+    },
+    {
+      "path": "deliverables/cuex-final/business/CueX-BMC-and-Unit-Economics.pdf",
+      "expectedPages": 2,
+      "actualPages": 2,
+      "sizePts": "841.92x594.00",
+      "passed": true
+    },
+    {
+      "path": "deliverables/cuex-final/business/CueX-Competitive-Analysis.pdf",
+      "expectedPages": 2,
+      "actualPages": 2,
+      "sizePts": "841.92x594.96",
+      "passed": true
+    }
+  ],
+  "userObservationStatus": {
+    "category6RealUserObservation": "planned_not_yet_conducted",
+    "livePaidOrders": 0
+  },
+  "packaging": {
+    "packageArchiveInsideDeliverables": "deliverables/cuex-final/CueX-Universal-Presentation-Final.zip",
+    "packageArchiveRoot": "CueX-Universal-Presentation-Final.zip",
+    "sha256Manifest": "deliverables/cuex-final/verification/SHA256SUMS.txt",
+    "selfInclusionPrevented": true
+  }
+}

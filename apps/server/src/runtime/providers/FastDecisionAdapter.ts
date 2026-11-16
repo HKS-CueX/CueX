@@ -1,16 +1,18 @@
-import type {
-  CognitiveAttentionState,
-  FastDecisionInput,
-  FastDecisionVerdict,
-  InterventionLevel,
-  InterventionNeed,
-  SpeakerIntent,
+import {
+  nowUtcIso8601,
+  type CognitiveAttentionState,
+  type FastDecisionInput,
+  type FastDecisionVerdict,
+  type InterventionLevel,
+  type InterventionNeed,
+  type SpeakerIntent,
 } from '@cuex/protocol';
 import { wrapUntrustedPromptBlock } from '../../security';
 import { LlamaSystemOne, type TokenDecisionClient } from '../../system1';
 import { computeTermOverlap, tokenizeBilingual } from '../RetrievalProvider';
 import { isoToMs } from '../time';
-import type { FastDecisionProvider } from '../types';
+import type { FastDecisionProvider, ProviderHealthStatus } from '../types';
+import { CpaClient, CpaFastDecisionProvider, resolveCpaConfig } from './CpaProviderAdapter';
 import { ProviderResilience } from './ProviderResilience';
 
 const RECOVERY_CUE_RE =
@@ -22,9 +24,18 @@ const HESITATION_CUE_RE =
 const TRANSITION_WRAP_RE =
   /(?:差不多就是这些|这部分先讲到这|进入下一|下面我们直接看|好[,]?接下来看下|先到这里)/;
 const AUDIENCE_QUESTION_RE =
-  /[?？]$|(?:请问|评委|听众|我想问|能否(?:解释|说明|提供)|延迟(?:是|大概)?多少|成本多少|准确率多少|怎么验证|凭什么|有什么(?:边界|缺陷|限制)|为什么选择)/;
+  /[?？]$|(?:请问|打断一下|我想问|请问一下|想请问|评委(?:提问|想问|问)|听众(?:提问|想问)|能否(?:解释|说明|提供)|延迟(?:是|大概)?多少|成本多少|准确率多少|怎么验证|凭什么|有什么(?:边界|缺陷|限制)|为什么选择)/;
 const RHETORICAL_HOOK_RE =
   /^(?:大家|各位)?(?:有没有|是不是)?(?:遇到过|想过|好奇|想象一下)/;
+export const PRESENTER_GREETING_RE =
+  /^(?:各位|尊敬的|现场的)?(?:评委|老师|嘉宾|听众|朋友们|大家)(?:们)?(?:好|大家好|上午好|下午好|晚上好)|^(?:大家好|各位好|谢谢大家|感谢各位|欢迎各位|欢迎大家)/;
+
+/**
+ * Returns true when an utterance begins with a standard presenter opening greeting or thank-you.
+ */
+export function isPresenterGreetingText(text: string): boolean {
+  return PRESENTER_GREETING_RE.test(text.trim());
+}
 
 let heuristicSeq = 0;
 
@@ -37,8 +48,14 @@ export class HeuristicFastDecisionProvider implements FastDecisionProvider {
   readonly backend = 'local-heuristic-s1';
   readonly mode = 'local_fallback' as const;
 
-  async health(): Promise<{ ok: boolean; detail?: string }> {
-    return { ok: true, detail: 'Deterministic local fast-decision rules ready (0 tokens).' };
+  async health(): Promise<ProviderHealthStatus> {
+    return {
+      ok: true,
+      detail: 'Deterministic local fast-decision rules ready (0 tokens).',
+      provider: this.backend,
+      degraded: false,
+      lastHealthCheckAt: nowUtcIso8601(),
+    };
   }
 
   async evaluate(input: FastDecisionInput, signal?: AbortSignal): Promise<FastDecisionVerdict> {
@@ -80,16 +97,18 @@ export class HeuristicFastDecisionProvider implements FastDecisionProvider {
       `${input.activeGoal} ${input.activeChapterTitle ?? ''} ${input.expectedPoints.map((p) => p.label).join(' ')}`,
     );
 
+    const presenterGreeting = latest?.speaker !== 'audience' && isPresenterGreetingText(latestText);
     const openQuestion = Boolean(
       latest &&
         (latest.speaker === 'audience' ||
-          (AUDIENCE_QUESTION_RE.test(latestText) && !RHETORICAL_HOOK_RE.test(latestText))),
+          (!presenterGreeting && AUDIENCE_QUESTION_RE.test(latestText) && !RHETORICAL_HOOK_RE.test(latestText))),
     );
 
     const explicitDrift = latest?.speaker !== 'audience' && DRIFT_CUE_RE.test(latestText);
     const weakTopicOffshoot = Boolean(
       latest &&
         latest.speaker !== 'audience' &&
+        !presenterGreeting &&
         !openQuestion &&
         tokenizeBilingual(latestText).length >= 5 &&
         goalChapterOverlap.matchedDistinct === 0 &&
@@ -376,12 +395,16 @@ export class FallbackFastDecisionProvider implements FastDecisionProvider {
     return this.lastMode;
   }
 
-  async health(): Promise<{ ok: boolean; detail?: string }> {
+  async health(): Promise<ProviderHealthStatus> {
     const primaryHealth = await this.primary.health();
     if (primaryHealth.ok && !this.lastDegraded) return primaryHealth;
     return {
       ok: false,
       detail: `Degraded to ${this.fallback.backend}: ${primaryHealth.detail ?? this.lastErrorMessage ?? 'primary unavailable'}`,
+      provider: primaryHealth.provider ?? this.fallback.backend,
+      model: primaryHealth.model,
+      degraded: true,
+      lastHealthCheckAt: primaryHealth.lastHealthCheckAt ?? nowUtcIso8601(),
     };
   }
 
@@ -428,8 +451,14 @@ class DegradedConfigFastDecisionProvider implements FastDecisionProvider {
 
   constructor(private readonly missingDetail: string) {}
 
-  async health(): Promise<{ ok: boolean; detail?: string }> {
-    return { ok: false, detail: this.missingDetail };
+  async health(): Promise<ProviderHealthStatus> {
+    return {
+      ok: false,
+      detail: this.missingDetail,
+      provider: this.backend,
+      degraded: true,
+      lastHealthCheckAt: nowUtcIso8601(),
+    };
   }
 
   async evaluate(input: FastDecisionInput, signal?: AbortSignal): Promise<FastDecisionVerdict> {
@@ -455,17 +484,24 @@ class DegradedConfigFastDecisionProvider implements FastDecisionProvider {
 export function createFastDecisionProvider(
   mode: 'fake' | 'real',
   env: NodeJS.ProcessEnv = process.env,
+  opts?: { cpaClient?: CpaClient },
 ): FastDecisionProvider {
   if (mode === 'fake') {
     return new HeuristicFastDecisionProvider();
   }
-  if (!env.CUEX_S1_URL?.trim()) {
+  const client =
+    opts?.cpaClient ??
+    (() => {
+      const cfg = resolveCpaConfig({ env });
+      return cfg ? new CpaClient(cfg) : undefined;
+    })();
+  if (!client) {
     return new DegradedConfigFastDecisionProvider(
-      'CUEX_SYSTEM1=real requested without CUEX_S1_URL; degraded to local heuristic.',
+      'CUEX_SYSTEM1=real requested without CPA credentials (CPA_BASE_URL/CPA_API_KEY or opt-in dev loader); degraded to local heuristic.',
     );
   }
   return new FallbackFastDecisionProvider(
-    new LlamaFastDecisionProvider(new LlamaSystemOne()),
+    new CpaFastDecisionProvider(client),
     new HeuristicFastDecisionProvider(),
   );
 }

@@ -56,133 +56,168 @@ export function renderCoverHtml(metrics, assets) {
 <meta charset="utf-8" />
 <style>
   ${buildFontCss(assets.fonts)}
+  * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
-    margin: 0;
-    padding: 0;
-    width: 1920px;
-    height: 1080px;
-    background: ${C.bg};
-    color: ${C.ink};
+    width: 1920px; height: 1080px; overflow: hidden;
+    background: ${C.bg}; color: ${C.ink};
     font-family: 'CueXSans', 'CueXCJK', 'PingFang SC', sans-serif;
-    overflow: hidden;
+    display: flex; flex-direction: column; position: relative;
   }
-  .frame {
-    position: relative;
-    width: 1920px;
-    height: 1080px;
-    padding: 64px 88px 54px 88px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-  }
-  .topbar {
-    position: absolute;
-    top: 0; left: 0; right: 0; height: 6px;
-    background: linear-gradient(90deg, ${C.amberBright}, ${C.violet});
-  }
+  .top-bar { width: 100%; height: 8px; background: linear-gradient(90deg, ${C.amberBright} 0%, #D96B27 42%, ${C.violet} 100%); flex-shrink: 0; }
+  .wrap { flex: 1; padding: 44px 76px 36px 76px; display: flex; flex-direction: column; justify-content: space-between; }
+  .header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 20px; border-bottom: 1px solid #E5E2D9; }
+  .brand-top { display: flex; align-items: center; gap: 14px; }
+  .brand-top img { width: 34px; height: 34px; display: block; }
+  .eyebrow { font-family: 'CueXMono', monospace; font-size: 14px; font-weight: 700; letter-spacing: 0.14em; color: #5B21B6; }
+  .top-badges { display: flex; align-items: center; gap: 12px; }
+  .badge { font-size: 13px; font-weight: 600; padding: 7px 16px; border-radius: 999px; border: 1px solid #DDD8CE; background: #FFFFFF; color: #474B57; }
+  .badge-amber { border-color: #F2C6A0; background: #FBF0E6; color: #A84B07; }
+  .main { display: grid; grid-template-columns: 1.02fr 1.08fr; gap: 64px; align-items: center; flex: 1; padding: 18px 0; }
+  .left { display: flex; flex-direction: column; gap: 20px; }
+  .wordmark { font-family: 'CueXDisplay', Georgia, 'CueXCJKSerif', serif; font-size: 136px; line-height: 0.94; font-weight: 700; letter-spacing: -0.025em; color: ${C.ink}; }
+  .wordmark span.x { background: linear-gradient(135deg, #E87A24 0%, #D96B27 52%, #7C3AED 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .tagline-cn { font-family: 'CueXCJKSerif', 'Songti SC', serif; font-size: 56px; font-weight: 700; line-height: 1.15; color: ${C.ink}; margin-top: 2px; }
+  .sub-cn { font-size: 28px; font-weight: 400; color: #474B57; line-height: 1.4; }
+  .summary { font-size: 18px; line-height: 1.65; color: #474B57; max-width: 720px; }
+  .pill-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 8px; }
+  .stat-card { background: #FFFFFF; border: 1px solid #E2DFD6; border-radius: 12px; padding: 16px 18px; position: relative; overflow: hidden; }
+  .stat-card::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 4px; border-radius: 0 4px 4px 0; }
+  .stat-card.amber::before { background: #A84B07; }
+  .stat-card.violet::before { background: #7C3AED; }
+  .stat-card.green::before { background: #1F6B52; }
+  .stat-label { font-family: 'CueXMono', monospace; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; margin-bottom: 6px; }
+  .stat-card.amber .stat-label { color: #A84B07; }
+  .stat-card.violet .stat-label { color: #5B21B6; }
+  .stat-card.green .stat-label { color: #1F6B52; }
+  .stat-title { font-size: 17px; font-weight: 700; color: #111318; line-height: 1.35; }
+  .stat-desc { font-size: 13px; color: #626774; margin-top: 4px; }
+  .right-panel { background: #FFFFFF; border: 1px solid #DEDAD0; border-radius: 20px; padding: 26px 28px; display: flex; flex-direction: column; gap: 18px; box-shadow: 0 12px 36px rgba(17, 19, 24, 0.045); }
+  .x-stage { background: #F8F7F3; border: 1px solid #E5E2D9; border-radius: 14px; padding: 20px 22px; }
+  .x-corners { display: flex; justify-content: space-between; align-items: center; }
+  .node { font-size: 13px; font-weight: 600; padding: 7px 14px; border-radius: 8px; border: 1px solid #DFDCD2; background: #FFFFFF; color: #474B57; }
+  .node-active { background: #FBF0E6; border-color: #E8A66D; color: #A84B07; }
+  .node-center { font-family: 'CueXMono', monospace; font-size: 12px; color: #474B57; text-align: center; }
+  .x-center { display: flex; align-items: center; justify-content: center; gap: 26px; margin: 16px 0; }
+  .x-center img { width: 164px; height: 164px; }
+  .x-axis-notes { display: flex; flex-direction: column; gap: 10px; max-width: 380px; }
+  .axis-tag { border-left: 3px solid #A84B07; padding: 6px 12px; background: #FFFFFF; border-radius: 0 8px 8px 0; border-top: 1px solid #E8E5DC; border-right: 1px solid #E8E5DC; border-bottom: 1px solid #E8E5DC; }
+  .axis-tag.v { border-left-color: #7C3AED; }
+  .axis-tag.k { border-left-color: #1F6B52; }
+  .axis-k { font-size: 12px; font-weight: 700; color: #111318; }
+  .axis-v { font-size: 12px; color: #474B57; margin-top: 2px; }
+  .triptych { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .shot-card { border: 1px solid #E2DFD6; border-radius: 10px; overflow: hidden; background: #F8F7F3; }
+  .shot-card img { width: 100%; height: 144px; object-fit: cover; object-position: top center; display: block; border-bottom: 1px solid #E2DFD6; }
+  .shot-cap { padding: 8px 10px; display: flex; justify-content: space-between; align-items: center; background: #FFFFFF; }
+  .shot-title { font-size: 12px; font-weight: 700; color: #111318; }
+  .shot-step { font-family: 'CueXMono', monospace; font-size: 12px; color: #5B21B6; font-weight: 700; }
+  .footer { border-top: 1px solid #E5E2D9; padding-top: 16px; display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #626774; }
+  .footer-mono { font-family: 'CueXMono', monospace; font-size: 12px; color: #474B57; }
 </style>
 </head>
 <body>
-<div class="frame">
-  <div class="topbar"></div>
-  <header style="display:flex; justify-content:space-between; align-items:center;">
-    <div style="display:flex; align-items:center; gap:14px;">
-      <img src="${assets.symbolDim}" style="width:42px; height:42px;" />
-      <span style="font-family:'CueXMono',monospace; font-size:15px; font-weight:700; letter-spacing:0.1em; color:${C.violet};">
-        UNIVERSAL COGNITIVE RUNTIME
-      </span>
+  <div class="top-bar"></div>
+  <div class="wrap">
+    <div class="header">
+      <div class="brand-top">
+        <img src="${assets.symbolDim}" />
+        <span class="eyebrow">CUEX · UNIVERSAL COGNITIVE RUNTIME</span>
+      </div>
+      <div class="top-badges">
+        <span class="badge">HKS 2026 · OPC 模式创新赛道</span>
+        <span class="badge badge-amber">FIRST WEDGE · CueX Presentation</span>
+        <span class="badge">TEAM · ${metrics.team.name}</span>
+      </div>
     </div>
-    <div style="display:flex; gap:12px; font-family:'CueXMono',monospace; font-size:13px;">
-      <span style="padding:6px 14px; border-radius:999px; background:${C.tint}; border:1px solid ${C.hairline}; color:${C.ink};">
-        HKS 2026 · OPC 模式创新赛道
-      </span>
-      <span style="padding:6px 14px; border-radius:999px; background:rgba(232,122,36,0.12); border:1px solid rgba(232,122,36,0.35); color:#B8540A; font-weight:700;">
-        TEAM · ${metrics.team.name}
-      </span>
-    </div>
-  </header>
 
-  <main style="display:grid; grid-template-columns:1.1fr 0.9fr; gap:72px; align-items:center;">
-    <div>
-      <div style="font-family:'CueXDisplay',serif; font-size:152px; line-height:0.92; letter-spacing:-0.03em;">
-        Cue<span style="color:${C.amberBright};">X</span>
-      </div>
-      <div style="font-family:'CueXCJKSerif',serif; font-size:54px; font-weight:700; margin-top:20px; line-height:1.18;">
-        你的快思考外挂
-      </div>
-      <div style="font-family:'CueXCJKSerif',serif; font-size:32px; color:${C.muted}; margin-top:14px;">
-        在深度思考之外，接住当下。
-      </div>
-      <p style="font-size:20px; color:${C.muted}; line-height:1.6; margin:28px 0 32px 0; max-width:820px;">
-        以<strong>最小必要干预（L0–L3）</strong>与独立可撤回门控为核心的通用实时认知运行时。<br/>
-        首个商业化落地楔子：<strong>CueX Presentation（演讲与答辩临场引导师）</strong>。
-      </p>
-      <div style="display:flex; gap:16px;">
-        <div style="background:${C.card}; border:1px solid ${C.hairline}; border-left:4px solid ${C.amberBright}; border-radius:12px; padding:14px 20px;">
-          <div style="font-family:'CueXMono',monospace; font-size:12px; color:${C.amber}; font-weight:700;">FIRST WEDGE MVP</div>
-          <div style="font-size:17px; font-weight:700; margin-top:4px;">演讲与答辩临场引导</div>
-        </div>
-        <div style="background:${C.card}; border:1px solid ${C.hairline}; border-left:4px solid ${C.violet}; border-radius:12px; padding:14px 20px;">
-          <div style="font-family:'CueXMono',monospace; font-size:12px; color:${C.violet}; font-weight:700;">CONTROL KERNEL</div>
-          <div style="font-size:17px; font-weight:700; margin-top:4px;">V = H − λI 量化抑制门控</div>
-        </div>
-        <div style="background:${C.card}; border:1px solid ${C.hairline}; border-left:4px solid ${C.sage}; border-radius:12px; padding:14px 20px;">
-          <div style="font-family:'CueXMono',monospace; font-size:12px; color:${C.sage}; font-weight:700;">HORIZON X</div>
-          <div style="font-size:17px; font-weight:700; margin-top:4px;">演讲 · 教学 · 销售 · 社交</div>
+    <div class="main">
+      <div class="left">
+        <div class="wordmark">Cue<span class="x">X</span></div>
+        <div class="tagline-cn">你的快思考外挂</div>
+        <div class="sub-cn">在深度思考之外，接住当下。</div>
+        <p class="summary">
+          面向真实高压即时交流的通用实时认知运行时：<strong>System 1 琥珀快流</strong>识别意图、遗漏与偏题，<strong>System 2 紫晶慢流</strong>严守已确认事实白名单按需推理，<strong>独立控制器（L0–L3）</strong>在余光瞬间介入并在说话人接回主线后自动撤回。
+        </p>
+        <div class="pill-row">
+          <div class="stat-card amber">
+            <div class="stat-label">FIRST WEDGE MVP</div>
+            <div class="stat-title">演讲与答辩临场引导师</div>
+            <div class="stat-desc">场前锁事实 · 场中最小介入 · 场后复盘</div>
+          </div>
+          <div class="stat-card violet">
+            <div class="stat-label">CONTROL KERNEL</div>
+            <div class="stat-title">V = H − λI 量化抑制门控</div>
+            <div class="stat-desc">λ = ${metrics.eval.lambda} 惩罚冗余打扰，撤回免罚分</div>
+          </div>
+          <div class="stat-card green">
+            <div class="stat-label">REAL TELEMETRY LOCKED</div>
+            <div class="stat-title">52.57ms ASR · 14/14 E2E</div>
+            <div class="stat-desc">离线 ${metrics.eval.avgLatencyMs}ms 零 Token · 12 项敏测 ≥80.2%</div>
+          </div>
         </div>
       </div>
+
+      <div class="right-panel">
+        <div class="x-stage">
+          <div class="x-corners">
+            <div class="node node-active">演讲与答辩 · Presentation [已实现]</div>
+            <div class="node">社交 · Social [路线图]</div>
+          </div>
+          <div class="x-center">
+            <img src="${assets.symbolDim}" />
+            <div class="x-axis-notes">
+              <div class="axis-tag">
+                <div class="axis-k">System 1 · 实时感知判定流</div>
+                <div class="axis-v">区分自然停顿与真实卡壳，拒绝纯停顿秒数误报</div>
+              </div>
+              <div class="axis-tag v">
+                <div class="axis-k">System 2 · 实证约束候选流</div>
+                <div class="axis-v">严格绑定 FactWhitelist 依据，未覆盖即诚实标缺口</div>
+              </div>
+              <div class="axis-tag k">
+                <div class="axis-k">Independent Controller · L0–L3</div>
+                <div class="axis-v">Cooling / Ceiling / Self-Retract 独立把关</div>
+              </div>
+            </div>
+          </div>
+          <div class="x-corners">
+            <div class="node">讲课 · Teaching [路线图]</div>
+            <div class="node-center">持续理解 · 适时提示 · 最小干预 · 主动退出</div>
+            <div class="node">销售 · Sales [路线图]</div>
+          </div>
+        </div>
+
+        <div class="triptych">
+          <div class="shot-card">
+            <img src="${assets.uiCompilerFacts}" alt="Pre-Stage Compiler FactWhitelist" />
+            <div class="shot-cap">
+              <span class="shot-title">场前 · FactWhitelist 锁死</span>
+              <span class="shot-step">PRE</span>
+            </div>
+          </div>
+          <div class="shot-card">
+            <img src="${assets.uiStageFocusL2}" alt="Live Stage Focus L2 Cue" />
+            <div class="shot-cap">
+              <span class="shot-title">场中 · L2 关键词余光提示</span>
+              <span class="shot-step">LIVE</span>
+            </div>
+          </div>
+          <div class="shot-card">
+            <img src="${assets.uiReflection}" alt="Post-Stage Reflection" />
+            <div class="shot-cap">
+              <span class="shot-title">场后 · 净效用复盘与单点重练</span>
+              <span class="shot-step">POST</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div style="background:${C.card}; border:1px solid ${C.hairline}; border-radius:26px; padding:42px; height:640px; display:flex; flex-direction:column; justify-content:space-between;">
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <span style="padding:8px 14px; border-radius:10px; background:${C.tintWarm}; border:1px solid rgba(232,122,36,0.35); font-size:15px; font-weight:700; color:#B8540A;">
-          演讲与答辩 · Presentation [已实现]
-        </span>
-        <span style="padding:8px 14px; border-radius:10px; background:${C.tint}; border:1px solid ${C.hairline}; font-size:15px; font-weight:600; color:${C.muted};">
-          社交 · Social [路线图]
-        </span>
-      </div>
-
-      <svg viewBox="0 0 460 360" style="width:100%; max-height:380px;">
-        <defs>
-          <linearGradient id="cAmber" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stop-color="#FFA048" />
-            <stop offset="100%" stop-color="#E87A24" />
-          </linearGradient>
-          <linearGradient id="cViolet" x1="0%" y1="100%" x2="100%" y2="0%">
-            <stop offset="0%" stop-color="#9A96FF" />
-            <stop offset="100%" stop-color="#7C3AED" />
-          </linearGradient>
-        </defs>
-        <path d="M230,180 Q110,110 42,26" stroke="#E87A24" stroke-width="1.8" stroke-dasharray="6 6" fill="none" opacity="0.48" />
-        <path d="M230,180 Q350,110 418,26" stroke="#7C3AED" stroke-width="1.8" stroke-dasharray="6 6" fill="none" opacity="0.35" />
-        <path d="M230,180 Q110,250 42,334" stroke="#7C3AED" stroke-width="1.8" stroke-dasharray="6 6" fill="none" opacity="0.35" />
-        <path d="M230,180 Q350,250 418,334" stroke="#E87A24" stroke-width="1.8" stroke-dasharray="6 6" fill="none" opacity="0.35" />
-        <path d="M90,295 C165,235 295,125 370,65" stroke="url(#cViolet)" stroke-width="28" stroke-linecap="round" fill="none" opacity="0.9" />
-        <path d="M90,65 C165,125 295,235 370,295" stroke="url(#cAmber)" stroke-width="28" stroke-linecap="round" fill="none" opacity="0.94" />
-        <circle cx="230" cy="180" r="28" fill="#F8F7F3" stroke="#111318" stroke-width="3" />
-        <circle cx="230" cy="180" r="9.5" fill="#E87A24" />
-      </svg>
-
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <span style="padding:8px 14px; border-radius:10px; background:${C.tint}; border:1px solid ${C.hairline}; font-size:15px; font-weight:600; color:${C.muted};">
-          讲课 · Teaching [路线图]
-        </span>
-        <span style="font-family:'CueXMono',monospace; font-size:13px; color:${C.ink}; font-weight:700;">
-          持续理解 · 适时提示
-        </span>
-        <span style="padding:8px 14px; border-radius:10px; background:${C.tint}; border:1px solid ${C.hairline}; font-size:15px; font-weight:600; color:${C.muted};">
-          销售 · Sales [路线图]
-        </span>
-      </div>
+    <div class="footer">
+      <div>X，代表任意高压即时场景 · 实时理解，只做最小必要干预</div>
+      <div class="footer-mono">Warm Paper Daylight #F8F7F3 · Amber × Violet Identity · Real Phase 3 Product Captures</div>
     </div>
-  </main>
-
-  <footer style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid ${C.hairline}; padding-top:16px; font-size:15px; color:${C.subtle};">
-    <span>X，代表任意场景 · 实时理解，只做最小必要干预</span>
-    <span style="font-family:'CueXMono',monospace;">Warm Daylight #F8F7F3 · Amber × Violet Identity</span>
-  </footer>
-</div>
+  </div>
 </body>
 </html>`;
 }
@@ -775,11 +810,11 @@ export function renderUnitEconomicsHtml(metrics, assets) {
 
       <div class="card" style="background:${C.tint}; border-left:3.5px solid ${C.sage};">
         <div style="font-size:11.5px; font-weight:800; color:${C.ink}; margin-bottom:4px;">
-          敏感性与防亏损护栏（全 ${metrics.sensitivities.length} 项压测见 docs/business/UNIT_ECONOMICS.md）
+          敏感性与 Phase 3 实测校准（全 ${metrics.sensitivities.length} 项压测 + 5+1 ASR 详见 UNIT_ECONOMICS.md）
         </div>
-        <div style="font-size:10.1px; color:${C.muted}; line-height:1.45;">
-          1. <strong>敏感因子 &amp; 单户上限</strong>：ASR 单价与活跃免费/付费比最敏感；<code>Pro</code> 含 240m/月云 ASR（远低于单户月承受上限 ${base.maxAffordableSessionsPerProMonth} 场）+ 超额切换本地 Sherpa 兜底。<br/>
-          2. <strong>公司级边界</strong>：${metrics.companyBreakeven.statement}；已计提微信/支付宝分渠道费与 ${base.refundRatePct}% 基准退款损耗。
+        <div style="font-size:10px; color:${C.muted}; line-height:1.42;">
+          1. <strong>敏感因子 &amp; 实测 #12 校准</strong>：ASR 单价与免费/付费比最敏感；按实机 CPA <code>gemini-4-hydrogen</code> 分布校准（<code>${metrics.sensitivities[11].calibratedTokensPerSession.toLocaleString()}</code> Tok 全按 S2 计费）：单场 LLM <code>¥${metrics.sensitivities[11].calibratedLlmCostPerSession.toFixed(3)}</code> / 全变动 <code>¥${metrics.sensitivities[11].calibratedFullVarCostPerSession.toFixed(3)}</code>，Pro 贡献率仍稳居 <strong><code>${metrics.sensitivities[11].proDirectMarginPct.toFixed(1)}%</code></strong>（${metrics.sensitivities[11].maxAffordableSessionsPerProMonth}场/月）。<br/>
+          2. <strong>公司级边界与硬帽</strong>：<code>Pro</code> 含 240m/月云 ASR（远低于安全上限 ${base.maxAffordableSessionsPerProMonth} 场）+ 超额切本地 Sherpa 兜底；${metrics.companyBreakeven.statement}。
         </div>
       </div>
     </div>
@@ -798,6 +833,8 @@ export function renderTokenProofHtml(metrics, assets) {
   const C = BASE_COLORS;
   const ev = metrics.eval;
   const base = metrics.scenarios.base;
+  const s12 = metrics.sensitivities[11];
+  const p3 = metrics.phase3RealValidation;
 
   return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -814,7 +851,7 @@ export function renderTokenProofHtml(metrics, assets) {
   }
   .wrap {
     width: 1600px; height: 960px;
-    padding: 46px 58px;
+    padding: 36px 48px;
     display: flex; flex-direction: column; justify-content: space-between;
     position: relative;
   }
@@ -826,73 +863,104 @@ export function renderTokenProofHtml(metrics, assets) {
     background: ${C.card};
     border: 1px solid ${C.hairline};
     border-radius: 14px;
-    padding: 20px 24px;
+    padding: 18px 20px;
   }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="topbar"></div>
-  <header style="display:flex; justify-content:space-between; align-items:flex-end; border-bottom:2px solid ${C.ink}; padding-bottom:14px;">
+  <header style="display:flex; justify-content:space-between; align-items:flex-end; border-bottom:2px solid ${C.ink}; padding-bottom:12px;">
     <div>
-      <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
-        <img src="${assets.symbolDim}" style="width:28px; height:28px;" />
-        <span style="font-family:'CueXMono',monospace; font-size:13px; font-weight:700; color:${C.amber}; letter-spacing:0.06em;">
-          VERIFIABLE TELEMETRY &amp; COST AUDIT · ${ev.sourceLabel}
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:5px;">
+        <img src="${assets.symbolDim}" style="width:26px; height:26px;" />
+        <span style="font-family:'CueXMono',monospace; font-size:12.5px; font-weight:700; color:${C.amber}; letter-spacing:0.06em;">
+          SANITIZED VERIFIABLE TELEMETRY &amp; COST AUDIT · Cat 1 + Cat 3 + Cat 4
         </span>
       </div>
-      <h1 style="margin:0; font-family:'CueXCJKSerif',serif; font-size:27px; font-weight:800; white-space:nowrap;">
-        CueX 干预评估遥测与十项成本核算证明 · Real Local Eval + Modeled Cloud Cost
+      <h1 style="margin:0; font-family:'CueXCJKSerif',serif; font-size:25px; font-weight:800; white-space:nowrap;">
+        CueX 脱敏实机遥测与十项成本校准证明（CPA gemini-4-hydrogen + Colab GPU ASR）
       </h1>
     </div>
-    <div style="text-align:right; font-family:'CueXMono',monospace; font-size:12px; color:${C.muted}; white-space:nowrap; flex-shrink:0;">
-      <div>Script: apps/server/scripts/eval-presentation.ts</div>
-      <div>Data Status: ${metrics.dataStatus} · λ = ${ev.lambda}</div>
+    <div style="text-align:right; font-family:'CueXMono',monospace; font-size:11.5px; color:${C.muted}; white-space:nowrap; flex-shrink:0;">
+      <div>Gateway: cpa:&lt;redacted-host&gt; · Colab TLS+Bearer (redacted)</div>
+      <div>Telemetry: provider_reported (costFen: 0) · Zero Fake Billing · λ = ${ev.lambda}</div>
     </div>
   </header>
 
-  <main style="display:grid; grid-template-columns:1fr 1fr; gap:24px; margin:20px 0; flex:1;">
-    <!-- Left: Measured Eval Metrics -->
+  <main style="display:grid; grid-template-columns:1.08fr 0.92fr; gap:20px; margin:16px 0; flex:1;">
+    <!-- Left: Sanitized Real Phase 3 Telemetry + Inspector Screenshot -->
     <div class="card" style="display:flex; flex-direction:column; justify-content:space-between; border-left:4px solid ${C.violet};">
       <div>
-        <div style="font-family:'CueXMono',monospace; font-size:13px; font-weight:700; color:${C.violet}; margin-bottom:12px;">
-          01 · REAL LOCAL EVAL TELEMETRY（来自本地自动化评测运行输出）
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <span style="font-family:'CueXMono',monospace; font-size:12.5px; font-weight:700; color:${C.violet};">
+            01 · SANITIZED REAL TELEMETRY（真实 Colab ASR + CPA LLM + 离线 Eval JSON）
+          </span>
+          <span style="font-family:'CueXMono',monospace; font-size:11px; color:${C.sage}; font-weight:700;">silentValidationOnly: true</span>
         </div>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+
+        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-bottom:12px;">
           ${[
-            ['测试场景用例数', `${ev.passedCases}/${ev.datasetCases} 全通过`, C.ink],
-            ['干预精确率 (Precision)', `${ev.precision}`, C.sage],
-            ['误打扰率 (False Int.)', `${ev.falseInterventionRate}`, C.amber],
-            ['自动撤回准确率', `${ev.withdrawalAccuracy}`, C.violet],
-            ['本地离线 Eval Token', `${ev.tokensPerSession} (${ev.s1EvaluationsPerSession}次规则)`, C.sage],
-            ['净效用 V = H − λI', `${ev.utilityV}`, C.violet],
-            ['云端 25m 生产建模 Token', `${ev.modeledCloudTokensPerSession.toLocaleString()} tok/场`, C.amber],
-            ['平均 / P95 评估延迟', `${ev.avgLatencyMs} / ${ev.p95LatencyMs} ms`, C.ink],
+            ['CPA 12步主链实耗 Token', `${p3.cpa.mainPipeline.totalTokens.toLocaleString()} tok`, `5,904in / 9,495out (${p3.cpa.mainPipeline.reasoningTokens.toLocaleString()} 推理)`, C.violet],
+            ['S1 网关对比 (gemini-4-hydrogen)', `${p3.cpa.s1Benchmark.gemini4Hydrogen.passed}/${p3.cpa.s1Benchmark.gemini4Hydrogen.total} (100%)`, `vs 3.5-flash-lite 4/6 · costFen: 0`, C.sage],
+            ['Colab RTX PRO 6000 ASR', `${p3.asr.avgInferLatencyMs} ms`, `RTF ${p3.asr.overallRtf} · clip_04 CER 0.0 · WSS ${p3.asr.wssFirstPartialMs}ms`, C.amber],
+            ['Gateway 实机 E2E (Sec 5.2)', `${p3.e2e.scenariosPassed}/${p3.e2e.scenariosTotal} PASS`, `clip_14 长会话 ${p3.e2e.longSessionClip14.totalTokens.toLocaleString()} tok · 主权 400/201/200/200`, C.ink],
+            ['离线确定性 Eval (Cat 1)', `${ev.passedCases}/${ev.datasetCases} · ${ev.avgLatencyMs}ms`, `${ev.s1EvaluationsPerSession}次本地规则 0 Token · V = ${ev.utilityV}`, C.sage],
+            ['6类评测边界披露', 'TTS+DSP 语料', 'notLiveHumanRoomRecording: true · 0外放', C.muted],
           ]
             .map(
-              ([k, v, col]) => `
-            <div style="background:${C.tint}; border:1px solid ${C.hairline}; border-radius:10px; padding:12px 14px;">
-              <div style="font-size:12px; color:${C.muted};">${k}</div>
-              <div class="tabular" style="font-family:'CueXMono',monospace; font-size:21px; font-weight:800; color:${col}; margin-top:4px;">${v}</div>
+              ([k, v, sub, col]) => `
+            <div style="background:${C.tint}; border:1px solid ${C.hairline}; border-radius:9px; padding:9px 11px;">
+              <div style="font-size:11px; color:${C.muted}; font-weight:600;">${k}</div>
+              <div class="tabular" style="font-family:'CueXMono',monospace; font-size:17px; font-weight:800; color:${col}; margin-top:2px;">${v}</div>
+              <div style="font-size:10.5px; color:${C.muted}; margin-top:2px; line-height:1.25;">${sub}</div>
             </div>
           `
             )
             .join('')}
         </div>
+
+        <div style="display:grid; grid-template-columns:1.12fr 0.88fr; gap:12px; align-items:stretch;">
+          <div style="border:1px solid ${C.hairline}; border-radius:10px; overflow:hidden; background:${C.tint};">
+            <div style="padding:5px 10px; background:${C.bg}; border-bottom:1px solid ${C.hairline}; font-family:'CueXMono',monospace; font-size:10.5px; font-weight:700; color:${C.ink}; display:flex; justify-content:space-between;">
+              <span>真实 UI · Stage Inspector 运行态透视</span>
+              <span style="color:${C.violet};">ui-stage-inspector-1440.png</span>
+            </div>
+            <img src="${assets.uiStageInspector}" style="width:100%; height:228px; object-fit:cover; object-position:top center; display:block;" />
+          </div>
+
+          <div style="background:#161922; color:#E8E6DF; border-radius:10px; padding:12px 13px; font-family:'CueXMono',monospace; font-size:10.8px; line-height:1.48; overflow:hidden;">
+            <div style="color:#FFA048; font-weight:700; margin-bottom:4px;">// Sanitized Evidence Excerpt (Keys/Host Redacted)</div>
+            <div>"schemaVersion": "cpa-llm-report.v2",</div>
+            <div>"gateway": "cpa:&lt;redacted-host&gt;",</div>
+            <div>"primaryModel": "gemini-4-hydrogen",</div>
+            <div>"requests": { "ok": 18, "negGuard": 3 },</div>
+            <div>"mainPipeline12Calls": {</div>
+            <div>&nbsp;&nbsp;"input": 5904, "output": 9495,</div>
+            <div>&nbsp;&nbsp;"reasoningTokens": 7126,</div>
+            <div>&nbsp;&nbsp;"usageSource": "provider_reported",</div>
+            <div>&nbsp;&nbsp;"costFen": 0 <span style="color:#9BA1B0;">// no fake billing</span></div>
+            <div>},</div>
+            <div>"colabSenseVoice": { "rtf": 0.00327, "p95": 89.59 }</div>
+          </div>
+        </div>
       </div>
 
-      <div style="background:${C.tintViolet}; border:1px solid rgba(124,58,237,0.28); border-radius:10px; padding:12px 16px; font-size:13px; color:${C.ink}; line-height:1.5;">
-        <strong>透明披露：</strong>由于 <code>assets/hks/</code> 未附带外部商业云厂商生产账单截图，我们严禁伪造第三方控制台截图；上图数据 100% 源自仓库实测 <code>eval-presentation.ts</code> 输出（完整运行详情与校验哈希见 <code>evaluation-results.md</code>）。
+      <div style="background:${C.tintViolet}; border:1px solid rgba(124,58,237,0.28); border-radius:9px; padding:9px 13px; font-size:11.8px; color:${C.ink}; line-height:1.42; margin-top:10px;">
+        <strong>反造假原则：</strong>CPA 代理仅回传真实 Token 数而 <code>costFen: 0</code>（不附带货币费率），因此右侧商业成本严格以公开云单价独立精算，绝不拼接或伪造第三方计费账单截图。
       </div>
     </div>
 
-    <!-- Right: Modeled Cloud Bridge -->
+    <!-- Right: Modeled Cloud Bridge & Sensitivity #12 Calibration -->
     <div class="card" style="display:flex; flex-direction:column; justify-content:space-between; border-left:4px solid ${C.amberBright};">
       <div>
-        <div style="font-family:'CueXMono',monospace; font-size:13px; font-weight:700; color:${C.amber}; margin-bottom:12px;">
-          02 · MODELED CLOUD COST BRIDGE（基于公开云厂商报价单 10 项全核定）
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <span style="font-family:'CueXMono',monospace; font-size:12.5px; font-weight:700; color:${C.amber};">
+            02 · 10-COMPONENT COST &amp; #12 CPA CALIBRATION
+          </span>
+          <span style="font-family:'CueXMono',monospace; font-size:11px; color:${C.muted};">Base vs Calibrated #12</span>
         </div>
-        <div style="display:flex; flex-direction:column; gap:9px;">
+        <div style="display:flex; flex-direction:column; gap:8px;">
           ${metrics.costComponents10
             .slice(0, 8)
             .map((c) => {
@@ -900,9 +968,9 @@ export function renderTokenProofHtml(metrics, assets) {
               const barPct = Math.min(100, Math.round((v / 0.35) * 100));
               const col = c.id === 5 ? C.sage : c.id === 2 || c.id === 8 ? C.amberBright : C.violet;
               return `
-              <div style="display:grid; grid-template-columns:195px 1fr 86px; align-items:center; gap:12px; font-size:13px;">
+              <div style="display:grid; grid-template-columns:185px 1fr 78px; align-items:center; gap:10px; font-size:12.5px;">
                 <span style="font-weight:700; color:${C.ink};">${c.name}</span>
-                <div style="height:14px; background:${C.tint}; border-radius:7px; overflow:hidden; border:1px solid ${C.hairline};">
+                <div style="height:12px; background:${C.tint}; border-radius:6px; overflow:hidden; border:1px solid ${C.hairline};">
                   <div style="width:${barPct}%; height:100%; background:${col};"></div>
                 </div>
                 <span class="tabular" style="font-family:'CueXMono',monospace; font-weight:700; text-align:right; color:${c.id === 5 ? C.sage : C.ink};">
@@ -913,17 +981,18 @@ export function renderTokenProofHtml(metrics, assets) {
             })
             .join('')}
         </div>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:16px;">
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:12px;">
           ${metrics.costComponents10
             .slice(8, 10)
             .map(
               (c) => `
-            <div style="background:${C.tint}; border:1px solid ${C.hairline}; border-radius:10px; padding:12px 14px; display:flex; justify-content:space-between; align-items:center;">
+            <div style="background:${C.tint}; border:1px solid ${C.hairline}; border-radius:9px; padding:10px 12px; display:flex; justify-content:space-between; align-items:center;">
               <div>
-                <div style="font-size:13px; font-weight:700; color:${C.ink};">${c.name}</div>
-                <div style="font-size:11.5px; color:${C.muted}; margin-top:2px;">${c.shareNote}</div>
+                <div style="font-size:12.5px; font-weight:700; color:${C.ink};">${c.name}</div>
+                <div style="font-size:11px; color:${C.muted}; margin-top:2px;">${c.shareNote}</div>
               </div>
-              <div class="tabular" style="font-family:'CueXMono',monospace; font-size:15px; font-weight:800; color:${c.id === 10 ? C.rust : C.ink};">
+              <div class="tabular" style="font-family:'CueXMono',monospace; font-size:14px; font-weight:800; color:${c.id === 10 ? C.rust : C.ink};">
                 ¥${c.baseMonthly.toFixed(2)}/mo
               </div>
             </div>
@@ -931,26 +1000,37 @@ export function renderTokenProofHtml(metrics, assets) {
             )
             .join('')}
         </div>
+
+        <div style="margin-top:12px; background:${C.tint}; border:1px solid rgba(124,58,237,0.3); border-radius:10px; padding:11px 14px;">
+          <div style="font-family:'CueXMono',monospace; font-size:11.5px; font-weight:700; color:${C.violet}; margin-bottom:4px;">
+            SENSITIVITY #12 · 实测 CPA 思维链分布全按 S2 高价校准
+          </div>
+          <div style="font-size:12px; color:${C.ink}; line-height:1.45;">
+            按实测分布外推 25m 会话 <strong><code>${s12.calibratedTokensPerSession.toLocaleString()}</code> Tokens</strong> 并全部按 S2 推理单价（<code>¥2.90 / ¥8.70 per 1M</code>）计价：<br/>
+            • 单场纯 LLM <code>¥${base.llmCostPerSession.toFixed(3)} → ¥${s12.calibratedLlmCostPerSession.toFixed(3)}</code> · 单场全变动 <code>¥${base.fullVarCostPerSession.toFixed(3)} → ¥${s12.calibratedFullVarCostPerSession.toFixed(3)}</code><br/>
+            • Pro 净贡献率：<strong><code>${base.proDirectMarginPct.toFixed(1)}% → ${s12.proDirectMarginPct.toFixed(1)}%</code></strong>（Event <code>${s12.eventMarginPct.toFixed(1)}%</code> / 月上限 <code>${s12.maxAffordableSessionsPerProMonth} 场</code>）
+          </div>
+        </div>
       </div>
 
-      <div style="background:${C.tintWarm}; border:1px solid rgba(232,122,36,0.35); border-radius:12px; padding:14px 18px; display:flex; justify-content:space-between; align-items:center;">
+      <div style="background:${C.tintWarm}; border:1px solid rgba(232,122,36,0.35); border-radius:11px; padding:12px 16px; display:flex; justify-content:space-between; align-items:center;">
         <div>
-          <div style="font-size:13px; color:${C.muted};">单场纯 LLM 仅 ¥${base.llmCostPerSession.toFixed(3)}，叠加流式 ASR 与基础设施后：</div>
-          <div style="font-size:18px; font-weight:800; color:${C.ink}; margin-top:4px;">
-            单场全变动成本 ¥${base.fullVarCostPerSession.toFixed(3)} · Pro 月直接贡献毛利率 ${base.proDirectMarginPct.toFixed(1)}%
+          <div style="font-size:12px; color:${C.muted};">Base 单场全变动 ¥${base.fullVarCostPerSession.toFixed(3)}（ASR 54.4%）；实测校准 #12 下：</div>
+          <div style="font-size:16.5px; font-weight:800; color:${C.ink}; margin-top:3px;">
+            Pro 直接贡献率 ${base.proDirectMarginPct.toFixed(1)}%（校准后 ${s12.proDirectMarginPct.toFixed(1)}%）
           </div>
         </div>
         <div style="text-align:right; font-family:'CueXMono',monospace;">
-          <div style="font-size:11px; color:${C.amber}; font-weight:700;">BASE SCENARIO</div>
-          <div style="font-size:22px; font-weight:800; color:${C.ink};">¥${base.proDirectContrib.toFixed(2)}/mo</div>
+          <div style="font-size:11px; color:${C.amber}; font-weight:700;">BASE / #12 CONTRIB</div>
+          <div style="font-size:19px; font-weight:800; color:${C.ink};">¥${base.proDirectContrib.toFixed(2)} / ¥${s12.proDirectContrib.toFixed(2)}</div>
         </div>
       </div>
     </div>
   </main>
 
-  <footer style="display:flex; justify-content:space-between; border-top:1px solid ${C.hairline}; padding-top:10px; font-size:12.5px; color:${C.subtle};">
-    <span>诚实核算：剥离“纯 LLM 估算”与“全链路云端变动成本（含 ASR / 基建 / 微信支付宝分渠道与退款损耗 / 12:1 活跃免费摊销）”</span>
-    <span style="font-family:'CueXMono',monospace;">evidence/token-usage-proof.png</span>
+  <footer style="display:flex; justify-content:space-between; border-top:1px solid ${C.hairline}; padding-top:8px; font-size:11.8px; color:${C.subtle};">
+    <span>诚实核算：cpa-llm-report.v2 (redacted host/keys, costFen: 0) + colab-asr-report.json + real-e2e-validation.v2 + 10 项全可变成本</span>
+    <span style="font-family:'CueXMono',monospace;">demo/token-usage-proof.png · evidence/token-usage-proof.png</span>
   </footer>
 </div>
 </body>

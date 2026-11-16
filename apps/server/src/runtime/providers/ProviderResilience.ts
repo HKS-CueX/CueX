@@ -152,6 +152,10 @@ export class ProviderResilience {
         if (opts.signal?.aborted) throw error;
         lastError = error;
 
+        if ((error as { retryable?: boolean })?.retryable === false) {
+          break;
+        }
+
         if (attempt + 1 < maxAttempts) {
           const jitter = Math.floor(Math.random() * 40);
           const delayMs = baseDelayMs * 2 ** attempt + jitter;

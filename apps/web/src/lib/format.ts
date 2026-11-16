@@ -2,6 +2,7 @@ import type {
   ApiErrorCode,
   AsrBackendMode,
   AttentionSignal,
+  ColabAsrLifecycleState,
   ControllerAction,
   ControllerSuppressReason,
   InterventionLevel,
@@ -184,10 +185,21 @@ export const ATTENTION_SIGNAL_LABELS: Record<AttentionSignal, string> = {
 };
 
 export const ASR_MODE_LABELS: Record<AsrBackendMode, string> = {
+  colab_gpu: 'Colab GPU 云端流式 ASR',
   local_sherpa: '本地 Sherpa 流式 ASR',
   remote_sherpa: '远端 Sherpa 流式 ASR',
   browser_webspeech: '浏览器 Web Speech API',
   text_simulation: '文本仿真输入（非麦克风 ASR）',
+};
+
+export const COLAB_ASR_LIFECYCLE_LABELS: Record<ColabAsrLifecycleState, string> = {
+  not_configured: '未配置 Colab ASR',
+  starting: 'Colab ASR 启动中',
+  ready: 'Colab GPU 就绪',
+  degraded: 'Colab ASR 性能降级',
+  disconnected: 'Colab ASR 连接断开',
+  restarting: 'Colab ASR 重启恢复中',
+  unavailable: 'Colab ASR 不可用',
 };
 
 export const PACE_STATUS_LABELS: Record<
@@ -211,6 +223,7 @@ export const MEMORY_CATEGORY_LABELS: Record<MemoryCategory, string> = {
 
 export const USAGE_SOURCE_LABELS: Record<TelemetryUsageSource, string> = {
   provider_reported: '模型商实报 (provider_reported)',
+  provider_unreported: '供应商未回传用量（非零消耗）',
   local_rule_zero: '本地规则零 Token (local_rule_zero)',
   estimated: '显式估算 (estimated)',
 };

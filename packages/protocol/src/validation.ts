@@ -2,6 +2,13 @@
  * Zero-dependency strict runtime schema validators for @cuex/protocol.
  */
 
+import {
+  ASR_BACKEND_MODES,
+  COLAB_ASR_LIFECYCLE_STATES,
+  type AsrBackendMode,
+  type AsrCapabilityStatus,
+  type ColabAsrLifecycleState,
+} from '#src/audio';
 import type {
   MemoryCreateInput,
   MemoryPatchInput,
@@ -13,13 +20,14 @@ import type {
   UsageRecord,
 } from '#src/commercial';
 import { PLAN_IDS } from '#src/commercial';
-import type {
-  DataScope,
-  EvidenceLifecycle,
-  InterventionLevel,
-  PrivacyLevel,
-  TelemetryUsage,
-  TelemetryUsageSource,
+import {
+  TELEMETRY_USAGE_SOURCES,
+  type DataScope,
+  type EvidenceLifecycle,
+  type InterventionLevel,
+  type PrivacyLevel,
+  type TelemetryUsage,
+  type TelemetryUsageSource,
 } from '#src/common';
 import type {
   ContextPack,
@@ -41,6 +49,7 @@ import type {
   PresentationSceneType,
   ViewMode,
 } from '#src/presentation';
+import type { ProviderUsageRecord } from '#src/reasoning';
 import type { ScenarioId } from '#src/scenario';
 import type { MoneyAmount, UtcIso8601 } from '#src/versions';
 
@@ -96,11 +105,9 @@ const TRANSCRIPT_SPEAKERS = new Set<TranscriptSpeaker>([
   'interlocutor',
   'unknown',
 ]);
-const TELEMETRY_SOURCES = new Set<TelemetryUsageSource>([
-  'provider_reported',
-  'local_rule_zero',
-  'estimated',
-]);
+const TELEMETRY_SOURCES = new Set<TelemetryUsageSource>(TELEMETRY_USAGE_SOURCES);
+const COLAB_LIFECYCLE_STATE_SET = new Set<ColabAsrLifecycleState>(COLAB_ASR_LIFECYCLE_STATES);
+const ASR_BACKEND_MODE_SET = new Set<AsrBackendMode>(ASR_BACKEND_MODES);
 const USAGE_TYPES = new Set<UsageRecord['usageType']>([
   'session_started',
   'live_audio_ms',
@@ -773,6 +780,9 @@ export function validateTelemetryUsage(value: unknown): ValidationResult<Telemet
       }
     }
   }
+  if (value.reasoningTokens !== undefined && !isNonNegativeInt(value.reasoningTokens)) {
+    addIssue(issues, 'reasoningTokens', 'reasoningTokens must be a non-negative safe integer');
+  }
   return succeedOrFail(value as unknown as TelemetryUsage, issues);
 }
 
@@ -962,3 +972,177 @@ export function validateClientMessage(value: unknown): ValidationResult<ClientMe
   }
   return succeedOrFail(value as unknown as ClientMessage, issues);
 }
+
+export interface ProtocolSchema<T> {
+  validate(value: unknown): ValidationResult<T>;
+  safeParse(
+    value: unknown,
+  ): { success: true; data: T } | { success: false; error: { issues: ValidationIssue[] } };
+  parse(value: unknown): T;
+}
+
+function createProtocolSchema<T>(
+  validator: (value: unknown) => ValidationResult<T>,
+): ProtocolSchema<T> {
+  return {
+    validate: validator,
+    safeParse(value: unknown) {
+      const result = validator(value);
+      return result.ok
+        ? { success: true, data: result.value }
+        : { success: false, error: { issues: result.issues } };
+    },
+    parse(value: unknown): T {
+      const result = validator(value);
+      if (!result.ok) {
+        const first = result.issues[0];
+        throw new TypeError(
+          `Schema validation failed at ${first?.path ?? '$'}: ${first?.message ?? 'invalid payload'}`,
+        );
+      }
+      return result.value;
+    },
+  };
+}
+
+export function validateColabAsrLifecycleState(
+  value: unknown,
+): ValidationResult<ColabAsrLifecycleState> {
+  const issues: ValidationIssue[] = [];
+  if (
+    typeof value !== 'string' ||
+    !COLAB_LIFECYCLE_STATE_SET.has(value as ColabAsrLifecycleState)
+  ) {
+    addIssue(
+      issues,
+      '$',
+      `lifecycleState must be one of: ${COLAB_ASR_LIFECYCLE_STATES.join(', ')}`,
+      'invalid_enum',
+    );
+  }
+  return succeedOrFail(value as ColabAsrLifecycleState, issues);
+}
+
+export const ColabAsrLifecycleStateSchema: ProtocolSchema<ColabAsrLifecycleState> & {
+  readonly values: typeof COLAB_ASR_LIFECYCLE_STATES;
+} = {
+  values: COLAB_ASR_LIFECYCLE_STATES,
+  ...createProtocolSchema(validateColabAsrLifecycleState),
+};
+
+export function validateAsrCapabilityStatus(
+  value: unknown,
+): ValidationResult<AsrCapabilityStatus> {
+  const issues: ValidationIssue[] = [];
+  if (!isPlainObject(value)) {
+    addIssue(issues, '$', 'Expected AsrCapabilityStatus object');
+    return { ok: false, issues };
+  }
+  if (!isNonEmptyString(value.backend)) {
+    addIssue(issues, 'backend', 'backend is required', 'required');
+  }
+  if (typeof value.mode !== 'string' || !ASR_BACKEND_MODE_SET.has(value.mode as AsrBackendMode)) {
+    addIssue(
+      issues,
+      'mode',
+      `mode must be one of: ${ASR_BACKEND_MODES.join(', ')}`,
+      'invalid_enum',
+    );
+  }
+  if (typeof value.available !== 'boolean') {
+    addIssue(issues, 'available', 'available must be a boolean');
+  }
+  if (typeof value.streaming !== 'boolean') {
+    addIssue(issues, 'streaming', 'streaming must be a boolean');
+  }
+  if (typeof value.detail !== 'string') {
+    addIssue(issues, 'detail', 'detail must be a string');
+  }
+  if (
+    value.lifecycleState !== undefined &&
+    !COLAB_LIFECYCLE_STATE_SET.has(value.lifecycleState as ColabAsrLifecycleState)
+  ) {
+    addIssue(
+      issues,
+      'lifecycleState',
+      `lifecycleState must be one of: ${COLAB_ASR_LIFECYCLE_STATES.join(', ')}`,
+      'invalid_enum',
+    );
+  }
+  if (value.gpuName !== undefined && typeof value.gpuName !== 'string') {
+    addIssue(issues, 'gpuName', 'gpuName must be a string');
+  }
+  if (value.modelId !== undefined && typeof value.modelId !== 'string') {
+    addIssue(issues, 'modelId', 'modelId must be a string');
+  }
+  if (value.rtf !== undefined && (!isFiniteNumber(value.rtf) || value.rtf < 0)) {
+    addIssue(issues, 'rtf', 'rtf must be a finite number >= 0');
+  }
+  if (value.lastHealthCheckAt !== undefined && !isUtcIso8601(value.lastHealthCheckAt)) {
+    addIssue(issues, 'lastHealthCheckAt', 'lastHealthCheckAt must be UTC ISO-8601', 'invalid_datetime');
+  }
+  if (value.fallbackActive !== undefined && typeof value.fallbackActive !== 'boolean') {
+    addIssue(issues, 'fallbackActive', 'fallbackActive must be a boolean');
+  }
+  if (value.fallbackReason !== undefined && typeof value.fallbackReason !== 'string') {
+    addIssue(issues, 'fallbackReason', 'fallbackReason must be a string');
+  }
+  return succeedOrFail(value as unknown as AsrCapabilityStatus, issues);
+}
+
+export const AsrCapabilityStatusSchema: ProtocolSchema<AsrCapabilityStatus> & {
+  readonly modes: typeof ASR_BACKEND_MODES;
+  readonly lifecycleStates: typeof COLAB_ASR_LIFECYCLE_STATES;
+} = {
+  modes: ASR_BACKEND_MODES,
+  lifecycleStates: COLAB_ASR_LIFECYCLE_STATES,
+  ...createProtocolSchema(validateAsrCapabilityStatus),
+};
+
+export function validateProviderUsageRecord(
+  value: unknown,
+): ValidationResult<ProviderUsageRecord> {
+  const issues: ValidationIssue[] = [];
+  if (!isPlainObject(value)) {
+    addIssue(issues, '$', 'Expected ProviderUsageRecord object');
+    return { ok: false, issues };
+  }
+  for (const intField of ['inputTokens', 'outputTokens', 'cachedInputTokens', 'modelCalls']) {
+    if (!isNonNegativeInt(value[intField])) {
+      addIssue(issues, intField, `${intField} must be a non-negative safe integer`);
+    }
+  }
+  if (!TELEMETRY_SOURCES.has(value.usageSource as TelemetryUsageSource)) {
+    addIssue(
+      issues,
+      'usageSource',
+      `usageSource must be one of: ${TELEMETRY_USAGE_SOURCES.join(', ')}`,
+      'invalid_enum',
+    );
+  }
+  for (const optIntField of ['reasoningTokens', 'retries', 'costFen']) {
+    if (value[optIntField] !== undefined && !isNonNegativeInt(value[optIntField])) {
+      addIssue(issues, optIntField, `${optIntField} must be a non-negative safe integer`);
+    }
+  }
+  if (value.degraded !== undefined && typeof value.degraded !== 'boolean') {
+    addIssue(issues, 'degraded', 'degraded must be a boolean');
+  }
+  if (value.provider !== undefined && typeof value.provider !== 'string') {
+    addIssue(issues, 'provider', 'provider must be a string');
+  }
+  if (value.model !== undefined && typeof value.model !== 'string') {
+    addIssue(issues, 'model', 'model must be a string');
+  }
+  if (value.correlationId !== undefined && !isNonEmptyString(value.correlationId)) {
+    addIssue(issues, 'correlationId', 'correlationId must be a non-empty string');
+  }
+  return succeedOrFail(value as unknown as ProviderUsageRecord, issues);
+}
+
+export const ProviderUsageRecordSchema: ProtocolSchema<ProviderUsageRecord> & {
+  readonly usageSources: typeof TELEMETRY_USAGE_SOURCES;
+} = {
+  usageSources: TELEMETRY_USAGE_SOURCES,
+  ...createProtocolSchema(validateProviderUsageRecord),
+};

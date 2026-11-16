@@ -1,0 +1,71 @@
+{
+  "packTitle": "CueX Presentation 实机演示事实白名单",
+  "scenarioId": "presentation",
+  "version": "2026-11-phase3",
+  "facts": [
+    {
+      "id": "demo_fact_01",
+      "text": "CueX 首切商业场景为 CueX Presentation（演讲与答辩临场引导师），底层基于 Universal Cognitive Runtime，由 ContextStore、EventBus、System 1、System 2 与独立 InterventionController 组成。",
+      "category": "definition",
+      "source": "cuex-presentation-pitch.md §2",
+      "locked": true,
+      "userConfirmed": true
+    },
+    {
+      "id": "demo_fact_02",
+      "text": "CueX 支持 L0 静默、L1 边缘锚点、L2 关键词与事实卡、L3 结构化要点支架四级克制干预，并内置 7 种自动撤回条件（含说话人自愈 user_recovered）。",
+      "category": "definition",
+      "source": "cuex-presentation-pitch.md §2-3",
+      "locked": true,
+      "userConfirmed": true
+    },
+    {
+      "id": "demo_fact_03",
+      "text": "自然停顿本身不等于卡壳；控制器联合语义遗漏、话题偏移与开放提问信号综合判别，避免纯停顿误报。",
+      "category": "boundary",
+      "source": "cuex-presentation-pitch.md §1",
+      "locked": true,
+      "userConfirmed": true
+    },
+    {
+      "id": "demo_fact_04",
+      "text": "探索性净效用函数定义为 V = H - λI（默认惩罚系数 λ = 2），一次不必要打扰惩罚权重为有效帮助的 2 倍。",
+      "category": "metric",
+      "source": "cuex-presentation-pitch.md §4",
+      "locked": true,
+      "userConfirmed": true
+    },
+    {
+      "id": "demo_fact_05",
+      "text": "商业定价假设：Free ¥0（2 场/月，20 分钟云端 ASR）；Event ¥29/场（14 天有效，120 分钟云端 ASR）；Pro ¥59/月或 ¥499/年（240 分钟云端 ASR）；Team ¥199/席位/月（规划中）。",
+      "category": "metric",
+      "source": "cuex-presentation-pitch.md §4",
+      "locked": true,
+      "userConfirmed": true
+    },
+    {
+      "id": "demo_fact_06",
+      "text": "10 项全成本基准情景下，CueX Event 净贡献率 87.3%，CueX Pro 扣除免费补贴后直接贡献率 83.8%（SaaS 毛利率 92.2%）；公司固定人力盈亏平衡点尚未测算。",
+      "category": "metric",
+      "source": "cuex-presentation-pitch.md §4",
+      "locked": true,
+      "userConfirmed": true
+    },
+    {
+      "id": "demo_fact_07",
+      "text": "首批种子用户验证计划为第 1 轮 20–30 名真实目标用户，第 2 轮扩展至 30–50 人。",
+      "category": "metric",
+      "source": "docs/business/CUSTOMER_VALIDATION.md",
+      "locked": true,
+      "userConfirmed": true
+    },
+    {
+      "id": "demo_fact_08",
+      "text": "个人偏好记忆仅在 userConfirmed 为真时持久化，支持导出 JSON/Markdown 与一键擦除（仅保留最小化计费审计流水）。",
+      "category": "boundary",
+      "source": "cuex-presentation-pitch.md §4",
+      "locked": true,
+      "userConfirmed": true
+    }
+  ]
+}

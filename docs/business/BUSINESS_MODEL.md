@@ -2,7 +2,7 @@
 
 > **事实边界声明**
 > - 本文档系统界定 **CueX（通用实时认知外挂）** 与其首个商业切入点 **`CueX Presentation`（演讲与答辩临场引导师）** 的商业闭环设计。
-> - 全部定价、转化漏斗、留存与获客数字均属于 **`[商业假设]`**；核心评估性能数据（平均 `0.76 ms` / P50 `0.46 ms` / P95 `1.63 ms`、`6/6` 通过率）为 **`[本地实测 Eval]`**；云端成本与支付通道费率基于 **`[云端公开费率]`**（`2026-11-16` 核验）与 **`[模型估算]`**。
+> - 全部定价、转化漏斗、留存与获客数字均属于 **`[商业假设]`**；核心评估性能数据（平均 `0.88 ms` / P50 `0.66 ms` / P95 `1.66 ms`、`6/6` 通过率）为 **`[本地实测 Eval]`**；Phase 3 实机端到端验证数据（Colab GPU `SenseVoiceSmall` 均耗时 `52.57 ms` / `0.00327 RTF`、CPA `gemini-4-hydrogen` S1 `6/6` 与 `14/14` Section 5.2 全场景 E2E）为 **`[Phase 3 实机遥测]`**；云端成本与支付通道费率基于 **`[云端公开费率]`**（`2026-11-16` 核验）与 **`[模型估算]`**。
 > - Phase 2 服务端仅完成 `UsageLedger / Entitlement / PaymentProviderAdapter` 沙盒契约，**尚未开通真实商户收单，当前无真实商业营收**。
 
 ---
@@ -76,6 +76,6 @@
 - 市场需求与客户访谈门槛 → [客户验证方案（CUSTOMER_VALIDATION.md）](CUSTOMER_VALIDATION.md)
 - 12 阶段商业漏斗与增长实验 → [市场进入方案（GTM_PLAN.md）](GTM_PLAN.md)
 - 定价梯度、超限降级与退款边界 → [定价与包装方案（PRICING_AND_PACKAGING.md）](PRICING_AND_PACKAGING.md)
-- 10 项全成本与 11 项敏感性压力测试 → [单位经济模型（UNIT_ECONOMICS.md）](UNIT_ECONOMICS.md)
+- 10 项全成本与 12 项敏感性压力测试（含实测 CPA 思维链校准） → [单位经济模型（UNIT_ECONOMICS.md）](UNIT_ECONOMICS.md)
 - 7 大竞品事实核验与真实壁垒 → [竞品与壁垒分析（COMPETITIVE_ANALYSIS.md）](COMPETITIVE_ANALYSIS.md)
 - 阶段推进门禁与未来适配器扩展 → [产品与商业路线图（ROADMAP.md）](ROADMAP.md)

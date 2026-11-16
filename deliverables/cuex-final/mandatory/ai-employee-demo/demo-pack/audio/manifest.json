@@ -1,0 +1,315 @@
+{
+  "corpusName": "CueX Phase 3 Real Mandarin & Bilingual Audio Corpus",
+  "version": "1.0.0",
+  "sampleCount": 14,
+  "totalDurationSec": 225.344,
+  "format": {
+    "container": "WAV",
+    "encoding": "PCM_S16LE",
+    "sampleRateHz": 16000,
+    "channels": 1
+  },
+  "provenanceDisclosure": {
+    "productionMethod": "macOS neural TTS voices (Tingting, Meijia, Rocko zh_CN) rendered via `say` -> `ffmpeg` 16kHz mono PCM16 WAV + controlled acoustic signal transforms (speed, silence pauses, -16 dB quiet gain, +9 dB soft-clipping, 14-18 dB SNR room noise, dual-speaker interruption).",
+    "notLiveHumanRoomRecording": true,
+    "note": "Transparent controlled evaluation corpus distinct from live in-room human speaker recordings."
+  },
+  "samples": [
+    {
+      "id": "clip_01_intro_natural",
+      "file": "01_intro_natural_tingting.wav",
+      "relativePath": "audio/01_intro_natural_tingting.wav",
+      "category": "natural_speed",
+      "voices": [
+        "Tingting"
+      ],
+      "rateWpm": 185,
+      "transform": "clean_16k_mono",
+      "expectedCueBehavior": "L0_silent",
+      "groundTruth": "各位评委好，我们是记性好了一点团队，带来的产品叫CueX。CueX是在深度思考之外接住当下的快思考外挂，帮助演讲者在台上保持眼神交流与核心表达。",
+      "sampleRate": 16000,
+      "channels": 1,
+      "bitsPerSample": 16,
+      "durationSec": 16.265,
+      "samples": 260239,
+      "sizeBytes": 520522,
+      "peakDbfs": -3.01,
+      "rmsDbfs": -18.14
+    },
+    {
+      "id": "clip_02_pain_point_fast",
+      "file": "02_pain_point_fast_tingting.wav",
+      "relativePath": "audio/02_pain_point_fast_tingting.wav",
+      "category": "fast_speed",
+      "voices": [
+        "Tingting"
+      ],
+      "rateWpm": 245,
+      "transform": "fast_rate_245wpm",
+      "expectedCueBehavior": "L0_silent",
+      "groundTruth": "传统滚动提词器一遇到评委临场打断或跳讲就彻底失灵，而市面上常规副驾驶只要检测到开口就往屏幕里灌满整段回答，人在紧张时分心读字反而丢掉眼神和语流。",
+      "sampleRate": 16000,
+      "channels": 1,
+      "bitsPerSample": 16,
+      "durationSec": 13.248,
+      "samples": 211960,
+      "sizeBytes": 423964,
+      "peakDbfs": -3.01,
+      "rmsDbfs": -17.85
+    },
+    {
+      "id": "clip_03_pauses_fillers",
+      "file": "03_pauses_fillers_meijia.wav",
+      "relativePath": "audio/03_pauses_fillers_meijia.wav",
+      "category": "pauses_and_fillers",
+      "voices": [
+        "Meijia"
+      ],
+      "rateWpm": 180,
+      "transform": "inserted_1.2s_hesitation_pauses",
+      "expectedCueBehavior": "L0_silent_no_false_trigger_on_natural_pause",
+      "groundTruth": "就是说，我们首先打透的第一个商业场景是，嗯那个，CueX Presentation演讲与答辩临场引导师。上台前只要一分钟导入讲稿，就能编译成带原文溯源的证据卡片。",
+      "sampleRate": 16000,
+      "channels": 1,
+      "bitsPerSample": 16,
+      "durationSec": 17.988,
+      "samples": 287801,
+      "sizeBytes": 575646,
+      "peakDbfs": -3.01,
+      "rmsDbfs": -17.92
+    },
+    {
+      "id": "clip_04_numbers_proper_nouns",
+      "file": "04_numbers_proper_nouns_tingting.wav",
+      "relativePath": "audio/04_numbers_proper_nouns_tingting.wav",
+      "category": "numbers_and_proper_nouns",
+      "voices": [
+        "Tingting"
+      ],
+      "rateWpm": 180,
+      "transform": "clean_bilingual_numbers",
+      "expectedCueBehavior": "L0_silent_or_fact_grounded",
+      "groundTruth": "在单位经济模型里，Pro版本定价59元每月或499元每年，含240分钟云端语音配额，Event单场29元含120分钟，基准直接贡献毛利率达到83.8%。",
+      "sampleRate": 16000,
+      "channels": 1,
+      "bitsPerSample": 16,
+      "durationSec": 18.307,
+      "samples": 292911,
+      "sizeBytes": 585866,
+      "peakDbfs": -3.01,
+      "rmsDbfs": -18.6
+    },
+    {
+      "id": "clip_05_architecture_bilingual",
+      "file": "05_architecture_bilingual_meijia.wav",
+      "relativePath": "audio/05_architecture_bilingual_meijia.wav",
+      "category": "bilingual_mixed",
+      "voices": [
+        "Meijia"
+      ],
+      "rateWpm": 180,
+      "transform": "clean_bilingual_tech_terms",
+      "expectedCueBehavior": "L0_silent",
+      "groundTruth": "底层不是写死的演讲提示词，而是Universal Cognitive Runtime通用认知运行时，由ContextStore维护版本号，EventBus驱动System 1和System 2异步协同，再由InterventionController独立门控。",
+      "sampleRate": 16000,
+      "channels": 1,
+      "bitsPerSample": 16,
+      "durationSec": 18.412,
+      "samples": 294585,
+      "sizeBytes": 589214,
+      "peakDbfs": -3.01,
+      "rmsDbfs": -16.21
+    },
+    {
+      "id": "clip_06_quiet_mic_gain",
+      "file": "06_quiet_mic_gain.wav",
+      "relativePath": "audio/06_quiet_mic_gain.wav",
+      "category": "quiet_mic_gain",
+      "voices": [
+        "Tingting"
+      ],
+      "rateWpm": 185,
+      "transform": "gain_-16dB",
+      "expectedCueBehavior": "L2_auto_withdraw_on_recovery",
+      "groundTruth": "当演讲偏离关键锚点或卡壳停顿时，系统先给出L1边缘轻提示，必要时升级到L2关键词锚点，一旦讲者自己接回正轨，提示立即自动撤回。",
+      "sampleRate": 16000,
+      "channels": 1,
+      "bitsPerSample": 16,
+      "durationSec": 15.249,
+      "samples": 243992,
+      "sizeBytes": 488028,
+      "peakDbfs": -19.01,
+      "rmsDbfs": -33.94
+    },
+    {
+      "id": "clip_07_loud_mic_gain",
+      "file": "07_loud_mic_gain_softclip.wav",
+      "relativePath": "audio/07_loud_mic_gain_softclip.wav",
+      "category": "loud_mic_gain",
+      "voices": [
+        "Meijia"
+      ],
+      "rateWpm": 190,
+      "transform": "gain_+9dB_tanh_softclip",
+      "expectedCueBehavior": "L0_silent",
+      "groundTruth": "我们用探索性指标V等于H减去二倍I来衡量每次干预是否真的有效，避免把屏幕变成喋喋不休的聊天窗口。",
+      "sampleRate": 16000,
+      "channels": 1,
+      "bitsPerSample": 16,
+      "durationSec": 10.236,
+      "samples": 163777,
+      "sizeBytes": 327598,
+      "peakDbfs": -0.99,
+      "rmsDbfs": -10.37
+    },
+    {
+      "id": "clip_08_moderate_room_noise",
+      "file": "08_moderate_room_noise.wav",
+      "relativePath": "audio/08_moderate_room_noise.wav",
+      "category": "moderate_background_noise",
+      "voices": [
+        "Tingting"
+      ],
+      "rateWpm": 185,
+      "transform": "additive_room_pink_noise_14dB_SNR",
+      "expectedCueBehavior": "L0_silent",
+      "groundTruth": "散场之后系统自动生成结构化复盘报告，覆盖章节耗时、遗漏重点与未回答问题，个人偏好记忆必须经过人工逐条确认才能保存。",
+      "sampleRate": 16000,
+      "channels": 1,
+      "bitsPerSample": 16,
+      "durationSec": 13.099,
+      "samples": 209582,
+      "sizeBytes": 419208,
+      "peakDbfs": -2.55,
+      "rmsDbfs": -18.49
+    },
+    {
+      "id": "clip_09_speaker_interruption_qa",
+      "file": "09_speaker_interruption_qa.wav",
+      "relativePath": "audio/09_speaker_interruption_qa.wav",
+      "category": "speaker_interruption_qa",
+      "voices": [
+        "Tingting",
+        "Rocko (中文（中国大陆）)"
+      ],
+      "rateWpm": 195,
+      "transform": "dual_speaker_mid_sentence_interruption",
+      "expectedCueBehavior": "L2_or_L3_qa_grounded_cue",
+      "groundTruth": "目前我们的并发长连接成本和流式语音识别已经做了完整核算。打断一下，如果用户用29元单场版本无限彩排把语音识别额度刷爆怎么办？",
+      "sampleRate": 16000,
+      "channels": 1,
+      "bitsPerSample": 16,
+      "durationSec": 12.382,
+      "samples": 198107,
+      "sizeBytes": 396258,
+      "peakDbfs": -3.01,
+      "rmsDbfs": -19.13
+    },
+    {
+      "id": "clip_10_deliberate_omission_demo",
+      "file": "10_deliberate_omission_demo.wav",
+      "relativePath": "audio/10_deliberate_omission_demo.wav",
+      "category": "deliberate_omission",
+      "voices": [
+        "Tingting"
+      ],
+      "rateWpm": 190,
+      "transform": "clean_omission_demo",
+      "expectedCueBehavior": "L2_omission_cue_for_unit_economics",
+      "groundTruth": "刚才介绍了CueX的双系统架构和按场付费模式，接下来我们直接跳到未来九十天市场推广计划，通过社群和校园答辩场景获取第一批三十到五十名种子用户。",
+      "sampleRate": 16000,
+      "channels": 1,
+      "bitsPerSample": 16,
+      "durationSec": 14.966,
+      "samples": 239458,
+      "sizeBytes": 478960,
+      "peakDbfs": -3.01,
+      "rmsDbfs": -18.11
+    },
+    {
+      "id": "clip_11_topic_drift_demo",
+      "file": "11_topic_drift_demo.wav",
+      "relativePath": "audio/11_topic_drift_demo.wav",
+      "category": "topic_drift",
+      "voices": [
+        "Meijia"
+      ],
+      "rateWpm": 185,
+      "transform": "clean_topic_drift_demo",
+      "expectedCueBehavior": "L1_or_L2_drift_anchor",
+      "groundTruth": "其实说到硬件发展，我前几年买过很多智能手环和降噪耳机，天天研究蓝牙协议和电池续航，周末还喜欢去公园跑步拍风景。",
+      "sampleRate": 16000,
+      "channels": 1,
+      "bitsPerSample": 16,
+      "durationSec": 12.873,
+      "samples": 205972,
+      "sizeBytes": 411988,
+      "peakDbfs": -3.01,
+      "rmsDbfs": -17.43
+    },
+    {
+      "id": "clip_12_qa_defense_bilingual",
+      "file": "12_qa_defense_bilingual.wav",
+      "relativePath": "audio/12_qa_defense_bilingual.wav",
+      "category": "qa_bilingual_defense",
+      "voices": [
+        "Tingting"
+      ],
+      "rateWpm": 190,
+      "transform": "clean_qa_defense",
+      "expectedCueBehavior": "L0_silent_or_withdraw_recovered",
+      "groundTruth": "我们不把单个大模型API包装成护城河，CueX的壁垒在于L0静默克制门控、PPT原文Evidence强绑定防幻觉，以及用户可控的复盘记忆闭环。",
+      "sampleRate": 16000,
+      "channels": 1,
+      "bitsPerSample": 16,
+      "durationSec": 15.609,
+      "samples": 249748,
+      "sizeBytes": 499540,
+      "peakDbfs": -3.01,
+      "rmsDbfs": -17.69
+    },
+    {
+      "id": "clip_13_privacy_sovereignty",
+      "file": "13_privacy_sovereignty_tingting.wav",
+      "relativePath": "audio/13_privacy_sovereignty_tingting.wav",
+      "category": "privacy_and_formats",
+      "voices": [
+        "Tingting"
+      ],
+      "rateWpm": 185,
+      "transform": "clean_privacy_statement",
+      "expectedCueBehavior": "L0_silent",
+      "groundTruth": "用户可以随时一键导出JSON或Markdown格式的个人复盘与记忆包，也可以执行会话级或账号级擦除，只依法保留最小化计费审计流水。",
+      "sampleRate": 16000,
+      "channels": 1,
+      "bitsPerSample": 16,
+      "durationSec": 14.54,
+      "samples": 232640,
+      "sizeBytes": 465324,
+      "peakDbfs": -3.01,
+      "rmsDbfs": -18.06
+    },
+    {
+      "id": "clip_14_long_multiturn_continuous",
+      "file": "14_long_multiturn_continuous.wav",
+      "relativePath": "audio/14_long_multiturn_continuous.wav",
+      "category": "long_multiturn_streaming",
+      "voices": [
+        "Tingting",
+        "Meijia"
+      ],
+      "rateWpm": 188,
+      "transform": "multi_turn_with_pauses_and_mild_room_noise_18dB_SNR",
+      "expectedCueBehavior": "streaming_partial_and_multi_final_segments",
+      "groundTruth": "各位评委，CueX不是另一个生成两千字报告的慢思考工具。在路演、硕博答辩和产品发布的关键十分钟里，讲者真正需要的是平时L0保持静默、卡壳时给出两到六个字的L2关键锚点、接回话头后自动撤回的克制外挂。结合实时GPU语音识别与结构化证据库，我们实现了毫秒级门控决策与可审计的成本模型。",
+      "sampleRate": 16000,
+      "channels": 1,
+      "bitsPerSample": 16,
+      "durationSec": 32.17,
+      "samples": 514725,
+      "sizeBytes": 1029494,
+      "peakDbfs": -2.8,
+      "rmsDbfs": -18.1
+    }
+  ]
+}

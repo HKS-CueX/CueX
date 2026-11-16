@@ -3,7 +3,7 @@ info:
   title: CueX Gateway HTTP API
   version: 2026-11
   description: |
-    Stage C Synced Contract Spec matching `apps/server/src/gateway/GatewayServer.ts` and `@cuex/protocol` (`API_VERSION = '2026-11'`, v2.0.0).
+    Stage C Synced Contract Spec matching `apps/server/src/gateway/GatewayServer.ts` and `@cuex/protocol` (`API_VERSION = '2026-11'`, v2.1.0 Colab GPU ASR & CPA telemetry extensions).
     Monetary fields use integer minor units (`amountFen`, CNY Fen). Timestamps use UTC ISO-8601 (`UtcIso8601`).
     Unified `PlanCatalog` pricing and quotas (`Free ¥0 / 2 sessions / 20m cloud ASR`, `Event ¥29 / 14d / 120m`, `Pro ¥59/mo · ¥499/yr / 240m`, `Team ¥199/seat/mo planned`, all marked `isCommercialHypothesis: true`) align with `docs/business/PRICING_AND_PACKAGING.md` and `ppt/scripts/cuex-final-metrics.json`.
 servers:
@@ -772,6 +772,113 @@ components:
                 type: object
                 additionalProperties: true
 
+    ColabAsrLifecycleState:
+      type: string
+      enum:
+        - not_configured
+        - starting
+        - ready
+        - degraded
+        - disconnected
+        - restarting
+        - unavailable
+
+    AsrBackendMode:
+      type: string
+      enum: [colab_gpu, local_sherpa, remote_sherpa, browser_webspeech, text_simulation]
+
+    AsrCapabilityStatus:
+      type: object
+      required: [backend, mode, available, streaming, detail]
+      properties:
+        backend:
+          type: string
+        mode:
+          $ref: '#/components/schemas/AsrBackendMode'
+        available:
+          type: boolean
+        streaming:
+          type: boolean
+        detail:
+          type: string
+        lifecycleState:
+          $ref: '#/components/schemas/ColabAsrLifecycleState'
+        gpuName:
+          type: string
+        modelId:
+          type: string
+        rtf:
+          type: number
+          minimum: 0
+        lastHealthCheckAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        fallbackActive:
+          type: boolean
+        fallbackReason:
+          type: string
+
+    LlmSubsystemHealthStatus:
+      type: object
+      required: [backend, mode, healthy]
+      properties:
+        backend:
+          type: string
+        mode:
+          type: string
+          enum: [real, local_fallback]
+        healthy:
+          type: boolean
+        detail:
+          type: string
+        provider:
+          type: string
+        model:
+          type: string
+        degraded:
+          type: boolean
+        lastHealthCheckAt:
+          $ref: '#/components/schemas/UtcIso8601'
+
+    TelemetryUsageSource:
+      type: string
+      enum: [provider_reported, provider_unreported, local_rule_zero, estimated]
+
+    ProviderUsageRecord:
+      type: object
+      required: [inputTokens, outputTokens, cachedInputTokens, modelCalls, usageSource]
+      properties:
+        inputTokens:
+          type: integer
+          minimum: 0
+        outputTokens:
+          type: integer
+          minimum: 0
+        cachedInputTokens:
+          type: integer
+          minimum: 0
+        reasoningTokens:
+          type: integer
+          minimum: 0
+        modelCalls:
+          type: integer
+          minimum: 0
+        retries:
+          type: integer
+          minimum: 0
+        usageSource:
+          $ref: '#/components/schemas/TelemetryUsageSource'
+        degraded:
+          type: boolean
+        costFen:
+          type: integer
+          minimum: 0
+        provider:
+          type: string
+        model:
+          type: string
+        correlationId:
+          type: string
+
     HealthStatusResponse:
       type: object
       required: [ok, service, version, apiVersion, wsProtocolVersion, timestamp, asr, system1, system2]
@@ -783,7 +890,7 @@ components:
           example: cuex-server
         version:
           type: string
-          example: 2.0.0
+          example: 2.1.0
         apiVersion:
           type: string
           example: '2026-11'
@@ -793,34 +900,11 @@ components:
         timestamp:
           $ref: '#/components/schemas/UtcIso8601'
         asr:
-          type: object
-          additionalProperties: true
+          $ref: '#/components/schemas/AsrCapabilityStatus'
         system1:
-          type: object
-          required: [backend, mode, healthy]
-          properties:
-            backend:
-              type: string
-            mode:
-              type: string
-              enum: [real, local_fallback]
-            healthy:
-              type: boolean
-            detail:
-              type: string
+          $ref: '#/components/schemas/LlmSubsystemHealthStatus'
         system2:
-          type: object
-          required: [backend, mode, healthy]
-          properties:
-            backend:
-              type: string
-            mode:
-              type: string
-              enum: [real, local_fallback]
-            healthy:
-              type: boolean
-            detail:
-              type: string
+          $ref: '#/components/schemas/LlmSubsystemHealthStatus'
 
     AuthSessionCreateInput:
       type: object

@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>CueX AI Employee Job Specification — 演讲与答辩临场引导师</title>
+<style>
+  @font-face {
+    font-family: 'CueXDisplay';
+    src: url('../../../../../assets/fonts/InstrumentSerif-Regular.ttf') format('truetype');
+    font-weight: 400;
+  }
+  @font-face {
+    font-family: 'CueXCJKSerif';
+    src: url('../../../../../assets/fonts/NotoSerifSC-VF.ttf') format('truetype');
+    font-weight: 200 900;
+  }
+  @font-face {
+    font-family: 'CueXCJK';
+    src: url('../../../../../assets/fonts/NotoSansSC-VF.ttf') format('truetype');
+    font-weight: 100 900;
+  }
+  @font-face {
+    font-family: 'CueXSans';
+    src: url('../../../../../assets/fonts/Inter-VF.ttf') format('truetype');
+    font-weight: 100 900;
+  }
+  @font-face {
+    font-family: 'CueXMono';
+    src: url('../../../../../assets/fonts/JetBrainsMono-VF.ttf') format('truetype');
+    font-weight: 100 800;
+  }
+
+  * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+  .tabular { font-variant-numeric: tabular-nums; }
+
+  @page { size: 210mm 297mm; margin: 0; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 210mm;
+    height: 296.4mm;
+    background: #F8F7F3;
+    color: #111318;
+    font-family: 'CueXSans', 'CueXCJK', 'PingFang SC', sans-serif;
+    overflow: hidden;
+  }
+
+  .sheet {
+    position: relative;
+    width: 210mm;
+    height: 296.4mm;
+    padding: 9.5mm 11.5mm 8mm 11.5mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .topbar {
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 4px;
+    background: linear-gradient(90deg, #FF7A2F, #7C3AED);
+  }
+
+  .hdr {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-bottom: 1.5px solid #111318;
+    padding-bottom: 6px;
+    gap: 10px;
+  }
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-family: 'CueXMono', monospace;
+    font-size: 8.6px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .hero-strip {
+    display: grid;
+    grid-template-columns: 1.1fr 1.25fr 1fr;
+    gap: 7px;
+    margin: 6px 0;
+  }
+  .hero-card {
+    background: #FFFFFF;
+    border: 1px solid #D9D6CE;
+    border-radius: 6px;
+    padding: 6px 9px;
+  }
+  .hero-lbl {
+    font-family: 'CueXMono', monospace;
+    font-size: 8.4px;
+    font-weight: 700;
+    color: #555863;
+    margin-bottom: 2px;
+  }
+  .hero-txt {
+    font-size: 9.6px;
+    line-height: 1.4;
+    color: #111318;
+  }
+
+  .wf-bar {
+    background: #F2EFE8;
+    border: 1px solid #D9D6CE;
+    border-radius: 6px;
+    padding: 5.5px 9px;
+    margin-bottom: 6px;
+  }
+  .wf-steps {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+    margin-top: 3px;
+  }
+  .wf-step {
+    background: #FFFFFF;
+    border: 1px solid #DDD8CE;
+    border-radius: 5px;
+    padding: 4px 6px;
+    font-size: 8.7px;
+    line-height: 1.32;
+  }
+  .wf-step strong {
+    display: block;
+    font-size: 9px;
+    color: #111318;
+    margin-bottom: 1px;
+  }
+
+  .grid-2col {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+    min-height: 0;
+  }
+  .col {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    justify-content: space-between;
+  }
+  .sec {
+    background: #FFFFFF;
+    border: 1px solid #D9D6CE;
+    border-radius: 7px;
+    padding: 6.5px 9px;
+  }
+  .sec-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #EAE6DC;
+    padding-bottom: 3px;
+    margin-bottom: 4px;
+    gap: 4px;
+  }
+  .sec-title {
+    font-size: 10.6px;
+    font-weight: 800;
+    color: #111318;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .sno {
+    font-family: 'CueXMono', monospace;
+    font-size: 8.5px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: #FDF5EE;
+    color: #B45309;
+    border: 1px solid rgba(232,122,36,0.32);
+  }
+  .sno-v {
+    background: #F4F1FC;
+    color: #6D28D9;
+    border-color: rgba(124,58,237,0.32);
+  }
+  .sno-s {
+    background: #EEF6F2;
+    color: #246A4D;
+    border-color: rgba(36,106,77,0.32);
+  }
+  .sec-en {
+    font-family: 'CueXMono', monospace;
+    font-size: 8px;
+    color: #6B6E78;
+    white-space: nowrap;
+  }
+
+  ul {
+    margin: 0;
+    padding-left: 13.5px;
+    font-size: 9.25px;
+    line-height: 1.42;
+    color: #1D2028;
+  }
+  li { margin-bottom: 2.5px; }
+  li:last-child { margin-bottom: 0; }
+
+  .sla-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4.5px;
+    margin-bottom: 4px;
+  }
+  .sla-tile {
+    background: #F8F7F3;
+    border: 1px solid #E3DFD5;
+    border-radius: 5px;
+    padding: 3.5px 6px;
+  }
+  .sla-k { font-size: 7.9px; color: #555863; }
+  .sla-v { font-family: 'CueXMono', monospace; font-size: 10.2px; font-weight: 800; color: #111318; margin-top: 1px; }
+
+  .slot-note {
+    background: #F4F1FC;
+    border: 1px dashed #7C3AED;
+    border-radius: 4px;
+    padding: 3.5px 6px;
+    font-size: 8.5px;
+    line-height: 1.35;
+    color: #3B0764;
+    margin-top: 3.5px;
+  }
+
+  .ftr {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid #D9D6CE;
+    padding-top: 4.5px;
+    font-size: 8.8px;
+    color: #555863;
+  }
+  code {
+    font-family: 'CueXMono', monospace;
+    font-size: 8.3px;
+    background: #F2EFE8;
+    padding: 0.5px 3px;
+    border-radius: 3px;
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <div class="topbar"></div>
+
+  <!-- Header -->
+  <header class="hdr">
+    <div style="display:flex; align-items:center; gap:9px; min-width:0;">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" style="width:28px; height:28px; flex-shrink:0;" fill="none">
+        <defs>
+          <linearGradient id="amberJS" x1="22" y1="12" x2="139" y2="144" gradientUnits="userSpaceOnUse"><stop stop-color="#FFD6A1"/><stop offset=".22" stop-color="#FF9A4A"/><stop offset=".56" stop-color="#FF7A2F"/><stop offset="1" stop-color="#BF3F14"/></linearGradient>
+          <linearGradient id="violetJS" x1="136" y1="14" x2="20" y2="146" gradientUnits="userSpaceOnUse"><stop stop-color="#E0DFFF"/><stop offset=".24" stop-color="#B5B3FF"/><stop offset=".6" stop-color="#8E8CFF"/><stop offset="1" stop-color="#5754BA"/></linearGradient>
+        </defs>
+        <path d="M27 21 142 143" stroke="#8D3817" stroke-width="17" stroke-linecap="round"/>
+        <path d="M20 13 135 135" stroke="url(#amberJS)" stroke-width="17" stroke-linecap="round"/>
+        <path d="M142 21 27 143" stroke="#494687" stroke-width="17" stroke-linecap="round"/>
+        <path d="M135 13 20 135" stroke="url(#violetJS)" stroke-width="17" stroke-linecap="round"/>
+      </svg>
+      <div>
+        <div style="font-family:'CueXMono',monospace; font-size:8.6px; font-weight:700; color:#7C3AED; letter-spacing:0.06em;">
+          AI EMPLOYEE JOB SPECIFICATION · 怀客松 2026 OPC 赛道核心岗位件
+        </div>
+        <h1 style="margin:1px 0 0 0; font-family:'CueXCJKSerif',serif; font-size:21.5px; font-weight:800; letter-spacing:-0.01em; line-height:1.12;">
+          演讲与答辩临场引导师
+        </h1>
+        <div style="font-family:'CueXSans',sans-serif; font-size:10.4px; font-weight:600; color:#555863; margin-top:2px;">
+          AI Presentation Copilot / Presentation Support Specialist
+        </div>
+      </div>
+    </div>
+    <div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px; flex-shrink:0;">
+      <span class="tag" style="background:#FDF5EE; border:1px solid rgba(232,122,36,0.35); color:#B45309;">团队：记性好了一点 · CueX Presentation</span>
+      <span class="tag" style="background:#F4F1FC; border:1px solid rgba(124,58,237,0.35); color:#6D28D9;">12/12 Mandatory Items · Phase 4 Verified</span>
+    </div>
+  </header>
+
+  <!-- Items 01, 02, 03 -->
+  <div class="hero-strip">
+    <div class="hero-card" style="border-left:3px solid #FF7A2F;">
+      <div class="hero-lbl">01 · JOB TITLE（岗位名称）</div>
+      <div class="hero-txt"><strong>演讲与答辩临场引导师</strong><br/><code>AI Presentation Copilot</code> — CueX 通用实时认知协同体系首个已落地商业岗位。</div>
+    </div>
+    <div class="hero-card" style="border-left:3px solid #7C3AED;">
+      <div class="hero-lbl">02 · ROLE MISSION（岗位使命）</div>
+      <div class="hero-txt">在深度思考之外，接住当下：平时<strong>静默隐身</strong>，只在讲者忘词、遗漏或遭遇追问的 1–3 秒给极简锚点，讲者接回后<strong>自动撤回</strong>。</div>
+    </div>
+    <div class="hero-card" style="border-left:3px solid #246A4D;">
+      <div class="hero-lbl">03 · WHO IT SERVES（服务对象）</div>
+      <div class="hero-txt"><strong>P1</strong>&nbsp;OPC 一人公司/路演创始人；<strong>P2</strong>&nbsp;高校硕博开题/毕业答辩生；<strong>P3</strong>&nbsp;职业讲师与售前解决方案架构师。</div>
+    </div>
+  </div>
+
+  <!-- Item 06 Standard Workflow Bar -->
+  <div class="wf-bar">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <span style="font-size:10.2px; font-weight:800; color:#111318;">
+        <span class="sno sno-v" style="margin-right:4px;">06</span> 标准工作流（Standard Workflow）
+      </span>
+      <span style="font-family:'CueXMono',monospace; font-size:8px; color:#555863;">Pre-Stage → Stage L0–L3 → Auto-Withdraw → Post-Stage</span>
+    </div>
+    <div class="wf-steps">
+      <div class="wf-step"><strong>① 场前编译锁事实</strong>导讲稿抽取章节与依据，人类逐条锁定关键数字。</div>
+      <div class="wf-step"><strong>② 默认 L0 静默监听</strong>上台流畅表达期保持 0 文字弹窗，不抢注意力。</div>
+      <div class="wf-step"><strong>③ 门控触发微提示</strong>遇停顿/遗漏/追问且过门控，推送 <code>L1–L3</code> 轻量信号。</div>
+      <div class="wf-step"><strong>④ 接回瞬时自动撤回</strong>讲者一开口回到正轨或切页，卡片即刻自动退场。</div>
+      <div class="wf-step"><strong>⑤ 散场复盘待审批</strong>产出漏点与净效用账单，习惯须经勾选才沉淀。</div>
+    </div>
+  </div>
+
+  <!-- Items 04, 05, 07, 08, 09, 10, 11, 12 -->
+  <main class="grid-2col">
+    <!-- Left Column -->
+    <div class="col">
+      <section class="sec" style="border-left:3px solid #FF7A2F;">
+        <div class="sec-head">
+          <div class="sec-title"><span class="sno">04</span> 核心职责</div>
+          <span class="sec-en">Core Responsibilities</span>
+        </div>
+        <ul>
+          <li><strong>材料白名单提炼</strong>：将演示文稿拆解为章节地图、必讲关键词、禁用口径与带编号的事实证据卡片，杜绝临场信口胡编。</li>
+          <li><strong>低分心临场护航</strong>：持续追踪语流进度与剩余时间，按 <code>L0</code> 静默优先原则仅在真正断点处触发最小必要提示，并负责自动撤回。</li>
+          <li><strong>散场量化总结</strong>：整理漏讲锚点、打扰代价评估及候选改进习惯，辅助高频演讲者越练越稳。</li>
+        </ul>
+      </section>
+
+      <section class="sec" style="border-left:3px solid #7C3AED;">
+        <div class="sec-head">
+          <div class="sec-title"><span class="sno sno-v">05</span> 工作输入要求</div>
+          <span class="sec-en">Inputs &amp; Preconditions</span>
+        </div>
+        <ul>
+          <li><strong>演讲参考包（强推荐）</strong>：<code>.pptx / .pdf / .md / .txt</code> 原稿、目标场景（路演/答辩/学术/通用）与计划时长；无稿空手开演仅开启结构/计时提醒。</li>
+          <li><strong>实时语音或文本流</strong>：16 kHz PCM16LE 音频流或评估注入文本；UI 如实标示当前 ASR 通道状态。</li>
+          <li><strong>人工批准的历史偏好</strong>：讲者过往主动勾留的禁区词、易卡顿段落及常用 Q&amp;A 防线。</li>
+        </ul>
+      </section>
+
+      <section class="sec" style="border-left:3px solid #FF7A2F;">
+        <div class="sec-head">
+          <div class="sec-title"><span class="sno">07</span> 核心交付成果</div>
+          <span class="sec-en">Outputs &amp; Deliverables</span>
+        </div>
+        <ul>
+          <li><strong>场前导播单与事实索引（<code>ContextPack</code>）</strong>：一页式 <code>CueSheet</code>、各章必讲锚点、原文 <code>Evidence[]</code> 卡片及预演 Q&amp;A 清单。</li>
+          <li><strong>台上双模辅助视图</strong>：面向讲者余光的极简 <strong>Focus 视图</strong>（留白+边缘微光+短锚点）与面向核查审计的 <strong>Inspector 视图</strong>（依据/TTL/撤回轨迹）。</li>
+          <li><strong>散场复盘与透明账单（<code>Reflection</code>）</strong>：漏点追踪、精确率统计、<code style="white-space:nowrap;">V = H − 2I</code> 效用评价与真实/估算用量明细。</li>
+        </ul>
+      </section>
+
+      <section class="sec" style="border-left:3px solid #246A4D;">
+        <div class="sec-head">
+          <div class="sec-title"><span class="sno sno-s">08</span> 绩效与验收标准</div>
+          <span class="sec-en">Performance Standards</span>
+        </div>
+        <div class="sla-grid">
+          <div class="sla-tile">
+            <div class="sla-k">离线 / 全链路通过</div>
+            <div class="sla-v tabular" style="color:#246A4D;">6/6 Eval · 14/14 E2E</div>
+          </div>
+          <div class="sla-tile">
+            <div class="sla-k">规则 / GPU ASR 延迟</div>
+            <div class="sla-v tabular">0.88 ms · 52.57 ms</div>
+          </div>
+          <div class="sla-tile">
+            <div class="sla-k">净效用与 S1 准确</div>
+            <div class="sla-v tabular" style="color:#7C3AED;">V=+3 · 100% (P95 1.66ms)</div>
+          </div>
+        </div>
+        <ul>
+          <li><strong>业务质量红线</strong>：顺畅阶段零长文打扰；关键数字 100% 绑定原文依据（<code>locked</code> 不可改写）；讲者接回正轨必须自动撤回。</li>
+        </ul>
+        <div class="slot-note">
+          <strong>Phase 3 实机端到端已锁定（Cat 3 &amp; 4 · TTS+DSP 可控语料 · 静音测试）</strong>：Colab <code>SenseVoiceSmall</code> 14/14 均耗时 <code>52.57 ms</code>（RTF <code>0.00327</code> / 数字 CER <code>0.0</code> / WSS <code>772.1 ms</code>）；CPA <code>gemini-4-hydrogen</code> S1 <code>6/6</code>（vs <code>flash-lite</code> 4/6），<code>12</code> 步主链 <code>15,399</code> Tokens，<code>80 ms</code> 超时诚实回退 <code>local_rule_zero</code>；真人现场队列仍属 <code>Planned</code>。
+        </div>
+      </section>
+    </div>
+
+    <!-- Right Column -->
+    <div class="col">
+      <section class="sec" style="border-left:3px solid #C94A2A;">
+        <div class="sec-head">
+          <div class="sec-title"><span class="sno" style="background:#FDF1ED; color:#9A3412; border-color:rgba(201,74,42,0.32);">09</span> 自主决策边界</div>
+          <span class="sec-en">Decision Boundaries</span>
+        </div>
+        <ul>
+          <li><strong>AI 可自主决断</strong>：保持 <code>L0</code> 静默；按静音/上下文版本/TTL/依据/冷却五重门控放行 <code>L1–L2</code> 锚点；检测到讲者自愈或切页立即撤回卡片。</li>
+          <li><strong>AI 严禁越权</strong>：<strong>严禁</strong>篡改或编造未提供的财务/实验/技术核心数字；<strong>严禁</strong>推送大段待读演讲稿替代人类发言；<strong>严禁</strong>未经勾选私自写入长期记忆；<strong>严禁</strong>将降级模式伪装为在线远程服务。</li>
+        </ul>
+      </section>
+
+      <section class="sec" style="border-left:3px solid #246A4D;">
+        <div class="sec-head">
+          <div class="sec-title"><span class="sno sno-s">10</span> 人机协同机制</div>
+          <span class="sec-en">Human-AI Collaboration</span>
+        </div>
+        <ul>
+          <li><strong>台前人工校准（Mandatory Fact Lock）</strong>：开讲前由讲者核对并锁定编译抽取的核心数字与必讲顺序，运行时不可覆写。</li>
+          <li><strong>台上人类绝对主导（Instant Override）</strong>：人类可随时点击 <code>Dismiss</code> 立刻撤回任何提示（记录打扰反馈），并在 Focus/Inspector 间一键切换核实。</li>
+          <li><strong>台后审批式记忆进化</strong>：所有候选个人习惯默认“待审”，只有人类显式勾选同意的条目才会影响后续演练与临场阈值。</li>
+        </ul>
+      </section>
+
+      <section class="sec" style="border-left:3px solid #C94A2A;">
+        <div class="sec-head">
+          <div class="sec-title"><span class="sno" style="background:#FDF1ED; color:#9A3412; border-color:rgba(201,74,42,0.32);">11</span> 异常升级与失败兜底</div>
+          <span class="sec-en">Escalation &amp; Failure Behavior</span>
+        </div>
+        <ul>
+          <li><strong>超纲问题“缺据诚实拒答”</strong>：评委提问超出已核准资料范围时，绝不靠大模型常识猜测，明确弹出<strong>「缺少事实依据（未准备缺口）」</strong>提示人类据实作答。</li>
+          <li><strong>语音/模型断连透明降级</strong>：当远程 GPU/云端 ASR 或推理接口超时/离线，界面立即切换状态徽章并平顺回退本地语音或规则兜底（<code>local_rule_zero</code>），绝不静默伪造在线状态。</li>
+          <li><strong>严重偏航与超时升级</strong>：关键核心数字说错或严重超限时，经防抖冷却后升级 <code>L3</code> 短纠偏提醒交由人类拍板纠正。</li>
+        </ul>
+      </section>
+
+      <section class="sec" style="border-left:3px solid #111318;">
+        <div class="sec-head">
+          <div class="sec-title"><span class="sno" style="background:#F2EFE8; color:#111318;">12</span> 隐私与数据权限</div>
+          <span class="sec-en">Privacy &amp; Data Permissions</span>
+        </div>
+        <ul>
+          <li><strong>最小数据可见性</strong>：仅处理本场主动导入的材料包与讲者已审批记忆；坚持公开合规场景，不以隐身窃取无关桌面内容为卖点。</li>
+          <li><strong>计量来源隔离披露</strong>：严格区分供应商实报 Token、未回报用量标记（<code>provider_unreported</code>）、本地零成本评估与商业测算成本。</li>
+          <li><strong>一键彻底擦除主权（<code>/wipe</code>）</strong>：支持按场次即时销毁转写上下文、诊断记录与个人记忆；未经单独同意绝不将用户讲稿用于公网大模型训练。</li>
+        </ul>
+      </section>
+    </div>
+  </main>
+
+  <footer class="ftr">
+    <span>CueX — 在深度思考之外，接住当下 · 本岗位说明书严格覆盖业务语言定义全部 12 项要素</span>
+    <span style="font-family:'CueXMono',monospace;">Page 1 / 1 · Strictly A4 Portrait (210×297mm)</span>
+  </footer>
+</div>
+</body>
+</html>

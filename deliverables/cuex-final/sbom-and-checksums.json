@@ -1,9 +1,9 @@
 {
   "schemaVersion": "cuex-sbom-v1",
   "bomFormat": "CycloneDX-compatible-JSON",
-  "generatedAt": "2026-11-15T21:11:22.587Z",
+  "generatedAt": "2026-11-16T00:04:24.815Z",
   "provenance": {
-    "commitSha": "6804f5a2788f809f3c8f466c612cdf1f5e65bfb4",
+    "commitSha": "7ad6ccb1caf4d8c6743bc0c22a3dcd981c719d04",
     "branch": "refactor/universal-runtime-presentation",
     "workingTreeDirty": true,
     "nodeVersion": "v26.13.0",
@@ -26,7 +26,7 @@
     {
       "path": "packages/protocol/package.json",
       "name": "@cuex/protocol",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "private": true,
       "type": "module",
       "dependencies": {},
@@ -5577,168 +5577,18 @@
     },
     {
       "path": "CueX-Universal-Presentation-Final.zip",
-      "sha256": "6a2be6f4c61550c1243e2dd3bf707f02858fc9b26b6412955e700e7c6811b48b",
-      "bytes": 19687063
+      "sha256": "8bac26846776d1403ec54f6c5d260c47a69f8057ec3397257821db10d1d4f7cc",
+      "bytes": 20072292
     },
     {
-      "path": "apps/web/dist/.DS_Store",
-      "sha256": "1ec64f328ca80e00c88a80e96f17b07ab7b24b65d6df0e5b6d136715f7fd25c7",
-      "bytes": 14340
+      "path": "apps/web/dist/assets/index-CQC4VBVK.css",
+      "sha256": "3e96e5fbc15af4d774aba101970f013a7db56653746f932f5114bcf408b6b4c2",
+      "bytes": 31143
     },
     {
-      "path": "apps/web/dist/assets/index-C6gV0oJ5.js",
-      "sha256": "17b5645c1c869d3135111fb820c91dc25b2fc64a53313dc315492c587376ab19",
-      "bytes": 443136
-    },
-    {
-      "path": "apps/web/dist/assets/index-Cu53hHiV.css",
-      "sha256": "26106998c61cd1ad157424e27c657915bd7c5d7ac365a67e222d0e1ddfbfdc3a",
-      "bytes": 28720
-    },
-    {
-      "path": "apps/web/dist/banners/.DS_Store",
-      "sha256": "a9dc9c307d1f4b103ccadbfa81383224210995d538a1bb39c2cc475fe851de6e",
-      "bytes": 14340
-    },
-    {
-      "path": "apps/web/dist/banners/cuex-rollup-20261115-v1/CueX-79x202cm-304.8dpi.jpg",
-      "sha256": "b51ad03a16d951f4b1f5c6b84f226453136e5aaf272b5b6552f28b29f8215e9c",
-      "bytes": 20082165
-    },
-    {
-      "path": "apps/web/dist/banners/cuex-rollup-20261115-v1/cuex-rollup-native.png",
-      "sha256": "cbdd4973034467a6caf0e0d6fb19637ef766598b2ac0a82715fe47b96fd98ee5",
-      "bytes": 1468838
-    },
-    {
-      "path": "apps/web/dist/banners/cuex-rollup-20261115-v1/cuex-site-qr.png",
-      "sha256": "767f8fe570e5e540fdaaa9b6d88618a9305d8f3c21cf9523b76177fe89499713",
-      "bytes": 865
-    },
-    {
-      "path": "apps/web/dist/banners/cuex-rollup-20261115-v1/cuex-wordmark-reference.png",
-      "sha256": "b4ee06bc8e2c217d036e7614fa454671e1a156b29924e81e275d8773b96b271a",
-      "bytes": 344596
-    },
-    {
-      "path": "apps/web/dist/banners/cuex-rollup-20261115-v1/generation-prompt.txt",
-      "sha256": "b54687333d1b88681362d7f97a38e822e60904b9712a9ba54dd1123383164c2a",
-      "bytes": 2868
-    },
-    {
-      "path": "apps/web/dist/banners/cuex-rollup-20261115-v2/CueX-79x202cm-CMYK-proof.tif",
-      "sha256": "a5e4abca1142ca43048270bb875cb52a3a48d8b857717a773716211a8f5e37c2",
-      "bytes": 86949148
-    },
-    {
-      "path": "apps/web/dist/banners/cuex-rollup-20261115-v2/CueX-79x202cm.png",
-      "sha256": "0ddf02b1b664abdf72f50e235eb7e34dfb60140e170a0991fd1bcbd730130aea",
-      "bytes": 56054451
-    },
-    {
-      "path": "apps/web/dist/banners/cuex-rollup-20261115-v2/cmyk-preview.png",
-      "sha256": "5ec599b1fbca85616f6a03135be803e6711a7a6f01eca41e4c0f81eee400bc8c",
-      "bytes": 1857488
-    },
-    {
-      "path": "apps/web/dist/banners/cuex-rollup-20261115-v2/generated-base.png",
-      "sha256": "fb23e90fdb522ec7f2feec023fbf9a5304b2bdb490c2304dd1ae60e9d129acaf",
-      "bytes": 1524171
-    },
-    {
-      "path": "apps/web/dist/banners/cuex-rollup-20261115-v2/generation-prompt.txt",
-      "sha256": "ecead3985d960da66ee9cefcda3c9336e95827e0471c9e9e9b1cb60a788df03d",
-      "bytes": 1915
-    },
-    {
-      "path": "apps/web/dist/banners/cuex-rollup-20261115-v2/preview.png",
-      "sha256": "9ff0d39f998f4d8886f44921fc7531e9f9fcabc585889418d1927ea1c23fdfa3",
-      "bytes": 1878526
-    },
-    {
-      "path": "apps/web/dist/banners/cuex-rollup-20261115-v2/print-notes.md",
-      "sha256": "4def4a95af9f7c2252cc26c202b754f8c3f4e753b3133acc2f2616364c520c71",
-      "bytes": 1065
-    },
-    {
-      "path": "apps/web/dist/banners/cuex-rollup-20261115-v2/qr-print.png",
-      "sha256": "63acd93d020abb9b8905e5969675d4718a88c4518056f06571f7a7447dca66cb",
-      "bytes": 1846
-    },
-    {
-      "path": "apps/web/dist/banners/cuex-rollup-20261115-v2/verification.json",
-      "sha256": "c638e72b7ef524f2213e5bf721379c58cff3af320347eae2e2d0069749c824ad",
-      "bytes": 407
-    },
-    {
-      "path": "apps/web/dist/banners/cuex-rollup-20261115-v2/wordmark-print.png",
-      "sha256": "e5d4b01eb68ee0dbd274428283b84f417b0bb494825b8f2c80ebc8564d32e499",
-      "bytes": 277540
-    },
-    {
-      "path": "apps/web/dist/banners/cuex-rollup-20261115-v3/CueX-79x202cm.jpg",
-      "sha256": "a2de291195da11c11e4bf763408f03eae1d5509c31df4fbdc0da491f25efc356",
-      "bytes": 15081022
-    },
-    {
-      "path": "apps/web/dist/banners/cuex-rollup-20261115-v3/cuex-wordmark-3d.svg",
-      "sha256": "09823562bc77c3de6c1f6a751afdfabbf38f2e66ec2246a3eb6f21a071ccf425",
-      "bytes": 75151
-    },
-    {
-      "path": "apps/web/dist/banners/cuex-rollup-20261115-v3/preview.png",
-      "sha256": "45ee419c3e71027ccafd1aad494e0ea99d77b892afe94de8e5af1e7cea1073e3",
-      "bytes": 1879101
-    },
-    {
-      "path": "apps/web/dist/banners/cuex-rollup-20261115-v3/print-notes.md",
-      "sha256": "ce91e26917a66e15c397fe797b33a51dfb7e4f92f972d333816a2d01b874d0cb",
-      "bytes": 540
-    },
-    {
-      "path": "apps/web/dist/banners/cuex-rollup-20261115-v3/verification.json",
-      "sha256": "0aa6c45562c3d070fd524135e86cc00f1c7a672eeb1dc66826e099a8d19caff7",
-      "bytes": 361
-    },
-    {
-      "path": "apps/web/dist/banners/cuex-rollup-20261115-v3/wordmark-print.png",
-      "sha256": "c6e75b58621fbe47a6a6a31b8ab7f5e93bc364bb73a5f9e0270cff6231ab2a02",
-      "bytes": 2252204
-    },
-    {
-      "path": "apps/web/dist/banners/cuex-rollup-20261115-v3/x-brand-trimmed.png",
-      "sha256": "4a543612aa235fe29ef85a0d0b1fbe39586fa5eccf92f00917360413fdb265de",
-      "bytes": 54995
-    },
-    {
-      "path": "apps/web/dist/banners/cuex-rollup-20261115-v4/CueX-79x202cm.jpg",
-      "sha256": "fd111e75e1740549a2e64bf48e7c301ba4deded3affe2611d834062f1688c72b",
-      "bytes": 15143138
-    },
-    {
-      "path": "apps/web/dist/banners/cuex-rollup-20261115-v4/preview.png",
-      "sha256": "16a6613165bf7d2a37845d2bb73f7e888ab9d11b57c0ad3ed41947f1e30a5b78",
-      "bytes": 1878474
-    },
-    {
-      "path": "apps/web/dist/banners/cuex-rollup-20261115-v4/qr-15cm.png",
-      "sha256": "32e3de0d30ed89d08eed8e03d5280efdc3164cc6e8ddd6be79cc42b517c8520d",
-      "bytes": 2740
-    },
-    {
-      "path": "apps/web/dist/banners/cuex-rollup-20261115-v4/qr-source.png",
-      "sha256": "77f5d76ea5c13e69272c50c482c0c3822c6f66974294b219cf4e8950e5fc277b",
-      "bytes": 2599
-    },
-    {
-      "path": "apps/web/dist/banners/cuex-rollup-20261115-v4/verification.json",
-      "sha256": "a46a9af2d78d248e2df205a2f2725b60745d937e4b027a77501188d849836b44",
-      "bytes": 427
-    },
-    {
-      "path": "apps/web/dist/brand/brand-spec.md",
-      "sha256": "584876002107872b910f0f1405933d91170d793bffd4e340d024153a28b333ce",
-      "bytes": 2420
+      "path": "apps/web/dist/assets/index-fAC-7k0x.js",
+      "sha256": "ecf70f6d8d57f675f4ea26aa034574d3b02e9bb3ca267cd912b9b7cecfdec459",
+      "bytes": 460469
     },
     {
       "path": "apps/web/dist/brand/cuex-symbol-dimensional.svg",
@@ -5776,11 +5626,6 @@
       "bytes": 204
     },
     {
-      "path": "apps/web/dist/env/lebombo_1k.hdr",
-      "sha256": "a02c9615adeba91a753c3e4737c3ce7a719273df822eeaa85d24982bd43c9ecb",
-      "bytes": 1476953
-    },
-    {
       "path": "apps/web/dist/fonts/InstrumentSerif-Italic.ttf",
       "sha256": "08939b8bdf534afec24ae0ef5e03f948940cd9a8fe08e7fecbad040e62327385",
       "bytes": 71592
@@ -5811,19 +5656,109 @@
       "bytes": 25125512
     },
     {
-      "path": "apps/web/dist/hks/.gitkeep",
-      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-      "bytes": 0
-    },
-    {
       "path": "apps/web/dist/index.html",
-      "sha256": "2eacff17a1dcf62b71a48e99f2c98f67b5bf058ce859675e164caf21da773c7d",
+      "sha256": "8e733a65a044e9c335ac8dcd61bf26425de954e273b4f4fca6d0fb1383b2aede",
       "bytes": 831
     },
     {
       "path": "deliverables/cuex-final/README.md",
-      "sha256": "2be6f89d9c27df9fc12a07315685aceaea1e91adf7202c511d9e17b1bdbbd4b8",
-      "bytes": 4727
+      "sha256": "802ff43725f5a76b746063122f781693806799775346e6d6e7538a4ff6cbbda8",
+      "bytes": 5704
+    },
+    {
+      "path": "deliverables/cuex-final/assets/CueX-Cover.png",
+      "sha256": "1c9e3ca3151ed0a4752785a10be7a53c374c979ba986210a0200f8474b477dcd",
+      "bytes": 290192
+    },
+    {
+      "path": "deliverables/cuex-final/assets/README.md",
+      "sha256": "6d7afe591ed0fe997cacfd25b8207b35ee94858f0dd6793984a534e00bc4b3e0",
+      "bytes": 3498
+    },
+    {
+      "path": "deliverables/cuex-final/assets/brand/CueX-Cover.png",
+      "sha256": "1c9e3ca3151ed0a4752785a10be7a53c374c979ba986210a0200f8474b477dcd",
+      "bytes": 290192
+    },
+    {
+      "path": "deliverables/cuex-final/assets/brand/cuex-symbol-dimensional.svg",
+      "sha256": "a4f59b6004156c64c798acb15847b996dfdf58bf5a8d208a4caab7160b41a477",
+      "bytes": 1222
+    },
+    {
+      "path": "deliverables/cuex-final/assets/previews/ui-account-drawer-1440.png",
+      "sha256": "734fc653e78f3bfb9729d94f2b8c2684c8813f89e1a23e403b49f2db9e4a2d47",
+      "bytes": 189442
+    },
+    {
+      "path": "deliverables/cuex-final/assets/previews/ui-compiler-cuesheet-1440.png",
+      "sha256": "1c227a0f8ba33f6a8b4a655a85a46b54b9618104bb9a7081bd88ac7c1cc4a369",
+      "bytes": 478488
+    },
+    {
+      "path": "deliverables/cuex-final/assets/previews/ui-compiler-facts-1440.png",
+      "sha256": "c5206962ebd2dc4b75cb8e7a7742ce87d4856e3a95587a59d0dc0fbf22019188",
+      "bytes": 284216
+    },
+    {
+      "path": "deliverables/cuex-final/assets/previews/ui-compiler-qa-1440.png",
+      "sha256": "90f93e78634c170904d44da597c79ccad695efe469c5272a849bcd0d6ebb749f",
+      "bytes": 281877
+    },
+    {
+      "path": "deliverables/cuex-final/assets/previews/ui-home-1440.png",
+      "sha256": "be69aa7f2b26ae8c947ec56e097ff0b65379936aa6733c272c6882c7490d7c92",
+      "bytes": 243365
+    },
+    {
+      "path": "deliverables/cuex-final/assets/previews/ui-home-390.png",
+      "sha256": "4f7d7425de7c42552e41c3810561183b7d53d9ee70f77d379e0357f4062189c9",
+      "bytes": 85059
+    },
+    {
+      "path": "deliverables/cuex-final/assets/previews/ui-memory-drawer-1440.png",
+      "sha256": "bc124968f554857eef9bb32e872ae933673b0eef371d231865e164fbff2e0c18",
+      "bytes": 200271
+    },
+    {
+      "path": "deliverables/cuex-final/assets/previews/ui-qa-degraded-inspector-1440.png",
+      "sha256": "b978a8a620c501b2637356f47fc1fbb9efb6dddda1708d8bbc906d129e14d97e",
+      "bytes": 203129
+    },
+    {
+      "path": "deliverables/cuex-final/assets/previews/ui-qa-narrow-focus-480.png",
+      "sha256": "47a8e389f51410cfb67bedf42d052d3714d3006351ddabba5f3197e3cf310d6f",
+      "bytes": 87500
+    },
+    {
+      "path": "deliverables/cuex-final/assets/previews/ui-qa-narrow-split-strip-520.png",
+      "sha256": "3a8a36a1a53817ba72174eba62294165d093b4a3a91a3bb33464dbec2828f8b4",
+      "bytes": 106331
+    },
+    {
+      "path": "deliverables/cuex-final/assets/previews/ui-reflection-1440.png",
+      "sha256": "dce29f2acd4dfad42c7af7169e46bd37aebbe8b63a43d1a5d6ea90f1d32dbefc",
+      "bytes": 463692
+    },
+    {
+      "path": "deliverables/cuex-final/assets/previews/ui-stage-focus-l0-1440.png",
+      "sha256": "b560210b1d1009692f3642ab1d51b52a1c2049f86153307258577012b8692a59",
+      "bytes": 186449
+    },
+    {
+      "path": "deliverables/cuex-final/assets/previews/ui-stage-focus-l2-1440.png",
+      "sha256": "9264d751ed644f238fa7a6b432cd0762cebea49b6af65c1e5977812a7013431f",
+      "bytes": 197541
+    },
+    {
+      "path": "deliverables/cuex-final/assets/previews/ui-stage-inspector-1440.png",
+      "sha256": "38a50b57f1a9ee44198457376c548059b7125690de7d07062b5ff61488da0b7d",
+      "bytes": 309693
+    },
+    {
+      "path": "deliverables/cuex-final/assets/previews/ui-stage-split-strip-1440.png",
+      "sha256": "3ee9a35ff2fee4e1af28902788c302e916851a9f71b2359ebd0ed9f36b9ac066",
+      "bytes": 227082
     },
     {
       "path": "deliverables/cuex-final/brand/CueX-Brand-Guide.md",
@@ -5832,68 +5767,318 @@
     },
     {
       "path": "deliverables/cuex-final/brand/CueX-Cover.png",
-      "sha256": "349fd73c8f9098fe65959a2795d529400fd8d5232ab2aea56420b830bf2980de",
-      "bytes": 175289
+      "sha256": "1c9e3ca3151ed0a4752785a10be7a53c374c979ba986210a0200f8474b477dcd",
+      "bytes": 290192
     },
     {
       "path": "deliverables/cuex-final/business/CueX-AI-Employee-Job-Spec.pdf",
-      "sha256": "f666e1d5dc503a4c1db2362f705a6a479a9b94fc69c230cd599416e949fab564",
-      "bytes": 674626
+      "sha256": "466f52d9a02f05f42635382fb0fc927294813c72432e1bf64d4364996f0590f3",
+      "bytes": 674965
     },
     {
       "path": "deliverables/cuex-final/business/CueX-BMC-and-Unit-Economics.pdf",
-      "sha256": "71c03ff69e0e20121fe56b52f8fccf2c71f6b8dd7e4d6d130f8e7f91ad5cdb23",
-      "bytes": 755694
+      "sha256": "abff6f511b52e16e83d66bafeeec04bf24b9a31c762034da73c67eefe59f02a9",
+      "bytes": 730871
     },
     {
       "path": "deliverables/cuex-final/business/CueX-Business-Model-Canvas.pdf",
-      "sha256": "0905560adadc525f79b0fdbb882b4016154f47a34a31534f24d34d0a82e17443",
+      "sha256": "d65c5819954f3b9cf066b0298999e32873a9819fa4a490fc56020d0c6cfe1a62",
       "bytes": 530162
     },
     {
+      "path": "deliverables/cuex-final/business/CueX-Business-Plan.md",
+      "sha256": "159240bce5a6f7c3924f04695b1180e24f14d6f9519f6f6eba667f5ddd231644",
+      "bytes": 10997
+    },
+    {
       "path": "deliverables/cuex-final/business/CueX-Business-Plan.pdf",
-      "sha256": "126d62c62a98fa3d5097d49f12e3b27f932455128390d9a1b9f0ed88d5d90ff4",
-      "bytes": 6557373
+      "sha256": "1f2ae69d0d21aab2a4600a53de35000f4ce476c58886e67f1195b2a0c94adaf4",
+      "bytes": 7086946
+    },
+    {
+      "path": "deliverables/cuex-final/business/CueX-Competitive-Analysis.html",
+      "sha256": "b6285ab41003a744915ff5e13e502d932b4b18598512b9a71a8aa0b9eedb6a89",
+      "bytes": 28542
+    },
+    {
+      "path": "deliverables/cuex-final/business/CueX-Competitive-Analysis.md",
+      "sha256": "1fb0f3152e2d3e668a744fe6074099607ed9a2d3e4c0b4a30f175105194f29eb",
+      "bytes": 12017
+    },
+    {
+      "path": "deliverables/cuex-final/business/CueX-Competitive-Analysis.pdf",
+      "sha256": "868d04e752283c588f279aa10f7271aaf8c6276ba3b432a2ccd3cf717f398471",
+      "bytes": 3581128
+    },
+    {
+      "path": "deliverables/cuex-final/business/CueX-Pitch-Script.md",
+      "sha256": "c836282b53015eaaeaf83fd206b69e27a463c59b2decf258a0441a3226aabc09",
+      "bytes": 9372
+    },
+    {
+      "path": "deliverables/cuex-final/business/CueX-Unit-Economics.md",
+      "sha256": "d5ed67e43923fb4e04fd05f075796f512f70fb73989bd5b85fd5d0b4b1f7570c",
+      "bytes": 8112
     },
     {
       "path": "deliverables/cuex-final/business/CueX-Unit-Economics.pdf",
-      "sha256": "2518db0b8dc3ff01c23e09f23648185faf3e40bbdd4aebcac644084ed2948b75",
-      "bytes": 606091
+      "sha256": "2b78b402cf940d0074717730efe1997c2253bf1affc12514617b4ffb30e3049f",
+      "bytes": 550512
+    },
+    {
+      "path": "deliverables/cuex-final/business/CueX-Website-Submission-Copy.md",
+      "sha256": "839a9873c2b89ba5c88b9102952ec66dd2c3f2acdab6b3011ff8a8c0d4d12d9a",
+      "bytes": 7330
+    },
+    {
+      "path": "deliverables/cuex-final/demo/CueX-Demo-Script.md",
+      "sha256": "8d152ea47061a529e26a724782510c7206b65065c516a720e5c08bf6f37ea609",
+      "bytes": 5908
+    },
+    {
+      "path": "deliverables/cuex-final/demo/README.md",
+      "sha256": "f2f169820a993a8a953a608bcc9ef9a097b78a30bb3bb52899ec34fd66271cab",
+      "bytes": 2901
+    },
+    {
+      "path": "deliverables/cuex-final/demo/token-usage-proof.png",
+      "sha256": "815305e3ed8c5e7c4452678e2e1b5c7135b34997b8c3e00e9620b5ee118239a6",
+      "bytes": 331905
     },
     {
       "path": "deliverables/cuex-final/evidence/evaluation-results.md",
-      "sha256": "509268d36421faebe129c1d3599d21bb580fa22534f617d54a243c087be3127f",
-      "bytes": 5986
+      "sha256": "38229763298e043763412de71e7dfcaad165430482b964ce498292d6a3743b07",
+      "bytes": 8649
     },
     {
       "path": "deliverables/cuex-final/evidence/token-usage-proof.png",
-      "sha256": "a9118f8c70a0d87b4a243c5312a8e7f638941ac94f4c7c5791883f8226e0a66b",
-      "bytes": 233986
+      "sha256": "815305e3ed8c5e7c4452678e2e1b5c7135b34997b8c3e00e9620b5ee118239a6",
+      "bytes": 331905
     },
     {
       "path": "deliverables/cuex-final/evidence/verification.json",
-      "sha256": "af344fb8cf3ec33fe5f82f92d9b50d8778e8ab86cb20367f7e1cfcc8e580ee28",
-      "bytes": 1372
+      "sha256": "b8b85ec371f7444cdc257c595085c4f48d9a06a066f89e96f2d944d42156d6f2",
+      "bytes": 2013
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/README.md",
+      "sha256": "d1f1aa0b900d7fe7227c1416e19242ebd62e609f58107fc980cc1482f3aaf682",
+      "bytes": 3912
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/demo-pack/README.md",
+      "sha256": "a494e1085d4a31163fc61ef5b89d71dd3db85b56ad500e03f353181d5a3110c5",
+      "bytes": 1819
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/demo-pack/audio/01_intro_natural_tingting.wav",
+      "sha256": "f0ce76e6667b2adb733bbdc9666b872ac151d0e159cab6265066b95e443af810",
+      "bytes": 520522
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/demo-pack/audio/02_pain_point_fast_tingting.wav",
+      "sha256": "4eed78626dce258cee9e0a15a48720d3718080f9377a0eb02255af19ab54388f",
+      "bytes": 423964
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/demo-pack/audio/03_pauses_fillers_meijia.wav",
+      "sha256": "61f0afc0532327137cdfdf204639e49815f69572c508acbf4e02a9d4ae4c3880",
+      "bytes": 575646
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/demo-pack/audio/04_numbers_proper_nouns_tingting.wav",
+      "sha256": "69e9f22a215767f7e22a909e220eecd51620ead730794c10e18488a05c5a155a",
+      "bytes": 585866
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/demo-pack/audio/05_architecture_bilingual_meijia.wav",
+      "sha256": "2c97396bca74df095d8290b8fff4ed2931c20fd22c94dbf42a586c815f879ae0",
+      "bytes": 589214
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/demo-pack/audio/06_quiet_mic_gain.wav",
+      "sha256": "230fb023e0cbe42731802ecd2f3f00f20522b787199f4e135d03c7b8b6f9b3fc",
+      "bytes": 488028
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/demo-pack/audio/07_loud_mic_gain_softclip.wav",
+      "sha256": "7bcdf07b9e6b87dcea723ff0890d4f4c8c1f94210b2ed332c2e10cfe3242866a",
+      "bytes": 327598
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/demo-pack/audio/08_moderate_room_noise.wav",
+      "sha256": "101033f1d0f66b7d80d0feea72dd841cc238cdd3320192a146462b3b5e069faf",
+      "bytes": 419208
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/demo-pack/audio/09_speaker_interruption_qa.wav",
+      "sha256": "c26c747a74244d3f0eb45a975b94ae59662857df4502626b3cd677c240c07fd2",
+      "bytes": 396258
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/demo-pack/audio/10_deliberate_omission_demo.wav",
+      "sha256": "32739623fc9fb578efa80e4d7fe20cd228d632833a0de1fed62af240e1b40299",
+      "bytes": 478960
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/demo-pack/audio/11_topic_drift_demo.wav",
+      "sha256": "b68c94aa873c011c02ee2a9d1c9b8febf36e19da62e9b56c79491138fe91f9c8",
+      "bytes": 411988
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/demo-pack/audio/12_qa_defense_bilingual.wav",
+      "sha256": "c9d57a86adbee6faaa2e48fb19f78e9f4bfec3e275698233d1c14d000301d578",
+      "bytes": 499540
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/demo-pack/audio/13_privacy_sovereignty_tingting.wav",
+      "sha256": "d27644a5aeda45d8abf4f19e0e1dec6e6059a879d7c70770bbbc41970a9df46a",
+      "bytes": 465324
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/demo-pack/audio/14_long_multiturn_continuous.wav",
+      "sha256": "d917e06985b3d19f9e4a9460f4ab30b557670841d213f07866befce8123cd366",
+      "bytes": 1029494
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/demo-pack/audio/manifest.json",
+      "sha256": "30f028796bca42914b0960810faace0179c4d228bcb2eed492084f8c8cb90288",
+      "bytes": 12075
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/demo-pack/cuex-fact-whitelist.json",
+      "sha256": "ce381c258dda81e55dcf871afd58032b1dc13797ed5ede8295cf2f3bc12f680f",
+      "bytes": 3015
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/demo-pack/cuex-presentation-pitch.md",
+      "sha256": "cbfc70cf0e884f6e1b5b12277d343422d6ffdd786fe38f5915073e2d8d6325ca",
+      "bytes": 3314
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/demo-pack/cuex-qa-bank.json",
+      "sha256": "a477ce23c5b8bd63a23e613311d1d0eff070bc59817bda0c4fadf4f4a778e355",
+      "bytes": 2134
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/demo-script.md",
+      "sha256": "ab3a09996defd5d66426872b73b7058f939e1e0837fe1cd9616f62af08b055dd",
+      "bytes": 6726
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/evidence/colab-asr-report.json",
+      "sha256": "27d88ca7ed1e84a8c9d06a986c476b8045884d1d14788a4f668cb5b38ef763d6",
+      "bytes": 23017
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/evidence/cpa-llm-report.json",
+      "sha256": "a49fc43a6a2d8506b35e1d79ee51b8c602ae5f50fe142d24595f5fa4045b7dde",
+      "bytes": 23971
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/evidence/real-e2e-validation.json",
+      "sha256": "99e0d2817e1a44d6709fbf235d2da62066c8c463bfa678edc55f6de2598148f8",
+      "bytes": 34911
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/evidence/ui-compiler-facts-1440.png",
+      "sha256": "c5206962ebd2dc4b75cb8e7a7742ce87d4856e3a95587a59d0dc0fbf22019188",
+      "bytes": 284216
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/evidence/ui-qa-degraded-inspector-1440.png",
+      "sha256": "b978a8a620c501b2637356f47fc1fbb9efb6dddda1708d8bbc906d129e14d97e",
+      "bytes": 203129
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/evidence/ui-reflection-1440.png",
+      "sha256": "dce29f2acd4dfad42c7af7169e46bd37aebbe8b63a43d1a5d6ea90f1d32dbefc",
+      "bytes": 463692
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/evidence/ui-stage-focus-l2-1440.png",
+      "sha256": "9264d751ed644f238fa7a6b432cd0762cebea49b6af65c1e5977812a7013431f",
+      "bytes": 197541
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/evidence/ui-stage-inspector-1440.png",
+      "sha256": "38a50b57f1a9ee44198457376c548059b7125690de7d07062b5ff61488da0b7d",
+      "bytes": 309693
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-demo/operator-runbook.md",
+      "sha256": "4ef201c6f2096fb99629dfa5a23b52b43e837f97c8338765068f2b5141ffbfec",
+      "bytes": 5253
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-job-spec/CueX-AI-Employee-Job-Specification.pdf",
+      "sha256": "51a959ad04912889c5c30950992dd103d3eeb640af8ca702f6c103a5012ab487",
+      "bytes": 2312103
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-job-spec/previews/page-1.png",
+      "sha256": "9aa9ed9edefcb207306b5e2a9da402a2ad48f5c77af387d3a89c87f2695bcb6f",
+      "bytes": 549715
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-job-spec/source/CueX-AI-Employee-Job-Specification.html",
+      "sha256": "922086fb73fa2921f2868144c6ea01ded661f0c4f8f527ab31540895418e2d2e",
+      "bytes": 19258
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-job-spec/source/CueX-AI-Employee-Job-Specification.md",
+      "sha256": "ebb36403af60ce667010e7cfcb5244c1a993b7b6efb366ff8bdd51056d473833",
+      "bytes": 9635
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/business-model-canvas/CueX-Business-Model-Canvas.pdf",
+      "sha256": "447bf94c7b760d7d811c3f6df49af92963779f8a5e1fd8bcc21afc357337c569",
+      "bytes": 3948792
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/business-model-canvas/previews/page-1.png",
+      "sha256": "13290b17c2bcbfa6c6922365a36e4d1ba3b41705e812c08ed71f35b0a17199fe",
+      "bytes": 596031
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/business-model-canvas/previews/page-2.png",
+      "sha256": "f641bab64bdd49f453c7f11737c133ed2c55d6d7ef0514c2c9f484dd2c7d468c",
+      "bytes": 506258
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/business-model-canvas/source/CueX-Business-Model-Canvas.html",
+      "sha256": "fc077c403d8765759582a355d4653f1caa6f0c6cfc8f031da159b0edff15a0fb",
+      "bytes": 33528
+    },
+    {
+      "path": "deliverables/cuex-final/mandatory/business-model-canvas/source/CueX-Business-Model-Canvas.md",
+      "sha256": "c11f5a402a55afa45026f77d505184150a3cbb8e8ce9572f57894f10a5d00989",
+      "bytes": 14118
     },
     {
       "path": "deliverables/cuex-final/pitch/CueX-BP.pdf",
-      "sha256": "126d62c62a98fa3d5097d49f12e3b27f932455128390d9a1b9f0ed88d5d90ff4",
-      "bytes": 6557373
+      "sha256": "1f2ae69d0d21aab2a4600a53de35000f4ce476c58886e67f1195b2a0c94adaf4",
+      "bytes": 7086946
     },
     {
       "path": "deliverables/cuex-final/pitch/CueX-Demo-Script.md",
-      "sha256": "a42c0fee2af4f18e8b8611cf8dd06e7956e2fe54f5a58a552d0e09c8eb328d04",
-      "bytes": 6159
+      "sha256": "8d152ea47061a529e26a724782510c7206b65065c516a720e5c08bf6f37ea609",
+      "bytes": 5908
     },
     {
       "path": "deliverables/cuex-final/pitch/CueX-Pitch-Script.md",
-      "sha256": "90b460f26148c6d076c8d46beff53e82dacbe902d0dcc01483a4d6c9a845ff99",
-      "bytes": 12158
+      "sha256": "c836282b53015eaaeaf83fd206b69e27a463c59b2decf258a0441a3226aabc09",
+      "bytes": 9372
     },
     {
       "path": "deliverables/cuex-final/pitch/CueX-Website-Copy.md",
-      "sha256": "8d7664fd048f7cac805ea08b0d08d9f9c664e38e841c428f6909dffbcdaa53e2",
-      "bytes": 6886
+      "sha256": "839a9873c2b89ba5c88b9102952ec66dd2c3f2acdab6b3011ff8a8c0d4d12d9a",
+      "bytes": 7330
+    },
+    {
+      "path": "deliverables/cuex-final/pitch/CueX-Website-Submission-Copy.md",
+      "sha256": "839a9873c2b89ba5c88b9102952ec66dd2c3f2acdab6b3011ff8a8c0d4d12d9a",
+      "bytes": 7330
     },
     {
       "path": "deliverables/cuex-final/previews/bmc-p1.png",
@@ -5912,13 +6097,13 @@
     },
     {
       "path": "deliverables/cuex-final/previews/bp-p3.png",
-      "sha256": "9d5eb383baa2a6cabb0bf8bbbe4ec92089a31e30d3aba9914b473bb4569b69c4",
-      "bytes": 598922
+      "sha256": "c0f5c4db25693eddca4c32211a62af74f58d21b8d1ee3af4ea15ca66b2ef8e6d",
+      "bytes": 867724
     },
     {
       "path": "deliverables/cuex-final/previews/bp-p4.png",
-      "sha256": "334f2cb54a81294f17dc2b62c558bc450bf4cca13e26e792038e1cdf306f8b9c",
-      "bytes": 640222
+      "sha256": "b5ef01ea73fd4b6a4ff5d39cb5dac24bdd0f99b0c84e64dee699fe34710e829f",
+      "bytes": 623551
     },
     {
       "path": "deliverables/cuex-final/previews/bp-p5.png",
@@ -5927,8 +6112,8 @@
     },
     {
       "path": "deliverables/cuex-final/previews/bp-p6.png",
-      "sha256": "16feb9cd79a0c7fa71ce0015023d71e05acaccb18b2a3b333a0c98c4de31b6fe",
-      "bytes": 765593
+      "sha256": "484413c4b32911c319e6e2952701d542b4bd996250aa9d90961e8e8c8cde8f37",
+      "bytes": 774944
     },
     {
       "path": "deliverables/cuex-final/previews/bp-p7.png",
@@ -5937,23 +6122,23 @@
     },
     {
       "path": "deliverables/cuex-final/previews/bp-p8.png",
-      "sha256": "e1c799070ef05c6501cd4b5b6537cfec9e4433fa40fcd0eac4da653d7edfef8e",
-      "bytes": 708798
+      "sha256": "938e99cb0b2ed5513d838a4894545c7fd078e4798953cf2e15e2d61a1f2aa422",
+      "bytes": 744375
     },
     {
       "path": "deliverables/cuex-final/previews/cover.png",
-      "sha256": "349fd73c8f9098fe65959a2795d529400fd8d5232ab2aea56420b830bf2980de",
-      "bytes": 175289
+      "sha256": "1c9e3ca3151ed0a4752785a10be7a53c374c979ba986210a0200f8474b477dcd",
+      "bytes": 290192
     },
     {
       "path": "deliverables/cuex-final/previews/job-spec-p1.png",
-      "sha256": "1017663b51bf5822a7ebb673e082653d0e2082ef9305c7e5bb4fc74cf9d051a4",
-      "bytes": 758696
+      "sha256": "5952cd95f16ff8576c92b2813189bd427e1c3f8bfd39d46fd5b3147bccb035f9",
+      "bytes": 758653
     },
     {
       "path": "deliverables/cuex-final/previews/unit-economics-p1.png",
-      "sha256": "e89c448847da85e51f50719386ab2553146cc8e015f84285f2689a72ecbcf936",
-      "bytes": 591455
+      "sha256": "05db4afa91e860bb07cf929e68c73585ddee8a8ca11566935ae8680cbf06155a",
+      "bytes": 603968
     },
     {
       "path": "package.json",
@@ -5962,18 +6147,23 @@
     },
     {
       "path": "packages/protocol/compatibility/v1-to-v2.ts",
-      "sha256": "18596d930fbee290879ec1e0f955a9961f875b6f2a4dbe8b08d553426420ffcd",
-      "bytes": 14008
+      "sha256": "5ba8b8f1d2473f905f0c693185e1aea7d4e46c80ae382cc4ef4ca9ab7a81934e",
+      "bytes": 14183
     },
     {
       "path": "packages/protocol/package.json",
-      "sha256": "acff19f509a4520ea1c80e83f2dafae2baef80d066507cd699916bdf66eb46be",
-      "bytes": 413
+      "sha256": "7866a155109eacfb5cf65564251feefc97f0ca682fbc05c735e183025e53df8f",
+      "bytes": 442
     },
     {
       "path": "packages/protocol/schemas/api-error.schema.json",
       "sha256": "04e7edfa0da2fbc24ae2669cbce8b12e1d389ce7fba321df192ad3aa5508dcf9",
       "bytes": 1719
+    },
+    {
+      "path": "packages/protocol/schemas/asr-capability-status.schema.json",
+      "sha256": "859eb0efd0d397801171d2cc1e7f4f0f3eacd95318cf551ff22f4aaa93fa669f",
+      "bytes": 1247
     },
     {
       "path": "packages/protocol/schemas/client-message.schema.json",
@@ -6006,14 +6196,19 @@
       "bytes": 2346
     },
     {
+      "path": "packages/protocol/schemas/provider-usage-record.schema.json",
+      "sha256": "f57dcf1063666e3231922d7ffaab17f9edf6f748ae6407b263ed73bf2f89f185",
+      "bytes": 1197
+    },
+    {
       "path": "packages/protocol/schemas/server-message.schema.json",
       "sha256": "dc2efbece2f96e2586a32fae14f7d793d4aa206c6ebebcffbc30f22addffaa0c",
       "bytes": 1090
     },
     {
       "path": "packages/protocol/schemas/telemetry-usage.schema.json",
-      "sha256": "5138d5065e2ff85459bdaddae937144b75ca126f09b474267ca5e5abf6bc1638",
-      "bytes": 2147
+      "sha256": "d4f6772bba0ca2d59d9ef6451b3c42ce32b86817b5b91c74f866e91c20839a7e",
+      "bytes": 2230
     },
     {
       "path": "packages/protocol/schemas/usage-record.schema.json",
@@ -6022,13 +6217,13 @@
     },
     {
       "path": "packages/protocol/src/api.ts",
-      "sha256": "e0601cfead1c5033ca8137ec2c7732f7ee9c6b301363cef1a591d7ae51969488",
-      "bytes": 2328
+      "sha256": "c9c6d5863c9a41b298093b7a8bc8ca4d6d023e5e8b5e5df65495411a20af76ed",
+      "bytes": 2399
     },
     {
       "path": "packages/protocol/src/audio.ts",
-      "sha256": "85020fab9069c9b512b8165fb617ffcc604ff50e6e07051a4f8510971c39a3af",
-      "bytes": 886
+      "sha256": "5e5ffc18185dab9c1ea684c28f4dbd81de0fb039322c21a235987d2079e461e6",
+      "bytes": 1467
     },
     {
       "path": "packages/protocol/src/commercial.ts",
@@ -6037,8 +6232,8 @@
     },
     {
       "path": "packages/protocol/src/common.ts",
-      "sha256": "55f4d66a896d2397282b9ef894ff68289a6d8cf15c6337815e8bb3933cef5ee9",
-      "bytes": 2849
+      "sha256": "8aac045d00696a286c2707371be3657b79d9d65d866859895c0120045333cb94",
+      "bytes": 3030
     },
     {
       "path": "packages/protocol/src/controller.ts",
@@ -6077,8 +6272,8 @@
     },
     {
       "path": "packages/protocol/src/reasoning.ts",
-      "sha256": "6c748bdf7dc7847cf4732c2af46be7b84911def18a5afc4d8a16a546bfc71807",
-      "bytes": 3820
+      "sha256": "f7db318d0dd1e89f6971e70a9b13bc3fb896c36ce1901c0ddcea08f7dba78d96",
+      "bytes": 3874
     },
     {
       "path": "packages/protocol/src/scenario.ts",
@@ -6092,13 +6287,13 @@
     },
     {
       "path": "packages/protocol/src/validation.ts",
-      "sha256": "4ed3f77c164fedcadce173d5c9d0d6a6b51ee09aa9fb471566495568d5c01d6f",
-      "bytes": 38837
+      "sha256": "9039d050e9669c15790b111700c55d3235b0a54a79ae70a20fe7cf5d293f5d88",
+      "bytes": 45650
     },
     {
       "path": "packages/protocol/src/versions.ts",
-      "sha256": "3d880bf421cc84686a4e196602ef49274dda4da5505605d8600f788aca5b0758",
-      "bytes": 1219
+      "sha256": "022d2fd3d8f23259cede98a7de853f8599bda868c55cd79cc1ab5fcfbbf07d15",
+      "bytes": 1277
     },
     {
       "path": "packages/protocol/tsconfig.json",
@@ -6137,6 +6332,6 @@
     "pnpmComponentCount": 381,
     "pptComponentCount": 370,
     "importerDependencyCount": 35,
-    "hashedArtifactCount": 112
+    "hashedArtifactCount": 151
   }
 }

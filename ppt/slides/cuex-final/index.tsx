@@ -10,6 +10,10 @@ import notoSerifScUrl from '@assets/fonts/NotoSerifSC-VF.ttf?url';
 import jetBrainsMonoUrl from '@assets/fonts/JetBrainsMono-VF.ttf?url';
 import interUrl from '@assets/fonts/Inter-VF.ttf?url';
 import cuexSymbolDimUrl from '@assets/brand/cuex-symbol-dimensional.svg?url';
+import uiCompilerFactsUrl from './assets/ui-compiler-facts-1440.png?url';
+import uiStageFocusL2Url from './assets/ui-stage-focus-l2-1440.png?url';
+import uiStageInspectorUrl from './assets/ui-stage-inspector-1440.png?url';
+import uiReflectionUrl from './assets/ui-reflection-1440.png?url';
 import metricsData from '../../scripts/cuex-final-metrics.json';
 
 const STYLE_ID = 'osd-styles-cuex-final';
@@ -908,32 +912,31 @@ const Page3Presentation: Page = () => (
   >
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 22, height: '100%' }}>
       {/* Stage 1: Pre-stage Compiler */}
-      <Card style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }} accent="violet">
+      <Card style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '18px 20px' }} accent="violet">
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
             <Tag label="阶段 1 · 上台前" tone="violet" />
             <span style={{ fontFamily: FF.mono, fontSize: 12, color: C.subtle }}>DocumentExtractor + Compiler</span>
           </div>
-          <h3 style={{ margin: '0 0 8px 0', fontSize: 22, fontWeight: 700 }}>多格式编译为结构化证据库</h3>
-          <p style={{ margin: '0 0 16px 0', fontSize: 15, color: C.muted, lineHeight: 1.5 }}>
-            上传讲者自己的 <code>.pptx</code> / <code>.pdf</code> / <code>.md</code> / <code>.txt</code>，一键抽出章节图谱、必讲锚点与防幻觉原文依据 <code>Evidence[]</code>。
+          <h3 style={{ margin: '0 0 6px 0', fontSize: 21, fontWeight: 700 }}>多格式编译为结构化证据库</h3>
+          <p style={{ margin: '0 0 10px 0', fontSize: 14.5, color: C.muted, lineHeight: 1.45 }}>
+            上传 <code>.pptx/.pdf/.md/.txt</code>，抽出章节图谱、必讲锚点与防幻觉原文依据 <code>Evidence[]</code>（锁定 <code>locked: true</code> 防篡改）。
           </p>
 
-          <div style={{ background: C.tint, borderRadius: 10, padding: 14, border: `1px solid ${C.hairline}` }}>
-            <div style={{ fontFamily: FF.mono, fontSize: 12, color: C.violet, fontWeight: 700, marginBottom: 8 }}>
-              PresentationContextPack 结构示例
-            </div>
-            <div style={{ fontSize: 13.5, lineHeight: 1.6, fontFamily: FF.mono, color: C.ink }}>
-              <div>• Scene: pitch | defense | keynote</div>
-              <div>• Chapter 03: Unit Economics</div>
-              <div style={{ color: C.amber }}>  └ Anchor: 10 项全成本与毛利校验</div>
-              <div style={{ color: C.muted }}>  └ Evidence#E07: "ASR ¥0.80/h..."</div>
-              <div style={{ color: C.rust }}>  └ Forbidden: 勿把理论假设当实测营收</div>
-            </div>
+          <div style={{ borderRadius: 10, overflow: 'hidden', border: `1px solid ${C.hairline}`, marginBottom: 10, background: C.tint }}>
+            <img
+              src={uiCompilerFactsUrl}
+              alt="Compiler FactWhitelist UI"
+              style={{ width: '100%', height: 220, objectFit: 'cover', objectPosition: 'top center', display: 'block' }}
+            />
+          </div>
+
+          <div style={{ background: C.tint, borderRadius: 8, padding: '8px 12px', border: `1px solid ${C.hairline}`, fontFamily: FF.mono, fontSize: 12, color: C.ink }}>
+            <span style={{ color: C.violet, fontWeight: 700 }}>实测编译验收：</span>21–23 条带引用事实 + 6 张 Q&amp;A 卡（标明未覆盖缺口）
           </div>
         </div>
-        <div style={{ fontSize: 13, color: C.sage, fontWeight: 600, marginTop: 12 }}>
-          ✓ 工程现状：已实现 4 格式抽取编译，零单领域硬编码
+        <div style={{ fontSize: 13, color: C.sage, fontWeight: 600, marginTop: 8 }}>
+          ✓ 工程现状：4 格式抽取 + 隐私知情勾选已实装
         </div>
       </Card>
 
@@ -943,85 +946,77 @@ const Page3Presentation: Page = () => (
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'space-between',
+          padding: '18px 20px',
           background: C.tintWarm,
           border: `1px solid rgba(232,122,36,0.38)`,
         }}
         accent="amber"
       >
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
             <Tag label="阶段 2 · 彩排与临场" tone="amber" />
-            <span style={{ fontFamily: FF.mono, fontSize: 12, color: C.amber }}>Focus / Inspector 双视图</span>
+            <span style={{ fontFamily: FF.mono, fontSize: 12, color: C.amber }}>Focus / Split-Strip / Inspector</span>
           </div>
-          <h3 style={{ margin: '0 0 8px 0', fontSize: 22, fontWeight: 700 }}>实时低分心引导与自动撤回</h3>
-          <p style={{ margin: '0 0 14px 0', fontSize: 15, color: C.muted, lineHeight: 1.5 }}>
-            支持单点快速彩排与实时临场模式：<code>Focus</code> 给讲者纯净低干扰提示；<code>Inspector</code> 完整透视门控状态、TTL 与原文依据。
+          <h3 style={{ margin: '0 0 6px 0', fontSize: 21, fontWeight: 700 }}>实时低分心引导与自动撤回</h3>
+          <p style={{ margin: '0 0 10px 0', fontSize: 14.5, color: C.muted, lineHeight: 1.45 }}>
+            <code>Focus</code> 给讲者纯净 L1 边缘微光与 L2 短锚点，开口接回立即 <code>user_recovered</code> 自动撤回；<code>Inspector</code> 透视门控与 ASR/LLM 状态。
           </p>
 
-          {/* Mini UI Mock */}
-          <div style={{ background: C.card, border: `1px solid ${C.hairline}`, borderRadius: 12, padding: 14 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontFamily: FF.mono, color: C.subtle, marginBottom: 10 }}>
-              <span>[Focus Mode] ASR: Local/Remote/Text</span>
-              <span style={{ color: C.amber, fontWeight: 700 }}>L2 ANCHOR · TTL 8s</span>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+            <div style={{ borderRadius: 10, overflow: 'hidden', border: `1px solid rgba(232,122,36,0.35)`, background: C.card }}>
+              <img
+                src={uiStageFocusL2Url}
+                alt="Stage Focus L2 Cue"
+                style={{ width: '100%', height: 170, objectFit: 'cover', objectPosition: 'top center', display: 'block' }}
+              />
+              <div style={{ padding: '5px 8px', fontFamily: FF.mono, fontSize: 11, color: C.amber, fontWeight: 700 }}>Focus · L2 短锚点</div>
             </div>
-            <div
-              style={{
-                borderLeft: `4px solid ${C.amberBright}`,
-                background: C.tintWarm,
-                padding: '10px 12px',
-                borderRadius: 6,
-              }}
-            >
-              <div style={{ fontSize: 15, fontWeight: 700, color: C.ink }}>补齐：10 项全成本中的 ASR 占大头</div>
-              <div style={{ fontFamily: FF.mono, fontSize: 12, color: C.muted, marginTop: 4 }}>
-                依据 [E07] · 检测到你切回本章 → 状态转为 Auto-Withdraw
-              </div>
-            </div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 10, fontFamily: FF.mono, fontSize: 11 }}>
-              <Tag label="user_recovered 自动撤回" tone="sage" />
-              <Tag label="contextVersion 校验" tone="neutral" />
+            <div style={{ borderRadius: 10, overflow: 'hidden', border: `1px solid ${C.hairline}`, background: C.card }}>
+              <img
+                src={uiStageInspectorUrl}
+                alt="Stage Inspector Telemetry"
+                style={{ width: '100%', height: 170, objectFit: 'cover', objectPosition: 'top center', display: 'block' }}
+              />
+              <div style={{ padding: '5px 8px', fontFamily: FF.mono, fontSize: 11, color: C.violet, fontWeight: 700 }}>Inspector · 门控日志</div>
             </div>
           </div>
+
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', fontFamily: FF.mono, fontSize: 11 }}>
+            <Tag label="user_recovered 自动撤回" tone="sage" />
+            <Tag label="80ms CPA 超时诚实降级" tone="neutral" />
+          </div>
         </div>
-        <div style={{ fontSize: 13, color: C.sage, fontWeight: 600, marginTop: 12 }}>
-          ✓ 工程现状：Focus/Inspector + 7 类自动撤回已实装
+        <div style={{ fontSize: 13, color: C.sage, fontWeight: 600, marginTop: 8 }}>
+          ✓ 工程现状：42/42 视口截图零溢出 · 7 类撤回已实装
         </div>
       </Card>
 
       {/* Stage 3: Reflection & Memory */}
-      <Card style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }} accent="sage">
+      <Card style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '18px 20px' }} accent="sage">
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
             <Tag label="阶段 3 · 散场后" tone="sage" />
-            <span style={{ fontFamily: FF.mono, fontSize: 12, color: C.subtle }}>Reflection + MemoryStore</span>
+            <span style={{ fontFamily: FF.mono, fontSize: 12, color: C.subtle }}>Reflection + /wipe 主权</span>
           </div>
-          <h3 style={{ margin: '0 0 8px 0', fontSize: 22, fontWeight: 700 }}>效用复盘与人工审批记忆</h3>
-          <p style={{ margin: '0 0 16px 0', fontSize: 15, color: C.muted, lineHeight: 1.5 }}>
-            不搞无意义好评打分，用严格控制论指标复盘每一次出手；同时把用户个人记忆权限彻底交还本人。
+          <h3 style={{ margin: '0 0 6px 0', fontSize: 21, fontWeight: 700 }}>效用复盘与人工审批记忆</h3>
+          <p style={{ margin: '0 0 10px 0', fontSize: 14.5, color: C.muted, lineHeight: 1.45 }}>
+            以 <code>V = H − λI</code> 复盘每次出手、支持单点重练薄弱片段；习惯记忆须人工点击确认，支持随时导出与 <code>/wipe</code> 擦除。
           </p>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <div style={{ background: C.tint, borderRadius: 10, padding: '12px 14px' }}>
-              <div style={{ fontFamily: FF.mono, fontSize: 12, fontWeight: 700, color: C.sage }}>
-                PRESENTATION REFLECTION
-              </div>
-              <div style={{ fontSize: 14, color: C.ink, marginTop: 4 }}>
-                输出净效用 <code>V = H − λI</code>、章节覆盖率、遗漏锚点、<code>False Intervention Rate</code> 及逐条干预生命轨迹。
-              </div>
-            </div>
+          <div style={{ borderRadius: 10, overflow: 'hidden', border: `1px solid ${C.hairline}`, marginBottom: 10, background: C.tint }}>
+            <img
+              src={uiReflectionUrl}
+              alt="Reflection V=H-2I and Memory Governance"
+              style={{ width: '100%', height: 220, objectFit: 'cover', objectPosition: 'top center', display: 'block' }}
+            />
+          </div>
 
-            <div style={{ background: C.tint, borderRadius: 10, padding: '12px 14px' }}>
-              <div style={{ fontFamily: FF.mono, fontSize: 12, fontWeight: 700, color: C.violet }}>
-                OPT-IN MEMORY GOVERNANCE
-              </div>
-              <div style={{ fontSize: 14, color: C.ink, marginTop: 4 }}>
-                禁止静默写入隐私：候选记忆须人工勾选确认，且支持 <code>/api/sessions/:id/wipe</code> 一键彻底擦除。
-              </div>
-            </div>
+          <div style={{ background: C.tint, borderRadius: 8, padding: '8px 12px', border: `1px solid ${C.hairline}`, fontFamily: FF.mono, fontSize: 12, color: C.ink }}>
+            <span style={{ color: C.sage, fontWeight: 700 }}>主权契约实测：</span>未勾选记忆拦截 <code>400</code> → 同意 <code>201</code> → 导出/擦除 <code>200</code>
           </div>
         </div>
-        <div style={{ fontSize: 13, color: C.sage, fontWeight: 600, marginTop: 12 }}>
-          ✓ 工程现状：V = H − λI 复盘与审批 API 已实装
+        <div style={{ fontSize: 13, color: C.sage, fontWeight: 600, marginTop: 8 }}>
+          ✓ 工程现状：V = H − λI 复盘 + 审批入库 + /wipe 已实装
         </div>
       </Card>
     </div>
@@ -1031,116 +1026,119 @@ const Page3Presentation: Page = () => (
 /* ==========================================================================
    P4: 通用认知运行时（Universal Cognitive Runtime Architecture）
    ========================================================================== */
-const Page4Runtime: Page = () => (
-  <SlideShell
-    pageNo="04"
-    eyebrow="SYSTEM ARCHITECTURE · UNIVERSAL COGNITIVE RUNTIME"
-    title="不是“硬编码话术外壳”，而是场景解耦的通用实时认知运行时"
-    subtitle="底座与具体场景完全分离：同一套 EventBus、ContextStore 与独立门控 InterventionController，通过标准契约驱动不同场景插件。"
-  >
-    <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: 28, alignItems: 'center', height: '100%' }}>
-      {/* Left: Clean Architecture Stack */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {/* Layer 1 */}
-        <Card style={{ padding: '16px 22px' }} accent="amber">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <span style={{ fontFamily: FF.mono, fontSize: 13, fontWeight: 700, color: C.amber }}>
-              01 · PERCEPTION &amp; CONTEXT BUS
-            </span>
-            <Tag label="WebAudio PCM16LE + 诚实 ASR 三态" tone="amber" />
-          </div>
-          <div style={{ fontSize: 15, color: C.ink, lineHeight: 1.5 }}>
-            浏览器 AudioWorklet 采集 16kHz 流式语音，显式区分 <strong>Local Sherpa / Remote Cloud / Text Eval</strong> 三种真实状态，推送至 <code>EventBus</code> 与单调递增版本号的 <code>ContextStore</code>。
-          </div>
-        </Card>
+const Page4Runtime: Page = () => {
+  const p3 = metricsData.phase3RealValidation;
+  return (
+    <SlideShell
+      pageNo="04"
+      eyebrow="SYSTEM ARCHITECTURE · UNIVERSAL COGNITIVE RUNTIME"
+      title="不是“硬编码话术外壳”，而是场景解耦的通用实时认知运行时"
+      subtitle="底座与具体场景完全分离：同一套 EventBus、ContextStore 与独立门控 InterventionController，通过标准契约驱动多场景并经实机全链路验收。"
+    >
+      <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: 28, alignItems: 'center', height: '100%' }}>
+        {/* Left: Clean Architecture Stack */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* Layer 1 */}
+          <Card style={{ padding: '15px 22px' }} accent="amber">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <span style={{ fontFamily: FF.mono, fontSize: 13, fontWeight: 700, color: C.amber }}>
+                01 · PERCEPTION &amp; 7-STATE ASR LIFECYCLE
+              </span>
+              <Tag label={`Colab SenseVoiceSmall ${p3.asr.avgInferLatencyMs}ms / RTF ${p3.asr.overallRtf}`} tone="amber" />
+            </div>
+            <div style={{ fontSize: 14.5, color: C.ink, lineHeight: 1.48 }}>
+              <code>16kHz PCM16LE</code> 实时流接入 <strong>Colab GPU ASR</strong>（数字 <code>clip_04</code> CER <code>0.0</code> / WSS 首包 <code>{p3.asr.wssFirstPartialMs} ms</code>）与本地 <strong>Sherpa / 浏览器通道</strong>；7 态生命周期透明上屏。
+            </div>
+          </Card>
 
-        {/* Layer 2 */}
-        <Card style={{ padding: '16px 22px', background: C.tintWarm }} accent="amber">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <span style={{ fontFamily: FF.mono, fontSize: 13, fontWeight: 700, color: C.ink }}>
-              02 · INDEPENDENT INTERVENTION CONTROLLER（核心护城河）
-            </span>
-            <Tag label="L0–L3 + Auto-Withdraw" tone="neutral" />
-          </div>
-          <div style={{ fontSize: 15, color: C.ink, lineHeight: 1.5 }}>
-            推理生成 ≠ 屏幕弹窗。所有候选提示必须经过独立门控：校验 <code>contextVersion</code> 鲜活度、冷却时间、风险阈值与 <code>TTL</code>；一旦命中 <code>user_recovered</code> / <code>chapter_changed</code> / <code>superseded</code> 等 7 类状态，立即自动撤回。
-          </div>
-        </Card>
+          {/* Layer 2 */}
+          <Card style={{ padding: '15px 22px', background: C.tintWarm }} accent="amber">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <span style={{ fontFamily: FF.mono, fontSize: 13, fontWeight: 700, color: C.ink }}>
+                02 · INDEPENDENT INTERVENTION CONTROLLER（核心护城河）
+              </span>
+              <Tag label={`L0–L3 · 离线 ${metricsData.eval.avgLatencyMs}ms / 0 Tok`} tone="neutral" />
+            </div>
+            <div style={{ fontSize: 14.5, color: C.ink, lineHeight: 1.48 }}>
+              推理生成 ≠ 屏幕弹窗。五重独立门控把关版本鲜活度、冷却时间与 <code>TTL</code>（含慢响应生命重锚）；命中 <code>user_recovered</code> / <code>chapter_changed</code> 等 7 类状态瞬间自动撤回。
+            </div>
+          </Card>
 
-        {/* Layer 3 */}
-        <Card style={{ padding: '16px 22px' }} accent="violet">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-            <span style={{ fontFamily: FF.mono, fontSize: 13, fontWeight: 700, color: C.violet }}>
-              03 · DUAL-SYSTEM REASONING &amp; EVIDENCE GUARD
-            </span>
-            <Tag label="System 1 快评估 × System 2 锚定生成" tone="violet" />
-          </div>
-          <div style={{ fontSize: 15, color: C.ink, lineHeight: 1.5 }}>
-            <strong>System 1</strong>（确定性规则 + 可选本地 llama.cpp / 快模型）先挡掉绝大多数无须打扰窗；仅高价值窗口唤醒 <strong>System 2</strong> 检索 <code>Evidence[]</code> 并执行 <code>numbersIn()</code> 数值校验与可选单会话前缀缓存。
-          </div>
-        </Card>
+          {/* Layer 3 */}
+          <Card style={{ padding: '15px 22px' }} accent="violet">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <span style={{ fontFamily: FF.mono, fontSize: 13, fontWeight: 700, color: C.violet }}>
+                03 · UNIFIED CPA DUAL-SYSTEM &amp; EVIDENCE GUARD
+              </span>
+              <Tag label={`gemini-4-hydrogen S1 ${p3.cpa.s1Benchmark.gemini4Hydrogen.passed}/${p3.cpa.s1Benchmark.gemini4Hydrogen.total} (100%)`} tone="violet" />
+            </div>
+            <div style={{ fontSize: 14.5, color: C.ink, lineHeight: 1.48 }}>
+              统一 <code>CpaProviderAdapter</code>（vs <code>flash-lite</code> 4/6）：<code>S1</code> 快判与本地规则挡掉冗扰，<code>S2</code> 严格检索 <code>Evidence[]</code> 并执行数值锁防，<code>{p3.e2e.scenariosPassed}/{p3.e2e.scenariosTotal}</code> Section 5.2 全过。
+            </div>
+          </Card>
 
-        {/* Layer 4 */}
-        <Card style={{ padding: '14px 22px' }} accent="sage">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-            <span style={{ fontFamily: FF.mono, fontSize: 13, fontWeight: 700, color: C.sage }}>
-              04 · PLUGGABLE SCENARIO ADAPTER CONTRACT (@cuex/protocol)
-            </span>
-          </div>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 6 }}>
-            <Tag label="presentation（已全面落地 MVP）" tone="amber" />
-            <Tag label="social（协议注册 · 路线图）" tone="neutral" />
-            <Tag label="teaching（协议注册 · 路线图）" tone="neutral" />
-            <Tag label="sales（协议注册 · 路线图）" tone="neutral" />
-            <Tag label="custom（协议注册 · 路线图）" tone="neutral" />
-          </div>
-        </Card>
-      </div>
-
-      {/* Right: WebGL Cross-Stream + Honest Technical Boundaries */}
-      <div
-        style={{
-          background: C.card,
-          border: `1px solid ${C.hairline}`,
-          borderRadius: 18,
-          padding: '22px 26px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          height: '100%',
-        }}
-      >
-        <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontFamily: FF.mono, fontSize: 13, fontWeight: 700, color: C.ink }}>
-            DUAL-STREAM INTERSECTION MODEL
-          </span>
-          <Tag label="WebGL Realtime Visualization" tone="violet" />
+          {/* Layer 4 */}
+          <Card style={{ padding: '14px 22px' }} accent="sage">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <span style={{ fontFamily: FF.mono, fontSize: 13, fontWeight: 700, color: C.sage }}>
+                04 · PLUGGABLE SCENARIO ADAPTER CONTRACT (@cuex/protocol)
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 6 }}>
+              <Tag label="presentation（已全面落地 MVP）" tone="amber" />
+              <Tag label="social（协议注册 · 路线图）" tone="neutral" />
+              <Tag label="teaching（协议注册 · 路线图）" tone="neutral" />
+              <Tag label="sales（协议注册 · 路线图）" tone="neutral" />
+              <Tag label="custom（协议注册 · 路线图）" tone="neutral" />
+            </div>
+          </Card>
         </div>
 
-        <CrossStreamWebGL variant="runtime" width={680} height={350} />
-
+        {/* Right: WebGL Cross-Stream + Honest Technical Boundaries */}
         <div
           style={{
-            width: '100%',
-            background: C.tint,
-            borderRadius: 12,
-            padding: '14px 18px',
+            background: C.card,
             border: `1px solid ${C.hairline}`,
+            borderRadius: 18,
+            padding: '22px 26px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            height: '100%',
           }}
         >
-          <div style={{ fontSize: 14, fontWeight: 700, color: C.ink, marginBottom: 6 }}>
-            工程诚实声明（主动纠偏早期口径）：
+          <div style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontFamily: FF.mono, fontSize: 13, fontWeight: 700, color: C.ink }}>
+              DUAL-STREAM INTERSECTION MODEL
+            </span>
+            <Tag label="WebGL Realtime Visualization" tone="violet" />
           </div>
-          <div style={{ fontSize: 13.5, color: C.muted, lineHeight: 1.5 }}>
-            1. <strong>不夸大跨场景 KV Cache 共享</strong>：当前通用 <code>/completion</code> 插槽与跨系统 API 不共享统一物理 KV 前缀；缓存收益严格限定于同会话上下文前缀命中（详见第 6 页）。<br />
-            2. <strong>真实遥测标注</strong>：每次评估严格标注 <code>provider_reported</code> / <code>local_rule_zero</code> / <code>estimated</code>，绝不把模拟数值伪装为云端账单。
+
+          <CrossStreamWebGL variant="runtime" width={680} height={335} />
+
+          <div
+            style={{
+              width: '100%',
+              background: C.tint,
+              borderRadius: 12,
+              padding: '13px 18px',
+              border: `1px solid ${C.hairline}`,
+            }}
+          >
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.ink, marginBottom: 5 }}>
+              工程诚实声明（6 类评测严格分账 · 不混用分母）：
+            </div>
+            <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.48 }}>
+              1. <strong>不夸大跨槽 KV Cache 与语料口径</strong>：同会话前缀缓存仅在单场上下文内省约 ¥0.020；Colab 14 条测试集为 TTS+DSP 可控语料（<code>notLiveHumanRoomRecording</code>）且全程 <code>--mute-audio</code> 零外放。<br />
+              2. <strong>真实归因与超时降级</strong>：严格区分 <code>provider_reported</code> / <code>provider_unreported</code> / <code>local_rule_zero</code>（CPA <code>costFen: 0</code> 绝不伪造账单，<code>80ms</code> 超时如实退回本地规则）。
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  </SlideShell>
-);
+    </SlideShell>
+  );
+};
 
 /* ==========================================================================
    P5: 商业模式与客户阶梯（Business Model & 8-Element BMC）
@@ -1288,13 +1286,14 @@ const Page5BusinessModel: Page = () => (
 const Page6UnitEconomics: Page = () => {
   const { conservative, base, optimistic } = metricsData.scenarios;
   const ev = metricsData.eval;
+  const s12 = metricsData.sensitivities[11];
 
   return (
     <SlideShell
       pageNo="06"
       eyebrow="HONEST UNIT ECONOMICS · 10-COMPONENT COST MODEL"
       title="推翻“95.9% 虚高毛利”旧口径：十项全链路成本模型"
-      subtitle={`诚实区分 [本地离线规则 Eval：${ev.tokensPerSession} tokens · ${ev.s1EvaluationsPerSession} 次确定性规则拦截] 与 [云端生产 25m/场建模：约 ${(ev.modeledCloudTokensPerSession / 1000).toFixed(1)}K tokens + 全量流式 ASR]。`}
+      subtitle={`诚实区分 [Cat 1 离线 Eval：${ev.avgLatencyMs}ms / ${ev.tokensPerSession} tok] · [Cat 3 实机 CPA：15,399 tok -> #12 校准 ${s12.proDirectMarginPct.toFixed(1)}%] · [商业 Base：${(ev.modeledCloudTokensPerSession / 1000).toFixed(1)}K tok]。`}
     >
       <div style={{ display: 'grid', gridTemplateColumns: '1.05fr 1.15fr', gap: 22, height: '100%' }}>
         {/* Left: 10 Cost Components */}
@@ -1450,12 +1449,12 @@ const Page6UnitEconomics: Page = () => {
                 borderRadius: 10,
                 padding: '10px 14px',
                 border: `1px solid ${C.hairline}`,
-                fontSize: 13,
+                fontSize: 12.8,
                 lineHeight: 1.45,
                 color: C.muted,
               }}
             >
-              <strong>护栏与未测算声明：</strong><code>Pro</code> 月限 240m 云 ASR（远低于单户月可承受上限 {base.maxAffordableSessionsPerProMonth} 场）+ 超额切本地 Sherpa 兜底；{metricsData.companyBreakeven.statement}，全 {metricsData.sensitivities.length} 项压测见 <code>UNIT_ECONOMICS.md</code>。
+              <strong>实测校准 #12 &amp; 防亏护栏：</strong>按 CPA <code>gemini-4-hydrogen</code> 分布校准（<code>{s12.calibratedTokensPerSession.toLocaleString()}</code> tok 全按 S2 高价）：单场 LLM <code>¥{s12.calibratedLlmCostPerSession.toFixed(3)}</code> / 全变动 <code>¥{s12.calibratedFullVarCostPerSession.toFixed(3)}</code>，Pro 贡献率仍居 <strong style={{ color: C.violet }}>{s12.proDirectMarginPct.toFixed(1)}%</strong>（上限 {s12.maxAffordableSessionsPerProMonth} 场/月）；{metricsData.companyBreakeven.statement}，全 {metricsData.sensitivities.length} 项压测见 <code>UNIT_ECONOMICS.md</code>。
             </div>
           </div>
         </Card>
@@ -1592,42 +1591,44 @@ const Page7Vision: Page = () => (
    ========================================================================== */
 const Page8TeamAndStatus: Page = () => {
   const ev = metricsData.eval;
+  const p3 = metricsData.phase3RealValidation;
+  const s12 = metricsData.sensitivities[11];
   return (
     <SlideShell
       pageNo="08"
       eyebrow="HONEST DELIVERY STATUS & 90-DAY PLAN"
       title="团队「记性好了一点」· 工程真实完成度与下一步路径"
-      subtitle="严格遵守学术与竞赛诚实边界：明确区分赛前原型基础、本次重构交付的已验证系统以及未完成的商业化路线图。"
+      subtitle="严格遵守 6 类评测分账与竞赛诚实边界：明确区分赛前原型基础、Phase 3 实机全链路验收增量以及未启动的商业/真人路线图。"
     >
       <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: 22, height: '100%' }}>
         {/* Left: Honest Implemented vs Planned Split */}
         <Card style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }} accent="sage">
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <span style={{ fontFamily: FF.mono, fontSize: 12, fontWeight: 700, color: C.sage }}>
-                DELIVERED IN REFACTOR · 本次实机可验证增量
+                DELIVERED &amp; VERIFIED · Phase 3/4 实机与设计交付增量
               </span>
-              <Tag label="零虚假功能演示" tone="sage" />
+              <Tag label="6 类评测分账 · 零虚假演示" tone="sage" />
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 11 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {[
-                ['@cuex/protocol & Universal Runtime', '彻底剥离历史窄领域代码；实现 ContextStore 版本管理、EventBus、SharedCognitiveStateStore 与独立门控 InterventionController。'],
-                ['CueX Presentation 编译器与双视图', '打通 .pptx/.pdf/.md/.txt 提取 -> Evidence[] 编译 -> Focus（极简）/ Inspector（透视）双视图与单点彩排闭环。'],
-                ['L0–L3 自动撤回 + 探索性复盘与审批记忆', '实装 7 类触发与自动撤回状态机、探索性效用指标 V = H − λI（λ=2 待实测校准）及人工审批/一键擦除 MemoryStore。'],
-                ['自动化评测与沙盒计费契约', `eval-presentation.ts 跑通 ${ev.datasetCases}/${ev.datasetCases} 组用例（${ev.precision} 精度 / ${ev.avgLatencyMs}ms）；已落 UsageLedger / Entitlement / PaymentAdapter 沙盒。`],
-                ['统一商业源、8要素画布与 10 项审计', `由 cuex-final-metrics.json 单一来源驱动 8 页 BP、A4 说明书、5 态 ASR / 分渠道支付与 ${metricsData.sensitivities.length} 项敏感性验证。`],
+                ['@cuex/protocol & Universal Runtime', '彻底剥离历史窄领域代码；实现 ContextStore、EventBus、独立五重门控与 7 类自动撤回（含慢响应 TTL 重锚）。'],
+                ['Colab GPU ASR + 统一 CPA 双系统实机打通', `Colab SenseVoiceSmall 14/14 均耗时 ${p3.asr.avgInferLatencyMs}ms（RTF ${p3.asr.overallRtf} / 数字 CER 0.0 / WSS ${p3.asr.wssFirstPartialMs}ms）；CPA gemini-4-hydrogen S1 6/6（100%）。`],
+                ['Warm Paper UI 重制与 14/14 Gateway E2E', 'Compiler/Focus/Inspector/Reflection 全流重制：6 视口 42/42 零溢出、WCAG AA 5.72:1；14/14 Section 5.2 全过（含 /wipe 主权）。'],
+                ['离线 Eval + 契约容错 + 沙盒计费验证', `eval-presentation.ts ${ev.datasetCases}/${ev.datasetCases}（${ev.precision} 精度 / ${ev.avgLatencyMs}ms / 0 tok）；6/6 Mock 契约 + 80ms 超时诚实降级 local_rule_zero。`],
+                ['同源商业建模与 12 项敏感性压力验证', `cuex-final-metrics.json 驱动全套 PDF/PPT：Base 83.8% 与实测 #12 校准（${s12.calibratedTokensPerSession.toLocaleString()} tok）仍达 ${s12.proDirectMarginPct.toFixed(1)}%（5+1 ASR）。`],
               ].map(([k, v]) => (
-                <div key={k} style={{ background: C.tint, borderRadius: 10, padding: '12px 15px', border: `1px solid ${C.hairline}` }}>
-                  <div style={{ fontSize: 14.5, fontWeight: 700, color: C.ink }}>✓ {k}</div>
-                  <div style={{ fontSize: 13.5, color: C.muted, marginTop: 3, lineHeight: 1.45 }}>{v}</div>
+                <div key={k} style={{ background: C.tint, borderRadius: 10, padding: '10px 14px', border: `1px solid ${C.hairline}` }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: C.ink }}>✓ {k}</div>
+                  <div style={{ fontSize: 13, color: C.muted, marginTop: 2.5, lineHeight: 1.42 }}>{v}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div style={{ marginTop: 12, background: C.tintWarm, border: '1px solid rgba(232,122,36,0.28)', borderRadius: 10, padding: '10px 14px', fontSize: 13, color: C.ink, lineHeight: 1.5 }}>
-            <strong>赛前基础透明说明：</strong>团队于 2026-11-01 积累过单领域早期语音对练与底层音频/双系统骨架；本次黑客松期间已完成领域清零重构、通用内核与全部 Presentation 及商业交付升级。
+          <div style={{ marginTop: 10, background: C.tintWarm, border: '1px solid rgba(232,122,36,0.28)', borderRadius: 10, padding: '9px 14px', fontSize: 12.6, color: C.ink, lineHeight: 1.45 }}>
+            <strong>赛前基础与语料透明说明：</strong>团队于 2026-11-01 积累过单领域早期语音骨架；Phase 3 的 14 段 WAV 语料为神经网络 TTS+DSP 可控测试集（<code>notLiveHumanRoomRecording: true</code>），全程静音验证无外放。
           </div>
         </Card>
 
@@ -1641,7 +1642,7 @@ const Page8TeamAndStatus: Page = () => {
               <Tag label={metricsData.team.members} tone="neutral" />
             </div>
             <div style={{ fontSize: 14.5, color: C.ink, lineHeight: 1.55 }}>
-              以全栈架构工程 + 认知交互设计为核心能力，独立完成实时协议设计、双系统推理控制、Web 前端渲染与全链路单位经济建模闭环。
+              以全栈架构工程 + 认知交互设计为核心能力，独立完成实时协议设计、Colab GPU 流式 ASR、统一 CPA 网关控制、Warm Paper 前端渲染与全链路单位经济建模闭环。
             </div>
           </Card>
 
@@ -1652,15 +1653,15 @@ const Page8TeamAndStatus: Page = () => {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 9, fontSize: 13.5, lineHeight: 1.45 }}>
                 <div style={{ background: C.tint, borderRadius: 8, padding: '9px 12px' }}>
-                  <strong style={{ color: C.ink }}>1. 当前明确未完成边界：</strong>
+                  <strong style={{ color: C.ink }}>1. 当前明确未完成边界（Cat 6 Planned）：</strong>
                   <span style={{ color: C.muted }}>
-                    {metricsData.phase2Boundaries.meteringAndBilling} 多场景（Social/Teaching/Sales/Custom）仅协议注册尚未开发上线。
+                    {metricsData.phase2Boundaries.meteringAndBilling} 多场景（Social/Teaching/Sales/Custom）与真人多麦会议室长程观测均属 Planned 尚未启动。
                   </span>
                 </div>
                 <div style={{ background: C.tint, borderRadius: 8, padding: '9px 12px' }}>
-                  <strong style={{ color: C.ink }}>2. D1–D30（两轮种子验证）：</strong>
+                  <strong style={{ color: C.ink }}>2. D1–D30（两轮种子真人验证）：</strong>
                   <span style={{ color: C.muted }}>
-                    按 {metricsData.seedCohort.shortLabel} 递进招募 OPC 创始人与答辩生，实测打扰率、V = H − λI 校准与 Event 支付意愿。
+                    按 {metricsData.seedCohort.shortLabel} 递进招募 OPC 创始人与答辩生，收集真人会议室录音 CER、实测打扰率、V = H − λI 校准与 Event 支付意愿。
                   </span>
                 </div>
                 <div style={{ background: C.tint, borderRadius: 8, padding: '9px 12px' }}>
@@ -1698,12 +1699,12 @@ const Page8TeamAndStatus: Page = () => {
 export const notes: (string | undefined)[] = [
   '【0:00-0:35 P1 品牌定位】介绍「记性好了一点」与 CueX：做在深度思考之外、当下这一秒接住表达者的快思考外挂。首切场景 CueX Presentation 已实机落地。',
   '【0:35-1:10 P2 痛点洞察】点出传统提词器遇问答失灵、聊天式 AI Copilot 盲目铺大段文字导致认知过载与净效用 V = H - 2I 为负，引出 L0-L3 最小必要干预。',
-  '【1:10-2:15 P3 首切场景演示】切入 CueX Presentation 三段式：讲前多格式提取 Evidence[] 防幻觉 -> 临场 Focus/Inspector 双视图（平时静默、卡壳锚点、接回即撤回）-> 散场 V = H - λI 复盘与审批记忆。',
-  '【2:15-3:00 P4 运行时底座】解释底层 Universal Cognitive Runtime：EventBus + ContextStore + 独立门控 InterventionController，诚实交代不虚构跨槽 KV 共享与三态 ASR 识别标注。',
+  '【1:10-2:15 P3 首切场景演示】切入 CueX Presentation 三段式真实重构 UI：讲前多格式提取 Evidence[] 防幻觉 -> 临场 Focus/Inspector 双视图（平时静默、卡壳锚点、接回即撤回）-> 散场 V = H - λI 复盘与审批记忆。',
+  '【2:15-3:00 P4 运行时底座】解释底层 Universal Cognitive Runtime：EventBus + ContextStore + 独立门控（离线 0.88ms 零 Token），同时实机跑通 Colab GPU SenseVoiceSmall (52.57ms/RTF 0.00327) 与 CPA gemini-4-hydrogen (6/6 S1) 14/14 全链路。',
   '【3:00-3:40 P5 商业模式】P1 OPC 创业者 -> P2 硕博答辩 -> P3 专业团队；说明 Event（¥19-39/场）消除低频包月抗拒、Pro（¥59/月）锁住高频用户及 8 要素画布闭环。',
-  '【3:40-4:15 P6 单位经济】主动纠偏过去只算 token 的 95.9% 虚高毛利，展示包含 ASR、基建、微信/支付宝分渠道与退款损耗、活跃免费摊销的 10 项全成本三情景及单户月承受上限（不虚报公司盈亏点）。',
+  '【3:40-4:15 P6 单位经济】主动纠偏过去只算 token 的 95.9% 虚高毛利，展示包含 ASR、基建、微信/支付宝分渠道与退款损耗、活跃免费摊销的 10 项全成本与实测 #12 校准（46,357 tok 下 Pro 贡献率仍达 80.2%），不虚报公司盈亏点。',
   '【4:15-4:40 P7 长期愿景】说明 X 代表从演讲台向教学、销售、社交扩展，交互从 Web 演进向桌面浮窗与轻量智能眼镜低分心 HUD。',
-  '【4:40-5:00 P8 完成度与致谢】坦诚区分 11.01 单领域语音对练基础与本次通用+演讲全链条重构交付，明确未上线营收与计费边界，欢迎评委提问。',
+  '【4:40-5:00 P8 完成度与致谢】坦诚区分 11.01 基础与本次实机/UI 重构增量，声明 TTS+DSP 测试语料边界、无真人队列及未上线真实计费营收，欢迎评委提问。',
 ];
 
 export default [

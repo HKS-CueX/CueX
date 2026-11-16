@@ -1,6 +1,6 @@
 {
   "dataStatus": "EVAL_LOCKED",
-  "generatedAt": "2026-11-15T21:09:07.360Z",
+  "generatedAt": "2026-11-15T23:53:22.971Z",
   "team": {
     "name": "记性好了一点",
     "members": "路皓然、任逸康",
@@ -16,8 +16,8 @@
     "precision": "100.0%",
     "falseInterventionRate": "0.0%",
     "withdrawalAccuracy": "100.0%",
-    "avgLatencyMs": 0.76,
-    "p95LatencyMs": 1.63,
+    "avgLatencyMs": 0.88,
+    "p95LatencyMs": 1.66,
     "lambda": 2,
     "utilityV": "+3 (V=H-2I, 探索指标)",
     "tokensPerSession": 0,
@@ -365,6 +365,22 @@
       "eventMarginPct": 83.7,
       "deltaEventMarginPct": -3.6,
       "maxAffordableSessionsPerProMonth": 81
+    },
+    {
+      "id": 12,
+      "factor": "12. 实测 CPA gemini-4-hydrogen 思维链校准 (S1/S2全按S2推理单价)",
+      "focus": "pro",
+      "proFullVarCost": 11.43,
+      "proDirectContrib": 46.39,
+      "proDirectMarginPct": 80.2,
+      "deltaMarginPct": -3.6,
+      "eventFullCost": 4.38,
+      "eventMarginPct": 84.6,
+      "deltaEventMarginPct": -2.8,
+      "maxAffordableSessionsPerProMonth": 66,
+      "calibratedTokensPerSession": 46357,
+      "calibratedLlmCostPerSession": 0.259,
+      "calibratedFullVarCostPerSession": 0.772
     }
   ],
   "seedCohort": {
@@ -433,6 +449,14 @@
       "cloudFeePerHourRmb": 0,
       "sourceLabel": "[本地实测 Eval]",
       "notes": "跳过声学流，仅供自动化评测、回归测试与弱网彩排脚本使用；UI 显式标明非真实收音。"
+    },
+    {
+      "mode": "colab_gpu",
+      "label": "Google Colab G4 实时 GPU ASR（Phase 3 验证通道）",
+      "ratePerHrRmb": 0,
+      "rateTag": "[Phase 3 开发/黑客松验证 GPU · 非商用 SLA 零成本假设]",
+      "pros": "NVIDIA RTX PRO 6000 Blackwell 运行 SenseVoiceSmall + fsmn-vad，实测 52.57 ms 均耗时 / 0.00327 RTF (~306x RT) / 数字 clip CER 0.0",
+      "cons": "依赖外挂隧道与实验节点在线状态；商业单位经济测算仍严格按 cloud_streaming_asr ¥0.80/h 保守入账"
     }
   ],
   "funnelAudienceDefinitions": {
@@ -464,5 +488,103 @@
     "已于净营收口径扣减 1%–5% 商业假设退款率（基准 2%），但真实初期 M1–M3 流失分布需种子期后观测",
     "12:1 算力活跃免费补贴按同期付费用户即期分摊，尚未考虑冷启动早期免费增长领先于付费转化产生的营运资金错配",
     "CAC (¥18–¥45) 仅反映直接获客投放/物料边际支出，未摊销创始人人工时间与固定运营经费"
-  ]
+  ],
+  "phase3RealValidation": {
+    "status": "REAL_E2E_LOCKED",
+    "silentValidationOnly": true,
+    "asr": {
+      "reportTimestamp": "2026-11-15T22:08:28.644Z",
+      "gpuName": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+      "modelId": "FunAudioLLM/SenseVoiceSmall",
+      "sampleCount": 14,
+      "totalAudioSec": 225.344,
+      "avgInferLatencyMs": 52.57,
+      "p95InferLatencyMs": 89.59,
+      "avgE2eRoundTripMs": 420.24,
+      "overallRtf": 0.00327,
+      "meanClipCer": 0.0867,
+      "numericClipCer": 0,
+      "wssFirstPartialMs": 772.1,
+      "securityAuthEnforced401": true,
+      "reconnectRecoveryPassed": true,
+      "corpusTransparencyNote": "14 段 16kHz 单声道 WAV 由离线神经网络语音合成+声学退化生成，明确区分于线下真实多麦真人会议室录音"
+    },
+    "cpa": {
+      "schemaVersion": "cpa-llm-report.v2",
+      "validatedAt": "2026-11-15T23:29:37.171Z",
+      "primaryModel": "gemini-4-hydrogen",
+      "reasoningEffortS1": "low",
+      "requestCount": 21,
+      "successCount": 18,
+      "errorCount": 3,
+      "p50LatencyMs": 2040,
+      "p95LatencyMs": 8203,
+      "totalTokensAllCalls": 19311,
+      "reasoningTokensAllCalls": 7126,
+      "s1Benchmark": {
+        "gemini4Hydrogen": {
+          "passed": 6,
+          "total": 6,
+          "accuracy": 1,
+          "avgLatencyMs": 3741,
+          "p95LatencyMs": 5309,
+          "inputTokens": 3236,
+          "outputTokens": 1584,
+          "reasoningTokens": 1110
+        },
+        "gemini35FlashLite": {
+          "passed": 4,
+          "total": 6,
+          "accuracy": 0.6667,
+          "avgLatencyMs": 1521,
+          "p95LatencyMs": 1638,
+          "inputTokens": 3130,
+          "outputTokens": 782,
+          "reasoningTokens": 0
+        }
+      },
+      "mainPipeline": {
+        "modelCalls": 12,
+        "retries": 0,
+        "inputTokens": 5904,
+        "outputTokens": 9495,
+        "reasoningTokens": 7126,
+        "totalTokens": 15399,
+        "usageSource": "provider_reported"
+      },
+      "mockContractChecksPassed": 6
+    },
+    "e2e": {
+      "schemaVersion": "real-e2e-validation.v2",
+      "validatedAt": "2026-11-15T23:27:42.641Z",
+      "scenariosPassed": 14,
+      "scenariosTotal": 14,
+      "factsCompiled": 21,
+      "qaCardsCompiled": 6,
+      "streamingClipsPassed": 14,
+      "longSessionClip14": {
+        "modelCalls": 3,
+        "inputTokens": 1677,
+        "outputTokens": 2674,
+        "reasoningTokens": 2417,
+        "totalTokens": 4351,
+        "asrDurationMs": 33670,
+        "usageSource": "provider_reported",
+        "costFenReported": 0
+      }
+    },
+    "calibrated25mVsCommercialBase": {
+      "measuredProfileTokensPer25mSession": 46357,
+      "modeledBaseTokensPer25mSession": 43748,
+      "calibratedLlmCostAtS2RateRmb": 0.259,
+      "baseModeledLlmCostRmb": 0.098,
+      "calibratedFullVarCostRmb": 0.772,
+      "baseFullVarCostRmb": 0.612,
+      "calibratedProDirectMarginPct": 80.2,
+      "baseProDirectMarginPct": 83.8,
+      "calibratedEventMarginPct": 84.6,
+      "baseEventMarginPct": 87.3,
+      "calibratedMaxProSessionsMo": 66
+    }
+  }
 }

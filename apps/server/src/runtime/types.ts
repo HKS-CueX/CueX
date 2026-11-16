@@ -14,9 +14,19 @@ import type {
   SlowReasoningCandidateResult,
   SlowReasoningTriggerKind,
   TranscriptSegment,
+  UtcIso8601,
   WithdrawalReason,
   Candidate,
 } from '@cuex/protocol';
+
+export interface ProviderHealthStatus {
+  ok: boolean;
+  detail?: string;
+  provider?: string;
+  model?: string;
+  degraded?: boolean;
+  lastHealthCheckAt?: UtcIso8601;
+}
 
 export interface RuntimeClock {
   now(): number;
@@ -50,14 +60,14 @@ export class ManualClock implements RuntimeClock {
 export interface FastDecisionProvider {
   readonly backend: string;
   readonly mode: 'real' | 'local_fallback';
-  health(): Promise<{ ok: boolean; detail?: string }>;
+  health(): Promise<ProviderHealthStatus>;
   evaluate(input: FastDecisionInput, signal?: AbortSignal): Promise<FastDecisionVerdict>;
 }
 
 export interface SlowReasoningProvider {
   readonly backend: string;
   readonly mode: 'real' | 'local_fallback';
-  health(): Promise<{ ok: boolean; detail?: string }>;
+  health(): Promise<ProviderHealthStatus>;
   synthesize(
     request: SlowReasoningCandidateRequest,
     signal?: AbortSignal,

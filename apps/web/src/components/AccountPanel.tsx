@@ -309,11 +309,11 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
   return (
     <div className="space-y-4" data-testid="account-panel">
       {/* Header Status Summary */}
-      <div className="rounded-lg border border-line bg-ground p-3.5 flex flex-wrap items-center justify-between gap-3">
-        <div className="space-y-0.5 min-w-0">
+      <div className="rounded border border-line bg-ground p-3.5 flex flex-wrap items-center justify-between gap-3">
+        <div className="space-y-1 min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <UserCheck className="w-4 h-4 text-violet shrink-0" />
-            <span className="text-[14px] font-semibold text-ink truncate" data-testid="account-user-name">
+            <span className="text-sm font-semibold text-ink truncate" data-testid="account-user-name">
               {authSession?.user.displayName ?? '未登录会话'}
             </span>
             <Badge variant="violet">
@@ -323,12 +323,16 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
               租户: {authSession?.user.tenantId ?? 'tenant_default'}
             </Badge>
           </div>
-          <p className="text-[11px] font-mono text-ink-3 truncate">
-            userId: {authSession?.user.userId ?? '-'}
-            {authSession?.sessionTokenExpiresAt
-              ? ` · 令牌有效期至 ${formatDateTime(authSession.sessionTokenExpiresAt)}`
-              : ''}
-          </p>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-ink-3">
+            <span className="font-mono break-all">
+              userId: {authSession?.user.userId ?? '-'}
+            </span>
+            {authSession?.sessionTokenExpiresAt && (
+              <span className="num">
+                令牌有效期至 {formatDateTime(authSession.sessionTokenExpiresAt)}
+              </span>
+            )}
+          </div>
         </div>
 
         <Button
@@ -362,10 +366,10 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
               type="button"
               onClick={() => setTab(item.key)}
               data-testid={`account-tab-${item.key}`}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors border ${
+              className={`inline-flex items-center gap-1.5 px-3 min-h-[38px] sm:min-h-[32px] rounded text-xs font-medium border transition-transform duration-100 ease-out-custom active:scale-[0.97] ${
                 active
-                  ? 'bg-ink text-white border-ink'
-                  : 'bg-surface text-ink-2 border-line hover:bg-ground-2'
+                  ? 'bg-ink text-ground border-ink'
+                  : 'bg-surface text-ink-2 border-line hover:bg-ground-2 hover:text-ink'
               }`}
             >
               <Icon className="w-3.5 h-3.5" />
@@ -377,7 +381,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
 
       {error && (
         <div
-          className="rounded-md border border-danger/30 bg-danger-soft px-3 py-2 text-[12px] text-danger flex items-start gap-2"
+          className="rounded border border-alert/35 bg-alert-tint px-3.5 py-2.5 text-xs text-alert flex items-start gap-2"
           data-testid="account-panel-error"
         >
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -387,7 +391,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
 
       {notice && (
         <div
-          className="rounded-md border border-resolved/30 bg-resolved-soft px-3 py-2 text-[12px] text-resolved flex items-start gap-2"
+          className="rounded border border-resolved/35 bg-resolved-tint px-3.5 py-2.5 text-xs text-resolved flex items-start gap-2"
           data-testid="account-panel-notice"
         >
           <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" />
@@ -398,13 +402,13 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
       {/* TAB 1: ACCOUNT & MULTI-TENANT SWITCH */}
       {tab === 'account' && (
         <div className="space-y-4">
-          <div className="rounded-lg border border-line bg-surface p-4 space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <h4 className="text-[13px] font-semibold text-ink">
+          <div className="rounded border border-line bg-surface p-4 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="space-y-0.5">
+                <h4 className="text-sm font-semibold text-ink">
                   多用户 / 租户隔离认证 (Bearer Token)
                 </h4>
-                <p className="text-[11px] text-ink-3">
+                <p className="text-xs text-ink-3">
                   不同用户与租户拥有严格隔离的 ContextPack、会话记录与个人记忆；切换后立即可验证跨用户隔离。
                 </p>
               </div>
@@ -422,46 +426,55 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
 
             <form
               onSubmit={(e) => void handleSwitchProfile(e)}
-              className="grid sm:grid-cols-3 gap-2.5 pt-1"
+              className="grid sm:grid-cols-3 gap-3 pt-1"
               data-testid="auth-switch-form"
             >
               <div>
-                <label className="block text-[11px] text-ink-3 mb-1">演讲者昵称 *</label>
+                <label htmlFor="auth-switch-name" className="block text-xs text-ink-2 font-medium mb-1">
+                  演讲者昵称 *
+                </label>
                 <input
+                  id="auth-switch-name"
                   type="text"
                   value={switchName}
                   onChange={(e) => setSwitchName(e.target.value)}
-                  placeholder="例如 User A / 李明"
+                  placeholder="例如 李明 / 演示演讲者"
                   data-testid="auth-switch-name"
-                  className="w-full px-2.5 py-1.5 text-[12px] rounded border border-line bg-ground text-ink focus:outline-none focus:border-ink"
+                  className="w-full h-9 px-2.5 text-xs rounded border border-line-strong bg-ground text-ink focus:outline-none focus:border-ink"
                 />
               </div>
               <div>
-                <label className="block text-[11px] text-ink-3 mb-1">邮箱（可选）</label>
+                <label htmlFor="auth-switch-email" className="block text-xs text-ink-2 font-medium mb-1">
+                  邮箱（可选）
+                </label>
                 <input
+                  id="auth-switch-email"
                   type="email"
                   value={switchEmail}
                   onChange={(e) => setSwitchEmail(e.target.value)}
-                  placeholder="speaker@example.com"
+                  placeholder="可选邮箱（用于身份标识）"
                   data-testid="auth-switch-email"
-                  className="w-full px-2.5 py-1.5 text-[12px] rounded border border-line bg-ground text-ink focus:outline-none focus:border-ink"
+                  className="w-full h-9 px-2.5 text-xs rounded border border-line-strong bg-ground text-ink focus:outline-none focus:border-ink"
                 />
               </div>
               <div>
-                <label className="block text-[11px] text-ink-3 mb-1">租户 ID（隔离域）</label>
+                <label htmlFor="auth-switch-tenant" className="block text-xs text-ink-2 font-medium mb-1">
+                  租户 ID（隔离域）
+                </label>
                 <input
+                  id="auth-switch-tenant"
                   type="text"
                   value={switchTenant}
                   onChange={(e) => setSwitchTenant(e.target.value)}
                   placeholder="tenant_default"
                   data-testid="auth-switch-tenant"
-                  className="w-full px-2.5 py-1.5 text-[12px] rounded border border-line bg-ground text-ink focus:outline-none focus:border-ink"
+                  className="w-full h-9 px-2.5 text-xs rounded border border-line-strong bg-ground text-ink focus:outline-none focus:border-ink"
                 />
               </div>
 
               <div className="sm:col-span-3 flex flex-wrap items-center justify-between gap-2 pt-1">
-                <span className="text-[11px] text-ink-3">
-                  当前认证模式: <span className="font-mono">{authSession?.user.authMode ?? 'session_token'}</span>
+                <span className="text-xs text-ink-3">
+                  当前认证模式: <code className="font-mono text-ink-2">{authSession?.user.authMode ?? 'session_token'}</code>
                 </span>
                 <Button
                   type="submit"
@@ -476,16 +489,16 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
           </div>
 
           {/* Active Entitlements */}
-          <div className="rounded-lg border border-line bg-surface p-4 space-y-2.5">
-            <h4 className="text-[13px] font-semibold text-ink">当前生效权益 (Entitlements)</h4>
+          <div className="rounded border border-line bg-surface p-4 space-y-2.5">
+            <h4 className="text-sm font-semibold text-ink">当前生效权益 (Entitlements)</h4>
             {entitlements.length === 0 ? (
-              <p className="text-[12px] text-ink-3">暂无权益条目，默认按 Free 额度执行。</p>
+              <p className="text-xs text-ink-3">暂无权益条目，默认按 Free 额度执行。</p>
             ) : (
               <div className="grid sm:grid-cols-2 gap-2.5">
                 {entitlements.map((ent) => (
                   <div
                     key={ent.entitlementId}
-                    className="rounded border border-line bg-ground p-3 text-[12px] space-y-1"
+                    className="rounded bg-ground p-3 text-xs space-y-1.5"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-semibold text-ink uppercase">{ent.planId}</span>
@@ -493,11 +506,11 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                         {ent.status}
                       </Badge>
                     </div>
-                    <p className="text-[11px] text-ink-2">
+                    <p className="text-xs text-ink-2 num">
                       剩余场次：{ent.remainingSessions ?? '不限'} · 剩余实时时长：
                       {ent.remainingLiveMinutes ?? '不限'} 分钟
                     </p>
-                    <p className="text-[10px] font-mono text-ink-3">
+                    <p className="text-xs font-mono text-ink-3 num">
                       来源：{ent.source} · 授予：{formatDateTime(ent.grantedAt)}
                     </p>
                   </div>
@@ -511,41 +524,41 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
       {/* TAB 2: PLANS, CHECKOUT SANDBOX PREVIEW & USAGE LEDGER */}
       {tab === 'plans' && (
         <div className="space-y-4">
-          {/* Usage Summary */}
+          {/* Usage Summary: Achromatic Ledger Hairline Strip */}
           {usageSummary && (
             <div
-              className="grid grid-cols-2 sm:grid-cols-4 gap-2.5"
+              className="grid grid-cols-2 sm:grid-cols-4 rounded border border-line bg-surface divide-y sm:divide-y-0 sm:divide-x divide-line"
               data-testid="account-usage-summary"
             >
-              <div className="rounded-lg border border-line bg-surface p-3">
-                <div className="text-[11px] text-ink-3">本周期会话数</div>
-                <div className="text-[16px] font-mono font-semibold text-ink mt-0.5">
+              <div className="p-3.5">
+                <div className="text-xs text-ink-3">本周期会话数</div>
+                <div className="text-base font-mono font-semibold text-ink mt-1 num">
                   {usageSummary.sessionsUsed}
-                  <span className="text-[11px] text-ink-3 font-normal">
+                  <span className="text-xs text-ink-3 font-normal">
                     {' '}
                     / {usageSummary.sessionsLimit ?? '∞'}
                   </span>
                 </div>
               </div>
-              <div className="rounded-lg border border-line bg-surface p-3">
-                <div className="text-[11px] text-ink-3">实时音频时长</div>
-                <div className="text-[16px] font-mono font-semibold text-ink mt-0.5">
+              <div className="p-3.5">
+                <div className="text-xs text-ink-3">实时音频时长</div>
+                <div className="text-base font-mono font-semibold text-ink mt-1 num">
                   {usageSummary.liveMinutesUsed}m
-                  <span className="text-[11px] text-ink-3 font-normal">
+                  <span className="text-xs text-ink-3 font-normal">
                     {' '}
                     / {usageSummary.liveMinutesLimit ?? '∞'}m
                   </span>
                 </div>
               </div>
-              <div className="rounded-lg border border-line bg-surface p-3">
-                <div className="text-[11px] text-ink-3">累计消耗 Token</div>
-                <div className="text-[16px] font-mono font-semibold text-ink mt-0.5">
+              <div className="p-3.5">
+                <div className="text-xs text-ink-3">累计消耗 Token</div>
+                <div className="text-base font-mono font-semibold text-ink mt-1 num">
                   {usageSummary.totalTokensUsed.toLocaleString()}
                 </div>
               </div>
-              <div className="rounded-lg border border-line bg-surface p-3">
-                <div className="text-[11px] text-ink-3">计量成本估算</div>
-                <div className="text-[16px] font-mono font-semibold text-ink mt-0.5">
+              <div className="p-3.5">
+                <div className="text-xs text-ink-3">计量成本估算</div>
+                <div className="text-base font-mono font-semibold text-ink mt-1 num">
                   {formatMoneyFen(usageSummary.totalCost ?? usageSummary.totalCostFen)}
                 </div>
               </div>
@@ -553,20 +566,21 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
           )}
 
           {/* Commercial Sandbox Controls */}
-          <div className="rounded-lg border border-amber/30 bg-amber-soft/50 p-3 flex flex-wrap items-center justify-between gap-2 text-[12px]">
-            <div className="flex items-center gap-2 text-ink">
-              <CreditCard className="w-4 h-4 text-amber shrink-0" />
+          <div className="rounded border border-amber/30 bg-amber-tint/70 p-3 flex flex-wrap items-center justify-between gap-2.5 text-xs">
+            <div className="flex items-start sm:items-center gap-2 text-ink">
+              <CreditCard className="w-4 h-4 text-amber-ink shrink-0 mt-0.5 sm:mt-0" />
               <span>
                 <strong>商业试算声明：</strong>以下定价为 <code>isCommercialHypothesis</code>{' '}
                 假设，点击购买仅触发<strong>沙盒结算预览</strong>，不连接真实扣费。
               </span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <select
                 value={paymentChannel}
                 onChange={(e) => setPaymentChannel(e.target.value as PaymentChannel)}
+                aria-label="选择沙盒支付方式"
                 data-testid="payment-channel-select"
-                className="px-2 py-1 text-[11px] rounded border border-line bg-surface text-ink"
+                className="h-8 px-2.5 text-xs rounded border border-line-strong bg-surface text-ink"
               >
                 <option value="sandbox">{PAYMENT_CHANNEL_LABELS.sandbox}</option>
                 <option value="wechat_pay">{PAYMENT_CHANNEL_LABELS.wechat_pay}</option>
@@ -575,8 +589,9 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
               <select
                 value={proCycle}
                 onChange={(e) => setProCycle(e.target.value as 'monthly' | 'annual')}
+                aria-label="选择 Pro 计费周期"
                 data-testid="pro-cycle-select"
-                className="px-2 py-1 text-[11px] rounded border border-line bg-surface text-ink"
+                className="h-8 px-2.5 text-xs rounded border border-line-strong bg-surface text-ink"
               >
                 <option value="monthly">Pro 按月计费</option>
                 <option value="annual">Pro 按年计费</option>
@@ -599,53 +614,50 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                   key={plan.planId}
                   data-testid={`plan-card-${plan.planId}`}
                   aria-disabled={isPlanned ? 'true' : undefined}
-                  className={`rounded-lg border p-3.5 flex flex-col justify-between gap-3 ${
+                  className={`rounded border p-4 flex flex-col justify-between gap-3 ${
                     isPlanned
-                      ? 'border-line border-dashed bg-ground/70 opacity-85'
+                      ? 'border-line border-dashed bg-ground/70'
                       : isCurrent
-                        ? 'border-ink bg-surface shadow-sm'
+                        ? 'border-ink bg-surface'
                         : 'border-line bg-surface'
                   }`}
                 >
-                  <div className="space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[14px] font-semibold text-ink">
-                            {plan.displayName}
-                          </span>
-                          {isPlanned ? (
-                            <Badge variant="secondary" data-testid={`plan-status-${plan.planId}`}>
-                              <Building2 className="w-3 h-3 mr-1" />
-                              Planned · 尚未开放购买
-                            </Badge>
-                          ) : (
-                            <Badge
-                              variant={isCurrent ? 'violet' : 'amber'}
-                              data-testid={`plan-status-${plan.planId}`}
-                            >
-                              {isCurrent ? '当前方案' : 'Available · 沙盒可预览'}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="text-[15px] font-mono font-semibold text-ink mt-1">
-                          {priceText}
-                        </div>
-                      </div>
-                      {plan.isCommercialHypothesis && (
-                        <Badge variant="outline" className="text-[10px]">
-                          定价假设
+                  <div className="space-y-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-sm font-semibold text-ink">
+                        {plan.displayName}
+                      </span>
+                      {isPlanned ? (
+                        <Badge variant="secondary" data-testid={`plan-status-${plan.planId}`}>
+                          <Building2 className="w-3 h-3 shrink-0" />
+                          <span>Planned · 尚未开放</span>
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant={isCurrent ? 'violet' : 'amber'}
+                          data-testid={`plan-status-${plan.planId}`}
+                        >
+                          {isCurrent ? '当前方案' : 'Available · 沙盒预览'}
                         </Badge>
                       )}
                     </div>
 
-                    <ul className="space-y-1 text-[11px] text-ink-2">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <span className="text-base font-mono font-semibold text-ink num">
+                        {priceText}
+                      </span>
+                      {plan.isCommercialHypothesis && (
+                        <span className="text-xs text-ink-3">定价假设 · 沙盒试算</span>
+                      )}
+                    </div>
+
+                    <ul className="space-y-1 text-xs text-ink-2">
                       {plan.features.map((feat, idx) => (
                         <li key={idx}>• {feat}</li>
                       ))}
                     </ul>
                     {plan.limitations.length > 0 && (
-                      <p className="text-[11px] text-ink-3">
+                      <p className="text-xs text-ink-3">
                         限制：{plan.limitations.join('；')}
                       </p>
                     )}
@@ -687,12 +699,12 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
           {/* Checkout Sandbox Result */}
           {checkoutPreview && (
             <div
-              className="rounded-lg border border-violet/30 bg-violet-soft p-3.5 space-y-2 text-[12px]"
+              className="rounded border border-violet/35 bg-violet-tint/70 p-3.5 space-y-2 text-xs"
               data-testid="checkout-preview-result"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2 font-semibold text-ink">
-                  <CreditCard className="w-4 h-4 text-violet" />
+                  <CreditCard className="w-4 h-4 text-violet shrink-0" />
                   <span>
                     结账沙盒预览 ({checkoutPreview.planId.toUpperCase()} ·{' '}
                     {PAYMENT_CHANNEL_LABELS[checkoutPreview.paymentChannel]})
@@ -704,7 +716,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                 </Badge>
               </div>
               <p className="text-ink-2">{checkoutPreview.notice}</p>
-              <div className="flex flex-wrap gap-4 font-mono text-[11px] text-ink">
+              <div className="flex flex-wrap gap-4 font-mono text-xs text-ink num">
                 <span>小计：{formatMoneyFen(checkoutPreview.subtotal)}</span>
                 <span>折扣：{formatMoneyFen(checkoutPreview.discount)}</span>
                 <span className="font-semibold">应付预览：{formatMoneyFen(checkoutPreview.total)}</span>
@@ -714,14 +726,14 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
           )}
 
           {/* Usage Ledger */}
-          <div className="rounded-lg border border-line bg-surface p-3.5 space-y-2">
+          <div className="rounded border border-line bg-surface p-3.5 space-y-2">
             <div className="flex items-center justify-between">
-              <h4 className="text-[13px] font-semibold text-ink">
+              <h4 className="text-sm font-semibold text-ink num">
                 用量账本明细 (UsageLedger · 最近 {usageRecords.length} 条)
               </h4>
             </div>
             {usageRecords.length === 0 ? (
-              <p className="text-[12px] text-ink-3 py-2">当前尚无用量记录，发起编译或演讲后将自动计量。</p>
+              <p className="text-xs text-ink-3 py-2">当前尚无用量记录，发起编译或演讲后将自动计量。</p>
             ) : (
               <div
                 className="max-h-56 overflow-y-auto divide-y divide-line border border-line rounded"
@@ -730,16 +742,16 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                 {usageRecords.slice(0, 30).map((rec) => (
                   <div
                     key={rec.id}
-                    className="px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-[11px]"
+                    className="px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs"
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <Badge variant="secondary">{USAGE_TYPE_LABELS[rec.usageType] ?? rec.usageType}</Badge>
-                      <span className="font-mono text-ink">
+                      <span className="font-mono text-ink num">
                         {rec.quantity} {rec.unit}
                       </span>
                       <span className="text-ink-3 truncate">来源: {rec.source}</span>
                     </div>
-                    <div className="flex items-center gap-3 font-mono text-ink-2">
+                    <div className="flex items-center gap-3 font-mono text-ink-2 num">
                       {typeof rec.costFen === 'number' && <span>{formatMoneyFen(rec.costFen)}</span>}
                       <span className="text-ink-3">{formatDateTime(rec.occurredAt)}</span>
                     </div>
@@ -756,13 +768,13 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
         <div className="space-y-3">
           {sessionDeletionReceipt && (
             <div
-              className="rounded-lg border border-resolved/30 bg-resolved-soft p-3 text-[12px] space-y-1.5"
+              className="rounded border border-resolved/35 bg-resolved-tint p-3 text-xs space-y-1.5"
               data-testid="history-deletion-receipt"
             >
               <div className="font-semibold text-resolved">
                 会话数据销毁回执 ({sessionDeletionReceipt.receiptId})
               </div>
-              <div className="text-[11px] text-ink-2">
+              <div className="text-xs text-ink-2 num">
                 完成时间：{formatDateTime(sessionDeletionReceipt.completedAt)} · 清除范围：
                 {sessionDeletionReceipt.deletedScopes
                   .map((s) => `${DELETION_SCOPE_LABELS[s.scope] ?? s.scope}: ${s.deletedCount}`)
@@ -773,7 +785,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
 
           {sessions.length === 0 ? (
             <div
-              className="rounded-lg border border-dashed border-line bg-ground p-6 text-center text-[12px] text-ink-3"
+              className="rounded border border-dashed border-line bg-ground p-6 text-center text-xs text-ink-3"
               data-testid="session-history-empty"
             >
               当前认证身份下暂无历史会话记录。完成一次彩排或正式演讲后，可在此回看复盘与销毁数据。
@@ -784,11 +796,11 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                 <div
                   key={item.sessionId}
                   data-testid={`session-history-item-${item.sessionId}`}
-                  className="rounded-lg border border-line bg-surface p-3 flex flex-wrap items-center justify-between gap-3"
+                  className="rounded border border-line bg-surface p-3.5 flex flex-wrap items-center justify-between gap-3"
                 >
                   <div className="space-y-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[13px] font-medium text-ink truncate">
+                      <span className="text-sm font-medium text-ink truncate">
                         {item.title || `会话 ${item.sessionId.slice(0, 12)}`}
                       </span>
                       <Badge variant="secondary">{item.mode === 'live' ? '正式演讲' : '彩排'}</Badge>
@@ -796,10 +808,12 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                         {item.status}
                       </Badge>
                       {typeof item.utilityScore === 'number' && (
-                        <Badge variant="violet">净效用 V = {item.utilityScore.toFixed(1)}</Badge>
+                        <Badge variant="violet" className="num">
+                          净效用 V = {item.utilityScore.toFixed(1)}
+                        </Badge>
                       )}
                     </div>
-                    <p className="text-[11px] font-mono text-ink-3">
+                    <p className="text-xs font-mono text-ink-3 num break-all">
                       {item.sessionId} · 开始于 {formatDateTime(item.startedAt)}
                       {item.elapsedSec !== undefined ? ` · 时长 ${item.elapsedSec}s` : ''}
                     </p>
@@ -823,11 +837,10 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                     )}
                     <Button
                       type="button"
-                      variant="quiet"
+                      variant="alert"
                       size="sm"
                       onClick={() => void handleDeleteSession(item.sessionId)}
                       data-testid={`delete-session-${item.sessionId}`}
-                      className="text-danger border-danger/30 hover:bg-danger-soft"
                     >
                       <Trash2 className="w-3.5 h-3.5 mr-1" />
                       销毁
@@ -844,10 +857,10 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
       {tab === 'privacy' && (
         <div className="space-y-4">
           {/* Export My Data */}
-          <div className="rounded-lg border border-line bg-surface p-4 space-y-3">
+          <div className="rounded border border-line bg-surface p-4 space-y-3">
             <div>
-              <h4 className="text-[13px] font-semibold text-ink">导出我的完整数据 (Data Portability)</h4>
-              <p className="text-[11px] text-ink-3">
+              <h4 className="text-sm font-semibold text-ink">导出我的完整数据 (Data Portability)</h4>
+              <p className="text-xs text-ink-3 mt-0.5">
                 一键导出当前账户名下的演讲编译包、个人记忆、复盘报告、用量账本与合规审计记录。
               </p>
             </div>
@@ -878,14 +891,14 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
 
             {exportResult && (
               <div
-                className="rounded border border-line bg-ground p-3 space-y-1.5"
+                className="rounded bg-ground p-3 space-y-2"
                 data-testid="export-preview"
               >
-                <div className="flex items-center justify-between text-[11px] text-ink-2">
+                <div className="flex items-center justify-between text-xs text-ink-2">
                   <span className="font-mono">{exportResult.filename}</span>
-                  <span>{formatBytes(exportResult.content.length)}</span>
+                  <span className="num">{formatBytes(exportResult.content.length)}</span>
                 </div>
-                <pre className="max-h-40 overflow-y-auto text-[11px] font-mono text-ink-2 whitespace-pre-wrap break-all bg-surface p-2 rounded border border-line">
+                <pre className="max-h-40 overflow-y-auto text-xs font-mono text-ink-2 whitespace-pre-wrap break-all bg-surface p-2.5 rounded border border-line">
                   {exportResult.content.slice(0, 1200)}
                   {exportResult.content.length > 1200 ? '\n…（已截断预览，完整内容已下载）' : ''}
                 </pre>
@@ -894,39 +907,38 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
           </div>
 
           {/* Account Wipe */}
-          <div className="rounded-lg border border-danger/30 bg-danger-soft/40 p-4 space-y-3">
+          <div className="rounded border border-alert/35 bg-alert-tint/60 p-4 space-y-3">
             <div className="flex items-start gap-2.5">
-              <ShieldAlert className="w-4 h-4 text-danger shrink-0 mt-0.5" />
+              <ShieldAlert className="w-4 h-4 text-alert shrink-0 mt-0.5" />
               <div className="space-y-1">
-                <h4 className="text-[13px] font-semibold text-danger">
+                <h4 className="text-sm font-semibold text-alert">
                   一键清空账户个人数据 (Right to Erasure)
                 </h4>
-                <p className="text-[11px] text-ink-2 leading-relaxed">
+                <p className="text-xs text-ink-2 leading-relaxed">
                   将永久删除当前账户的演讲会话、ContextPack、个人记忆、复盘报告与用量明细分录，并吊销历史认证令牌。依法需留存的不可逆合规审计记录（如{' '}
                   <code>billing_audit_logs</code>）将在下方销毁回执中如实披露。
                 </p>
               </div>
             </div>
 
-            <label className="flex items-center gap-2 text-[12px] text-ink cursor-pointer">
+            <label className="flex items-center gap-2 text-xs text-ink cursor-pointer min-h-[32px]">
               <input
                 type="checkbox"
                 checked={confirmWipeChecked}
                 onChange={(e) => setConfirmWipeChecked(e.target.checked)}
                 data-testid="confirm-account-wipe-checkbox"
-                className="rounded border-line"
+                className="w-4 h-4 rounded border-line-strong accent-ink"
               />
               <span>我确认彻底清除当前账户个人业务数据（不可恢复）</span>
             </label>
 
             <Button
               type="button"
-              variant="quiet"
+              variant="alert"
               size="sm"
               disabled={!confirmWipeChecked || wipingAccount}
               onClick={() => void handleWipeAccountData()}
               data-testid="wipe-account-data-btn"
-              className="border-danger text-danger hover:bg-danger hover:text-white"
             >
               <Trash2 className="w-3.5 h-3.5 mr-1" />
               {wipingAccount ? '正在清除并生成回执…' : '销毁全部个人数据并获取回执'}
@@ -934,24 +946,24 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
 
             {accountDeletionReceipt && (
               <div
-                className="rounded-lg border border-resolved/40 bg-surface p-3.5 space-y-2 text-[12px]"
+                className="rounded border border-resolved/40 bg-surface p-3.5 space-y-2 text-xs"
                 data-testid="account-deletion-receipt"
               >
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-semibold text-resolved">
                     数据销毁合规回执 (DataDeletionReceipt)
                   </span>
-                  <span className="font-mono text-[11px] text-ink-3">
+                  <span className="font-mono text-xs text-ink-3">
                     {accountDeletionReceipt.receiptId}
                   </span>
                 </div>
-                <p className="text-[11px] text-ink-3">
+                <p className="text-xs text-ink-3 num">
                   请求时间：{formatDateTime(accountDeletionReceipt.requestedAt)} · 完成时间：
                   {formatDateTime(accountDeletionReceipt.completedAt)}
                 </p>
 
                 <div className="space-y-1">
-                  <div className="text-[11px] font-semibold text-ink">已清除范围：</div>
+                  <div className="text-xs font-semibold text-ink">已清除范围：</div>
                   <div className="flex flex-wrap gap-1.5">
                     {accountDeletionReceipt.deletedScopes.map((entry) => (
                       <Badge key={entry.scope} variant="secondary">
@@ -963,9 +975,9 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
 
                 {accountDeletionReceipt.preservedRecords.length > 0 && (
                   <div className="space-y-1">
-                    <div className="text-[11px] font-semibold text-ink">依法保留审计项：</div>
+                    <div className="text-xs font-semibold text-ink">依法保留审计项：</div>
                     {accountDeletionReceipt.preservedRecords.map((item, idx) => (
-                      <div key={idx} className="text-[11px] text-ink-2 bg-ground rounded p-2 border border-line">
+                      <div key={idx} className="text-xs text-ink-2 bg-ground rounded p-2">
                         <code>{item.category}</code>（{item.count} 条）：{item.reason}（策略：
                         {item.retentionPolicy}）
                       </div>
@@ -975,8 +987,8 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
 
                 {accountDeletionReceipt.thirdPartyCaveats.length > 0 && (
                   <div className="space-y-1">
-                    <div className="text-[11px] font-semibold text-ink">第三方服务提示：</div>
-                    <ul className="text-[11px] text-ink-3 list-disc list-inside space-y-0.5">
+                    <div className="text-xs font-semibold text-ink">第三方服务提示：</div>
+                    <ul className="text-xs text-ink-3 list-disc list-inside space-y-0.5">
                       {accountDeletionReceipt.thirdPartyCaveats.map((c, idx) => (
                         <li key={idx}>{c}</li>
                       ))}
@@ -989,20 +1001,20 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
 
           {/* Billing Audit Trail */}
           {billingAudit.length > 0 && (
-            <div className="rounded-lg border border-line bg-surface p-3.5 space-y-2">
-              <h4 className="text-[12px] font-semibold text-ink">
+            <div className="rounded border border-line bg-surface p-3.5 space-y-2">
+              <h4 className="text-sm font-semibold text-ink">
                 合规审计留痕 (Billing Audit · {billingAudit.length} 条)
               </h4>
-              <div className="space-y-1 max-h-36 overflow-y-auto">
+              <div className="space-y-1 max-h-36 overflow-y-auto divide-y divide-line">
                 {billingAudit.map((rec) => (
                   <div
                     key={rec.auditId}
-                    className="text-[11px] text-ink-2 flex flex-wrap items-center justify-between gap-2 border-b border-line/60 pb-1"
+                    className="text-xs text-ink-2 flex flex-wrap items-center justify-between gap-2 pt-1.5 first:pt-0"
                   >
                     <span>
                       <code>{rec.eventType}</code> · {rec.retentionNote}
                     </span>
-                    <span className="font-mono text-ink-3">{formatDateTime(rec.occurredAt)}</span>
+                    <span className="font-mono text-ink-3 num">{formatDateTime(rec.occurredAt)}</span>
                   </div>
                 ))}
               </div>

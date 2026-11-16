@@ -1,0 +1,14 @@
+# CueX Colab GPU ASR Service Dependencies
+# Note: Google Colab G4 runtime already provides PyTorch + CUDA 13.0 (torch / torchaudio).
+# Install these packages without downgrading torch.
+funasr>=1.4.0
+modelscope>=1.40.0
+transformers>=4.46.0
+faster-whisper>=1.2.0
+ctranslate2>=4.9.0
+fastapi>=0.115.0
+uvicorn[standard]>=0.34.0
+websockets>=14.0
+cryptography>=44.0.0
+python-multipart>=0.0.9
+numpy>=1.26.0

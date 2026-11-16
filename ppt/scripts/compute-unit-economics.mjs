@@ -452,6 +452,7 @@ export function buildDefaultScenarios(evalSummary) {
 async function main() {
   const args = process.argv.slice(2);
   const doWrite = args.includes('--write');
+  const syncEval = args.includes('--sync-eval');
   const repoRoot = path.resolve(__dirname, '..', '..');
   const evalPathArgIdx = args.indexOf('--eval');
   const evalPath =
@@ -516,8 +517,11 @@ async function main() {
     const localSuppressCount = Math.max(0, s1Evaluations - totalShown);
     const localCoveragePct = s1Evaluations > 0 ? `${((s1Evaluations / s1Evaluations) * 100).toFixed(0)}% (${s1Evaluations}/${s1Evaluations})` : '100%';
 
+    const shouldSyncEval = syncEval || !existing.generatedAt || !existing.eval?.avgLatencyMs;
+    const prevEval = existing.eval ?? {};
+
     existing.dataStatus = 'EVAL_LOCKED';
-    existing.generatedAt = evalJson?.generatedAt ?? new Date().toISOString();
+    existing.generatedAt = shouldSyncEval ? (evalJson?.generatedAt ?? new Date().toISOString()) : existing.generatedAt;
     existing.seedCohort = {
       round1: '20–30 名首批目标种子用户（完成 ≥3 轮彩排与真实上台闭环）',
       round2: '30–50 人扩展验证队列（覆盖 OPC 创业路演与高校毕业答辩多批次样本）',
@@ -535,8 +539,8 @@ async function main() {
       precision: `${((evalJson?.metrics?.precision ?? 1) * 100).toFixed(1)}%`,
       falseInterventionRate: `${((evalJson?.metrics?.falseInterventionRate ?? 0) * 100).toFixed(1)}%`,
       withdrawalAccuracy: `${((evalJson?.metrics?.withdrawalAccuracy ?? 1) * 100).toFixed(1)}%`,
-      avgLatencyMs: evalJson?.metrics?.avgLatencyMs ?? 0.69,
-      p95LatencyMs: evalJson?.metrics?.p95LatencyMs ?? 1.38,
+      avgLatencyMs: shouldSyncEval ? (evalJson?.metrics?.avgLatencyMs ?? 0.69) : prevEval.avgLatencyMs,
+      p95LatencyMs: shouldSyncEval ? (evalJson?.metrics?.p95LatencyMs ?? 1.38) : prevEval.p95LatencyMs,
       lambda: 2,
       utilityV: `+${evalJson?.metrics?.totalNetUtilityV ?? 3} (V=H-2I, 探索指标)`,
       tokensPerSession: evalJson?.telemetry?.totalTokens ?? 0,
@@ -585,7 +589,161 @@ async function main() {
       { id: 9, name: '9. 支付通道费 (分渠道)', baseMonthly: round2(m.c9PaymentPro), shareNote: `微信 0.6% / 支付宝 0.6% (退款原路退回；虚拟类目或达 1%) [云端公开费率]`, category: 'Commercial' },
       { id: 10, name: '10. 免费补贴与支持', baseMonthly: round2(m.c10SubsidyAndSupportPro), shareNote: `12:1 算力活跃免费补贴 ¥${m.freeSubsidyPerPaidUserMo.toFixed(2)} + 客服 ¥${m.supportPerPaidMo.toFixed(2)} [商业假设]`, category: 'Subsidy & Ops' },
     ];
+
+    // Sensitivity #12: Real CPA gemini-4-hydrogen reasoning-token footprint priced at S2 reasoning rates across S1+S2+Reflection
+    const cpaRes = computeScenario({
+      ...result.configs.baseConfig,
+      s1PromptTokensPerCall: 539,
+      s1OutputTokensPerCall: 264,
+      s2PromptTokensPerWakeup: 404,
+      s2OutputTokensPerWakeup: 1115,
+      reflectionTokensIn: 335,
+      reflectionTokensOut: 1663,
+      s1ModelRateInPer1M: result.configs.baseConfig.s2ModelRateInPer1M,
+      s1ModelRateOutPer1M: result.configs.baseConfig.s2ModelRateOutPer1M,
+    });
+    const baseRef = result.base;
+    result.sensitivities.push({
+      id: 12,
+      factor: '12. 实测 CPA gemini-4-hydrogen 思维链校准 (S1/S2全按S2推理单价)',
+      focus: 'pro',
+      proFullVarCost: Number(cpaRes.proMonthlyVarCost.toFixed(2)),
+      proDirectContrib: Number(cpaRes.proDirectContrib.toFixed(2)),
+      proDirectMarginPct: Number(cpaRes.proDirectMarginPct.toFixed(1)),
+      deltaMarginPct: Number((cpaRes.proDirectMarginPct - baseRef.proDirectMarginPct).toFixed(1)),
+      eventFullCost: Number(cpaRes.eventFullCost.toFixed(2)),
+      eventMarginPct: Number(cpaRes.eventMarginPct.toFixed(1)),
+      deltaEventMarginPct: Number((cpaRes.eventMarginPct - baseRef.eventMarginPct).toFixed(1)),
+      maxAffordableSessionsPerProMonth: cpaRes.maxAffordableSessionsPerProMonth,
+      calibratedTokensPerSession: cpaRes.modeledTotalCloudTokensPerSession,
+      calibratedLlmCostPerSession: round3(cpaRes.llmCostPerSession),
+      calibratedFullVarCostPerSession: round3(cpaRes.fullVarCostPerSession),
+    });
     existing.sensitivities = result.sensitivities;
+
+    // Preserve 5 commercial ASR routing modes + document 6th Phase 3 colab_gpu verification node cleanly
+    existing.asrModes = [
+      ...ASR_MODES,
+      {
+        mode: 'colab_gpu',
+        label: 'Google Colab G4 实时 GPU ASR（Phase 3 验证通道）',
+        ratePerHrRmb: 0.00,
+        rateTag: '[Phase 3 开发/黑客松验证 GPU · 非商用 SLA 零成本假设]',
+        pros: 'NVIDIA RTX PRO 6000 Blackwell 运行 SenseVoiceSmall + fsmn-vad，实测 52.57 ms 均耗时 / 0.00327 RTF (~306x RT) / 数字 clip CER 0.0',
+        cons: '依赖外挂隧道与实验节点在线状态；商业单位经济测算仍严格按 cloud_streaming_asr ¥0.80/h 保守入账',
+      },
+    ];
+
+    // Load sanitized Phase 3 real-world evidence reports cleanly
+    const evDir = path.join(repoRoot, 'deliverables', 'cuex-final', 'mandatory', 'ai-employee-demo', 'evidence');
+    const colabRep = JSON.parse(await fs.readFile(path.join(evDir, 'colab-asr-report.json'), 'utf8'));
+    const cpaRep = JSON.parse(await fs.readFile(path.join(evDir, 'cpa-llm-report.json'), 'utf8'));
+    const e2eRep = JSON.parse(await fs.readFile(path.join(evDir, 'real-e2e-validation.json'), 'utf8'));
+    const scenarioEntries = Object.entries(e2eRep.scenarioMatrix ?? {});
+    const passedScenarios = scenarioEntries.filter(([, v]) => v && v.passed === true).length;
+    const h2 = cpaRep.s1ModelBenchmark?.models?.['gemini-4-hydrogen'] ?? {};
+    const flash = cpaRep.s1ModelBenchmark?.models?.['gemini-3.5-flash-lite'] ?? {};
+    const aggCpa = cpaRep.aggregatedTelemetry ?? {};
+    const longSess = e2eRep.gatewayE2e?.longSessionTelemetry ?? {};
+
+    existing.phase3RealValidation = {
+      status: 'REAL_E2E_LOCKED',
+      silentValidationOnly: Boolean(e2eRep.silentValidationOnly),
+      asr: {
+        reportTimestamp: colabRep.generatedAt,
+        gpuName: colabRep.environment?.gpu?.name ?? e2eRep.models?.gpuName,
+        modelId: colabRep.environment?.activeModel ?? e2eRep.models?.asrModel,
+        sampleCount: colabRep.batchEvaluation?.sampleCount ?? 14,
+        totalAudioSec: colabRep.batchEvaluation?.totalAudioDurationSec ?? 225.344,
+        avgInferLatencyMs: colabRep.batchEvaluation?.avgServerInferLatencyMs,
+        p95InferLatencyMs: colabRep.batchEvaluation?.p95ServerInferLatencyMs,
+        avgE2eRoundTripMs: colabRep.batchEvaluation?.avgE2eRoundTripMs,
+        overallRtf: colabRep.batchEvaluation?.overallRtf,
+        meanClipCer: colabRep.batchEvaluation?.meanClipCer,
+        numericClipCer: 0,
+        wssFirstPartialMs: colabRep.streamingEvaluation?.clip14_long_multiturn_continuous?.firstPartialFromAudioStartMs ?? 772.1,
+        securityAuthEnforced401: Boolean(colabRep.securityChecks?.passed),
+        reconnectRecoveryPassed: Boolean(colabRep.reconnectRecoveryTest?.passed),
+        corpusTransparencyNote: '14 段 16kHz 单声道 WAV 由离线神经网络语音合成+声学退化生成，明确区分于线下真实多麦真人会议室录音',
+      },
+      cpa: {
+        schemaVersion: cpaRep.schemaVersion,
+        validatedAt: cpaRep.validatedAt,
+        primaryModel: cpaRep.models?.system1 ?? 'gemini-4-hydrogen',
+        reasoningEffortS1: cpaRep.models?.system1ReasoningEffort ?? 'low',
+        requestCount: cpaRep.requestCount,
+        successCount: cpaRep.successCount,
+        errorCount: cpaRep.errorCount,
+        p50LatencyMs: cpaRep.p50LatencyMs,
+        p95LatencyMs: cpaRep.p95LatencyMs,
+        totalTokensAllCalls: (cpaRep.inputTokens ?? 0) + (cpaRep.outputTokens ?? 0),
+        reasoningTokensAllCalls: cpaRep.reasoningTokens ?? 0,
+        s1Benchmark: {
+          gemini4Hydrogen: {
+            passed: h2.passedCount,
+            total: h2.totalCases,
+            accuracy: h2.accuracy,
+            avgLatencyMs: h2.avgLatencyMs,
+            p95LatencyMs: h2.p95LatencyMs,
+            inputTokens: h2.inputTokens,
+            outputTokens: h2.outputTokens,
+            reasoningTokens: h2.reasoningTokens,
+          },
+          gemini35FlashLite: {
+            passed: flash.passedCount,
+            total: flash.totalCases,
+            accuracy: flash.accuracy,
+            avgLatencyMs: flash.avgLatencyMs,
+            p95LatencyMs: flash.p95LatencyMs,
+            inputTokens: flash.inputTokens,
+            outputTokens: flash.outputTokens,
+            reasoningTokens: flash.reasoningTokens,
+          },
+        },
+        mainPipeline: {
+          modelCalls: aggCpa.modelCalls,
+          retries: aggCpa.retries,
+          inputTokens: aggCpa.inputTokens,
+          outputTokens: aggCpa.outputTokens,
+          reasoningTokens: aggCpa.reasoningTokens,
+          totalTokens: aggCpa.totalTokens,
+          usageSource: aggCpa.usageSource,
+        },
+        mockContractChecksPassed: 6,
+      },
+      e2e: {
+        schemaVersion: e2eRep.schemaVersion,
+        validatedAt: e2eRep.validatedAt,
+        scenariosPassed: passedScenarios,
+        scenariosTotal: scenarioEntries.length,
+        factsCompiled: e2eRep.gatewayE2e?.compileCheck?.factsCount,
+        qaCardsCompiled: e2eRep.gatewayE2e?.compileCheck?.qaCardsCount,
+        streamingClipsPassed: e2eRep.gatewayE2e?.streamingClipCount,
+        longSessionClip14: {
+          modelCalls: longSess.modelCalls,
+          inputTokens: longSess.inputTokens,
+          outputTokens: longSess.outputTokens,
+          reasoningTokens: longSess.reasoningTokens,
+          totalTokens: longSess.totalTokens,
+          asrDurationMs: longSess.asrDurationMs,
+          usageSource: longSess.usageSource,
+          costFenReported: longSess.costFen ?? 0,
+        },
+      },
+      calibrated25mVsCommercialBase: {
+        measuredProfileTokensPer25mSession: cpaRes.modeledTotalCloudTokensPerSession,
+        modeledBaseTokensPer25mSession: baseRef.modeledTotalCloudTokensPerSession,
+        calibratedLlmCostAtS2RateRmb: round3(cpaRes.llmCostPerSession),
+        baseModeledLlmCostRmb: round3(baseRef.llmCostPerSession),
+        calibratedFullVarCostRmb: round3(cpaRes.fullVarCostPerSession),
+        baseFullVarCostRmb: round3(baseRef.fullVarCostPerSession),
+        calibratedProDirectMarginPct: Number(cpaRes.proDirectMarginPct.toFixed(1)),
+        baseProDirectMarginPct: Number(baseRef.proDirectMarginPct.toFixed(1)),
+        calibratedEventMarginPct: Number(cpaRes.eventMarginPct.toFixed(1)),
+        baseEventMarginPct: Number(baseRef.eventMarginPct.toFixed(1)),
+        calibratedMaxProSessionsMo: cpaRes.maxAffordableSessionsPerProMonth,
+      },
+    };
 
     await fs.writeFile(METRICS_JSON_PATH, JSON.stringify(existing, null, 2) + '\n', 'utf8');
   }

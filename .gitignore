@@ -39,6 +39,7 @@ docs/怀客松*.pdf
 .env
 .env.*
 !.env.example
+*.pem
 
 # TypeScript incremental build info
 *.tsbuildinfo

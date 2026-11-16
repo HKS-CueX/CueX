@@ -425,20 +425,15 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
   };
 
   return (
-    <div className="bg-ground text-ink min-h-[calc(100vh-3.5rem)]">
+    <div className="bg-ground text-ink min-h-[calc(100dvh-3.5rem)]">
       <main className="max-w-[1440px] mx-auto px-4 sm:px-6 py-8 space-y-6">
         {/* Page Header */}
         <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 border-b border-line pb-5">
           <div className="space-y-1.5">
-            <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-ink-3">
-              <span className="text-amber font-semibold">STAGE 01</span>
-              <span>/</span>
-              <span>PRE-SESSION CONTEXT COMPILER</span>
-            </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink">
-              场前编译 · 构建你的演讲上下文与事实白名单
+              场前编译 · 构建演讲上下文与事实白名单
             </h1>
-            <p className="text-xs sm:text-sm text-ink-2 max-w-3xl">
+            <p className="text-sm text-ink-2 max-w-3xl leading-relaxed">
               上传讲稿或 PPT，提取并锁定真实数据与边界。场中一切提示严格受限于已确认的{' '}
               <span className="font-mono text-ink font-medium">FactWhitelist</span>，绝不现场臆造。
             </p>
@@ -450,7 +445,7 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                 aria-label="切换已编译演讲包"
                 value={activePack?.packId ?? ''}
                 onChange={(e) => void handleSelectSavedPack(e.target.value)}
-                className="h-9 px-3 text-xs border border-line bg-surface rounded text-ink"
+                className="h-9 max-w-full px-3 text-xs border border-line bg-surface rounded text-ink focus-visible:outline-none focus-visible:border-ink"
                 data-testid="saved-packs-select"
               >
                 <option value="" disabled>
@@ -471,7 +466,7 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
               onClick={() => void handleLoadSamplePack()}
               disabled={compiling}
               data-testid="load-sample-pack-btn"
-              className="gap-1.5"
+              className="gap-1.5 min-h-9"
             >
               <Sparkles className="w-3.5 h-3.5" />
               <span>载入示例：CueX 路演演示包</span>
@@ -496,9 +491,9 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                 size="sm"
                 onClick={() => void runCompile()}
                 data-testid="retry-compile-btn"
-                className="h-7 text-[11px]"
+                className="h-8 text-xs"
               >
-                <RotateCcw className="w-3 h-3 mr-1" />
+                <RotateCcw className="w-3.5 h-3.5 mr-1" />
                 重试编译
               </Button>
             )}
@@ -519,19 +514,21 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
         {/* Main 2-Column Workspace */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           {/* Left: Material Ingestion & Compile Form */}
-          <section className="lg:col-span-5 border border-line bg-surface rounded-md p-5 space-y-5 shadow-sm">
-            <div className="flex items-center justify-between border-b border-line pb-3">
+          <section className="lg:col-span-5 border border-line bg-surface rounded-md p-5 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 border-b border-line pb-3">
               <h2 className="text-sm font-bold text-ink flex items-center gap-2">
-                <Upload className="w-4 h-4 text-amber" />
+                <Upload className="w-4 h-4 text-amber shrink-0" />
                 <span>1. 材料导入与参数设定</span>
               </h2>
-              <span className="text-[11px] font-mono text-ink-3">.pptx / .pdf / .md / .txt</span>
+              <span className="text-xs font-mono text-ink-3 whitespace-nowrap shrink-0">
+                .pptx / .pdf / .md / .txt
+              </span>
             </div>
 
             <div className="space-y-2">
               <label
                 className={cn(
-                  'block border border-dashed border-line-strong rounded p-4 bg-ground/60 hover:bg-ground-2/60 transition-colors cursor-pointer text-center space-y-1.5',
+                  'block border border-line-strong rounded p-4 bg-surface-muted/70 hover:bg-surface-muted focus-within:ring-2 focus-within:ring-ink focus-within:ring-offset-2 transition-colors cursor-pointer text-center space-y-1.5',
                   extracting && 'opacity-60 pointer-events-none'
                 )}
               >
@@ -546,7 +543,7 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                 <div className="text-xs font-medium text-ink">
                   {extracting ? '正在提取文档正文与演讲备注...' : '点击上传讲稿 / PPTX / PDF / Markdown'}
                 </div>
-                <div className="text-[11px] text-ink-3">
+                <div className="text-xs text-ink-3 leading-relaxed">
                   支持 .pptx / .pdf / .md / .txt（单文件上限 15 MB）；扫描版 PDF 将诚实提示无法提取。
                 </div>
               </label>
@@ -559,7 +556,7 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                     size="sm"
                     onClick={handleCancelExtract}
                     data-testid="cancel-extract-btn"
-                    className="h-7 text-[11px]"
+                    className="h-8 text-xs"
                   >
                     <XCircle className="w-3.5 h-3.5 mr-1" />
                     取消提取
@@ -570,10 +567,10 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
               {fileValidationError && (
                 <div
                   role="alert"
-                  className="border border-danger/35 bg-danger-soft text-danger rounded px-3 py-2 text-[11px] flex items-start gap-2"
+                  className="border border-alert/35 bg-alert-tint text-alert rounded px-3 py-2 text-xs flex items-start gap-2"
                   data-testid="file-validation-error"
                 >
-                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
                   <span>{fileValidationError}</span>
                 </div>
               )}
@@ -584,10 +581,10 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                 className={cn(
                   'border rounded p-3 space-y-2 text-xs',
                   extractInfo.status === 'rejected'
-                    ? 'border-danger/40 bg-danger-soft/50'
+                    ? 'border-alert/40 bg-alert-tint/60'
                     : extractInfo.status === 'unreadable' || extractInfo.unreadable
-                      ? 'border-amber/45 bg-amber-soft/50'
-                      : 'border-line bg-ground'
+                      ? 'border-amber/45 bg-amber-tint/70'
+                      : 'border-line bg-surface-muted/70'
                 )}
                 data-testid="extract-result"
               >
@@ -607,7 +604,7 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                   </Badge>
                 </div>
                 {(extractInfo.sourceDocumentId || extractInfo.contentHash) && (
-                  <div className="text-[10px] font-mono text-ink-3 flex flex-wrap gap-3">
+                  <div className="text-xs font-mono text-ink-3 flex flex-wrap gap-3">
                     {extractInfo.sourceDocumentId && <span>doc: {extractInfo.sourceDocumentId}</span>}
                     {extractInfo.contentHash && (
                       <span>sha256: {extractInfo.contentHash.slice(0, 12)}…</span>
@@ -618,7 +615,7 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                   extractInfo.status === 'rejected' ||
                   extractInfo.unreadable) && (
                   <div
-                    className="rounded border border-amber/40 bg-surface px-2.5 py-2 text-[11px] text-amber-ink space-y-0.5"
+                    className="rounded border border-amber/40 bg-surface px-2.5 py-2 text-xs text-amber-ink space-y-0.5"
                     data-testid="extract-status-warning"
                   >
                     <strong className="block font-semibold">
@@ -632,7 +629,7 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                   </div>
                 )}
                 {extractInfo.warnings.length > 0 && (
-                  <ul className="text-[11px] text-amber-ink space-y-0.5 list-disc pl-4">
+                  <ul className="text-xs text-amber-ink space-y-0.5 list-disc pl-4">
                     {extractInfo.warnings.map((w, idx) => (
                       <li key={idx}>{w}</li>
                     ))}
@@ -644,7 +641,7 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
             <form onSubmit={handleCompile} className="space-y-3.5 text-xs">
               <div className="space-y-1">
                 <label htmlFor="compile-title" className="font-medium text-ink block">
-                  演讲主题 <span className="text-amber">*</span>
+                  演讲主题 <span className="text-amber-ink">*</span>
                 </label>
                 <input
                   id="compile-title"
@@ -652,7 +649,7 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="例如：CueX 通用实时认知协同系统路演"
-                  className="w-full border border-line bg-ground/50 rounded px-3 py-2 text-ink"
+                  className="w-full border border-line bg-ground rounded px-3 py-2 text-ink focus-visible:outline-none focus-visible:border-ink"
                   required
                 />
               </div>
@@ -666,7 +663,7 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                     id="compile-scene"
                     value={sceneType}
                     onChange={(e) => setSceneType(e.target.value as PresentationSceneType)}
-                    className="w-full border border-line bg-ground/50 rounded px-3 py-2 text-ink"
+                    className="w-full border border-line bg-ground rounded px-3 py-2 text-ink focus-visible:outline-none focus-visible:border-ink"
                   >
                     {(Object.keys(SCENE_TYPE_LABELS) as PresentationSceneType[]).map((key) => (
                       <option key={key} value={key}>
@@ -689,9 +686,9 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                       step={30}
                       value={targetDurationSec}
                       onChange={(e) => setTargetDurationSec(Number(e.target.value))}
-                      className="w-full border border-line bg-ground/50 rounded px-3 py-2 text-ink font-mono"
+                      className="w-full border border-line bg-ground rounded px-3 py-2 text-ink font-mono tabular-nums focus-visible:outline-none focus-visible:border-ink"
                     />
-                    <span className="text-[11px] font-mono text-ink-3 shrink-0">
+                    <span className="text-xs font-mono text-ink-3 whitespace-nowrap shrink-0 tabular-nums">
                       {formatDuration(targetDurationSec)}
                     </span>
                   </div>
@@ -709,7 +706,7 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                     value={audience}
                     onChange={(e) => setAudience(e.target.value)}
                     placeholder="例如：评委、导师或客户决策层"
-                    className="w-full border border-line bg-ground/50 rounded px-3 py-2 text-ink"
+                    className="w-full border border-line bg-ground rounded px-3 py-2 text-ink focus-visible:outline-none focus-visible:border-ink"
                   />
                 </div>
                 <div className="space-y-1">
@@ -722,7 +719,7 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                     value={goal}
                     onChange={(e) => setGoal(e.target.value)}
                     placeholder="例如：讲清技术壁垒与真实商业边界"
-                    className="w-full border border-line bg-ground/50 rounded px-3 py-2 text-ink"
+                    className="w-full border border-line bg-ground rounded px-3 py-2 text-ink focus-visible:outline-none focus-visible:border-ink"
                   />
                 </div>
               </div>
@@ -737,7 +734,7 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                   value={rawMaterials}
                   onChange={(e) => setRawMaterials(e.target.value)}
                   placeholder="粘贴 PPT 大纲、逐字稿或演讲备注（支持 Markdown 章节格式 ## 章节名）..."
-                  className="w-full border border-line bg-ground/50 rounded px-3 py-2 text-ink leading-relaxed"
+                  className="w-full border border-line bg-ground rounded px-3 py-2 text-ink leading-relaxed focus-visible:outline-none focus-visible:border-ink"
                 />
               </div>
 
@@ -751,7 +748,7 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                   value={keyFactsText}
                   onChange={(e) => setKeyFactsText(e.target.value)}
                   placeholder="例如：&#10;System 1 平均判定延迟 < 50ms&#10;净有效介入评分公式 V = H - λI（默认 λ = 2）"
-                  className="w-full border border-line bg-ground/50 rounded px-3 py-2 text-ink"
+                  className="w-full border border-line bg-ground rounded px-3 py-2 text-ink leading-relaxed focus-visible:outline-none focus-visible:border-ink"
                 />
               </div>
 
@@ -765,7 +762,7 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                   value={forbiddenText}
                   onChange={(e) => setForbiddenText(e.target.value)}
                   placeholder="例如：不得宣称尚未开展的付费转化率、不得把路线图场景说成已实机上线"
-                  className="w-full border border-line bg-ground/50 rounded px-3 py-2 text-ink"
+                  className="w-full border border-line bg-ground rounded px-3 py-2 text-ink leading-relaxed focus-visible:outline-none focus-visible:border-ink"
                 />
               </div>
 
@@ -795,11 +792,11 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
           {/* Right: 4-Part Compiled Artifacts & Launch Gate */}
           <section className="lg:col-span-7 space-y-5">
             {!activePack ? (
-              <div className="border border-dashed border-line-strong bg-surface/60 rounded-md p-10 text-center space-y-4">
+              <div className="border border-line bg-surface rounded-md p-8 sm:p-10 text-center space-y-4">
                 <BookOpen className="w-8 h-8 text-amber mx-auto" />
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <h2 className="text-lg font-semibold text-ink">尚未编译演讲上下文包</h2>
-                  <p className="text-xs text-ink-2 max-w-md mx-auto leading-relaxed">
+                  <p className="text-sm text-ink-2 max-w-md mx-auto leading-relaxed">
                     请在左侧上传文档/填写讲稿后点击编译，或直接点击上方「载入示例：CueX 路演演示包」立即预览完整编译成果。
                   </p>
                 </div>
@@ -816,30 +813,30 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
             ) : (
               <>
                 <div
-                  className="border border-line bg-surface rounded-md p-5 space-y-4 shadow-sm"
+                  className="border border-line bg-surface rounded-md p-5 space-y-4"
                   data-testid="compiled-pack-panel"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
-                    <div>
+                    <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <h2 className="text-lg font-bold text-ink">{activePack.title}</h2>
                         <Badge variant="amber">
                           {SCENE_TYPE_LABELS[activePack.sceneType] ?? activePack.sceneType}
                         </Badge>
-                        <Badge variant="outline" className="font-mono text-[10px]">
+                        <Badge variant="outline" className="font-mono">
                           {activePack.compiledBy === 'llm_compiler'
                             ? 'LLM 辅助编译'
                             : '本地确定性编译器'}
                         </Badge>
                       </div>
-                      <p className="text-xs text-ink-3 mt-0.5">
+                      <p className="text-xs text-ink-3 mt-1 tabular-nums">
                         受众：{activePack.audience} · 目标时长：{formatDuration(activePack.targetDurationSec)} ·{' '}
                         {activePack.facts.filter((f) => f.userConfirmed).length}/{activePack.facts.length}{' '}
                         条事实已确认
                       </p>
                     </div>
                     {savingPatch && (
-                      <span className="text-[11px] font-mono text-ink-3">正在保存修改...</span>
+                      <span className="text-xs font-mono text-ink-3">正在保存修改...</span>
                     )}
                   </div>
 
@@ -870,12 +867,16 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                     {/* A. One-Page CueSheet */}
                     <TabsContent value="cuesheet" className="space-y-4 pt-3">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                        <div className="p-3 bg-ground rounded border border-line space-y-1">
-                          <span className="text-[11px] font-semibold text-ink-3 block">
+                        <div className="p-3.5 bg-surface-muted/60 rounded space-y-1.5">
+                          <label
+                            htmlFor="cuesheet-thesis"
+                            className="text-xs font-semibold text-ink-2 block"
+                          >
                             一句话核心论点 (One-Line Thesis)
-                          </span>
+                          </label>
                           <textarea
-                            rows={2}
+                            id="cuesheet-thesis"
+                            rows={4}
                             value={activePack.cueSheet.oneLineThesis}
                             onChange={(e) =>
                               onPackChange({
@@ -883,15 +884,19 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                                 cueSheet: { ...activePack.cueSheet, oneLineThesis: e.target.value },
                               })
                             }
-                            className="w-full bg-surface border border-line rounded px-2.5 py-1.5 text-ink"
+                            className="w-full min-h-[88px] bg-surface border border-line rounded px-2.5 py-2 text-xs text-ink leading-relaxed focus-visible:outline-none focus-visible:border-ink"
                           />
                         </div>
-                        <div className="p-3 bg-ground rounded border border-line space-y-1">
-                          <span className="text-[11px] font-semibold text-ink-3 block">
+                        <div className="p-3.5 bg-surface-muted/60 rounded space-y-1.5">
+                          <label
+                            htmlFor="cuesheet-hook"
+                            className="text-xs font-semibold text-ink-2 block"
+                          >
                             开场钩子 (Audience Hook)
-                          </span>
+                          </label>
                           <textarea
-                            rows={2}
+                            id="cuesheet-hook"
+                            rows={4}
                             value={activePack.cueSheet.audienceHook}
                             onChange={(e) =>
                               onPackChange({
@@ -899,14 +904,14 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                                 cueSheet: { ...activePack.cueSheet, audienceHook: e.target.value },
                               })
                             }
-                            className="w-full bg-surface border border-line rounded px-2.5 py-1.5 text-ink"
+                            className="w-full min-h-[88px] bg-surface border border-line rounded px-2.5 py-2 text-xs text-ink leading-relaxed focus-visible:outline-none focus-visible:border-ink"
                           />
                         </div>
                       </div>
 
                       <div className="space-y-2.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold text-ink">章节导播要点</span>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-semibold text-ink">章节导播要点</span>
                           <Button
                             type="button"
                             variant="quiet"
@@ -918,34 +923,36 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                           </Button>
                         </div>
 
-                        {activePack.cueSheet.chapters.map((ch, idx) => (
-                          <div
-                            key={ch.chapterId}
-                            className="border border-line bg-ground/60 rounded p-3 space-y-2 text-xs"
-                          >
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="font-semibold text-ink">
-                                0{idx + 1}. {ch.title}
-                              </span>
-                              <span className="font-mono text-[11px] text-ink-3">
-                                预算 {formatDuration(ch.targetDurationSec)}
-                              </span>
+                        <div className="divide-y divide-line border border-line rounded bg-surface">
+                          {activePack.cueSheet.chapters.map((ch, idx) => (
+                            <div
+                              key={ch.chapterId}
+                              className="p-3.5 space-y-2 text-xs"
+                            >
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <span className="font-semibold text-ink">
+                                  第 {idx + 1} 章 · {ch.title}
+                                </span>
+                                <span className="font-mono text-xs text-ink-3 tabular-nums whitespace-nowrap">
+                                  预算 {formatDuration(ch.targetDurationSec)}
+                                </span>
+                              </div>
+                              <p className="text-ink-2 leading-relaxed">{ch.coreMessage}</p>
+                              <p className="text-xs text-violet-ink bg-violet-tint/70 px-2.5 py-1.5 rounded leading-relaxed">
+                                过渡衔接：{ch.transitionCue}
+                              </p>
                             </div>
-                            <p className="text-ink-2 leading-relaxed">{ch.coreMessage}</p>
-                            <p className="text-[11px] text-violet-ink bg-violet-tint/60 px-2.5 py-1 rounded">
-                              过渡衔接：{ch.transitionCue}
-                            </p>
-                          </div>
-                        ))}
+                          ))}
+                        </div>
                       </div>
 
                       {activePack.forbiddenClaims.length > 0 && (
-                        <div className="border border-amber/30 bg-amber-tint/50 rounded p-3 text-xs space-y-1">
+                        <div className="border border-amber/30 bg-amber-tint/50 rounded p-3.5 text-xs space-y-1.5">
                           <span className="font-semibold text-amber-ink flex items-center gap-1.5">
                             <ShieldAlert className="w-3.5 h-3.5" />
                             禁止编造 / 越界清单
                           </span>
-                          <ul className="list-disc pl-4 text-amber-ink space-y-0.5">
+                          <ul className="list-disc pl-4 text-amber-ink space-y-0.5 leading-relaxed">
                             {activePack.forbiddenClaims.map((c, idx) => (
                               <li key={idx}>{c}</li>
                             ))}
@@ -956,13 +963,13 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
 
                     {/* B. FactWhitelist */}
                     <TabsContent value="facts" className="space-y-4 pt-3" data-testid="fact-whitelist">
-                      <div className="flex items-center justify-between text-xs bg-ground border border-line rounded px-3 py-2">
-                        <span className="text-ink-2">
+                      <div className="flex items-center justify-between text-xs bg-surface-muted rounded px-3.5 py-2.5">
+                        <span className="text-ink-2 leading-relaxed">
                           仅<strong>「已确认」</strong>的事实允许被场中 InterventionController 用于生成 L2/L3 提示；锁定后可防误删。
                         </span>
                       </div>
 
-                      <div className="space-y-2">
+                      <div className="space-y-2.5">
                         {activePack.facts.map((fact) => {
                           const isEditing = editingFactId === fact.id;
                           const matchedEvidence = activePack.evidence.find(
@@ -975,19 +982,19 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                               data-locked={fact.locked}
                               data-confirmed={fact.userConfirmed}
                               className={cn(
-                                'border rounded p-3 text-xs space-y-2 transition-colors',
+                                'border rounded p-3.5 text-xs space-y-2 transition-colors',
                                 fact.userConfirmed
                                   ? 'border-line bg-surface'
-                                  : 'border-amber/35 bg-amber-tint/30'
+                                  : 'border-amber/35 bg-amber-tint/35'
                               )}
                             >
                               {isEditing ? (
                                 <div className="space-y-2">
                                   <textarea
-                                    rows={2}
+                                    rows={3}
                                     value={editingFactText}
                                     onChange={(e) => setEditingFactText(e.target.value)}
-                                    className="w-full border border-line bg-ground rounded px-2.5 py-1.5 text-ink"
+                                    className="w-full border border-line bg-ground rounded px-2.5 py-2 text-ink leading-relaxed focus-visible:outline-none focus-visible:border-ink"
                                   />
                                   <div className="flex justify-end gap-2">
                                     <Button
@@ -1008,8 +1015,8 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                                   </div>
                                 </div>
                               ) : (
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="space-y-1 min-w-0">
+                                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                                  <div className="space-y-1.5 min-w-0">
                                     <div className="flex flex-wrap items-center gap-1.5">
                                       <Badge variant={fact.userConfirmed ? 'resolved' : 'amber'}>
                                         {fact.userConfirmed ? '已确认事实' : '待用户确认'}
@@ -1017,43 +1024,43 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                                       <Badge variant="secondary">{fact.category}</Badge>
                                       {fact.locked && (
                                         <Badge variant="violet">
-                                          <Lock className="w-2.5 h-2.5" />
+                                          <Lock className="w-3 h-3" />
                                           已锁定
                                         </Badge>
                                       )}
-                                      <span className="text-[10px] font-mono text-ink-3">
+                                      <span className="text-xs font-mono text-ink-3">
                                         {fact.evidenceId}
                                       </span>
                                     </div>
-                                    <p className="text-ink font-medium leading-relaxed break-words">
+                                    <p className="text-sm text-ink font-medium leading-relaxed break-words">
                                       {fact.text}
                                     </p>
                                     <div
-                                      className="flex flex-wrap items-center gap-2 text-[11px] text-ink-3"
+                                      className="flex flex-wrap items-center gap-2 text-xs text-ink-3"
                                       data-testid={`fact-provenance-${fact.id}`}
                                     >
                                       <span>来源：{fact.source}</span>
                                       {matchedEvidence?.locationRef && (
-                                        <span className="font-mono px-1.5 py-0.5 rounded bg-ground border border-line text-[10px]">
+                                        <span className="font-mono px-2 py-0.5 rounded bg-surface-muted text-ink-2 text-xs">
                                           位置：{matchedEvidence.locationRef}
                                         </span>
                                       )}
                                       {matchedEvidence?.contentHash && (
-                                        <span className="font-mono px-1.5 py-0.5 rounded bg-ground border border-line text-[10px]">
+                                        <span className="font-mono px-2 py-0.5 rounded bg-surface-muted text-ink-2 text-xs">
                                           摘要：{matchedEvidence.contentHash.slice(0, 10)}
                                         </span>
                                       )}
                                     </div>
                                   </div>
 
-                                  <div className="flex items-center gap-1 shrink-0">
+                                  <div className="flex items-center gap-1.5 shrink-0">
                                     <Button
                                       type="button"
                                       variant="quiet"
                                       size="sm"
                                       onClick={() => toggleFactConfirm(fact.id)}
                                       data-testid={`fact-confirm-${fact.id}`}
-                                      className="h-7 px-2 text-[11px]"
+                                      className="h-9 sm:h-8 px-2.5 text-xs whitespace-nowrap"
                                     >
                                       {fact.userConfirmed ? '取消确认' : '确认'}
                                     </Button>
@@ -1061,23 +1068,23 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                                       type="button"
                                       variant="quiet"
                                       size="icon"
-                                      className="h-7 w-7"
+                                      className="h-9 w-9 sm:h-8 sm:w-8"
                                       onClick={() => toggleFactLock(fact.id)}
                                       data-testid={`fact-lock-${fact.id}`}
                                       aria-label={fact.locked ? '解锁事实' : '锁定事实'}
                                       title={fact.locked ? '点击解锁' : '点击锁定'}
                                     >
                                       {fact.locked ? (
-                                        <Lock className="w-3.5 h-3.5 text-violet" />
+                                        <Lock className="w-4 h-4 text-violet" />
                                       ) : (
-                                        <Unlock className="w-3.5 h-3.5 text-ink-3" />
+                                        <Unlock className="w-4 h-4 text-ink-3" />
                                       )}
                                     </Button>
                                     <Button
                                       type="button"
                                       variant="ghost"
                                       size="icon"
-                                      className="h-7 w-7"
+                                      className="h-9 w-9 sm:h-8 sm:w-8"
                                       disabled={fact.locked}
                                       onClick={() => {
                                         if (fact.locked) return;
@@ -1088,20 +1095,20 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                                       aria-label="编辑事实"
                                       title={fact.locked ? '已锁定，请先解锁后再编辑' : '编辑事实'}
                                     >
-                                      <Edit3 className="w-3.5 h-3.5 text-ink-2" />
+                                      <Edit3 className="w-4 h-4 text-ink-2" />
                                     </Button>
                                     <Button
                                       type="button"
                                       variant="ghost"
                                       size="icon"
-                                      className="h-7 w-7"
+                                      className="h-9 w-9 sm:h-8 sm:w-8"
                                       onClick={() => deleteFact(fact.id)}
                                       disabled={fact.locked}
                                       data-testid={`fact-delete-${fact.id}`}
                                       aria-label="删除事实"
                                       title={fact.locked ? '已锁定，请先解锁后再删除' : '删除事实'}
                                     >
-                                      <Trash2 className="w-3.5 h-3.5 text-amber-ink" />
+                                      <Trash2 className="w-4 h-4 text-amber-ink" />
                                     </Button>
                                   </div>
                                 </div>
@@ -1112,7 +1119,7 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                       </div>
 
                       {/* Add New Verified Fact */}
-                      <div className="border border-line bg-ground/70 rounded p-3 space-y-2 text-xs">
+                      <div className="border border-line bg-surface-muted/70 rounded p-3.5 space-y-2.5 text-xs">
                         <span className="font-semibold text-ink block">新增白名单确认事实</span>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                           <input
@@ -1120,7 +1127,7 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                             value={newFactText}
                             onChange={(e) => setNewFactText(e.target.value)}
                             placeholder="输入可核验的数据或边界声明..."
-                            className="sm:col-span-2 border border-line bg-surface rounded px-2.5 py-1.5 text-ink"
+                            className="sm:col-span-2 border border-line bg-surface rounded px-2.5 py-2 text-ink focus-visible:outline-none focus-visible:border-ink"
                             data-testid="new-fact-input"
                           />
                           <select
@@ -1128,7 +1135,7 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                             onChange={(e) =>
                               setNewFactCategory(e.target.value as PresentationFactItem['category'])
                             }
-                            className="border border-line bg-surface rounded px-2 py-1.5 text-ink"
+                            className="border border-line bg-surface rounded px-2.5 py-2 text-ink focus-visible:outline-none focus-visible:border-ink"
                           >
                             <option value="metric">量化指标</option>
                             <option value="claim">核心论点</option>
@@ -1137,13 +1144,13 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                             <option value="definition">概念定义</option>
                           </select>
                         </div>
-                        <div className="flex items-center justify-between gap-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           <input
                             type="text"
                             value={newFactSource}
                             onChange={(e) => setNewFactSource(e.target.value)}
                             placeholder="出处说明（如：P6 评测表）"
-                            className="flex-1 border border-line bg-surface rounded px-2.5 py-1.5 text-ink"
+                            className="flex-1 border border-line bg-surface rounded px-2.5 py-2 text-ink focus-visible:outline-none focus-visible:border-ink"
                           />
                           <Button
                             type="button"
@@ -1151,6 +1158,7 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                             onClick={addCustomFact}
                             disabled={!newFactText.trim()}
                             data-testid="add-fact-btn"
+                            className="min-h-9 sm:min-h-8"
                           >
                             <Plus className="w-3.5 h-3.5" />
                             <span>添加并锁定</span>
@@ -1161,13 +1169,13 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
 
                     {/* C. Predicted Q&A Cards & Unprepared Gaps */}
                     <TabsContent value="qa" className="space-y-4 pt-3" data-testid="qa-cards-panel">
-                      <div className="flex items-start gap-2 border border-violet/35 bg-violet-tint/60 rounded p-3 text-xs text-violet-ink">
+                      <div className="flex items-start gap-2.5 border border-violet/35 bg-violet-tint/60 rounded p-3.5 text-xs text-violet-ink">
                         <HelpCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                        <div>
+                        <div className="space-y-1">
                           <strong className="font-semibold">
                             AI 预测问题 · 非已确认事实
                           </strong>
-                          <p className="text-[11px] mt-0.5 opacity-90">
+                          <p className="text-xs leading-relaxed">
                             以下问答卡基于材料语义推演可能出现的评审/观众追问，仅作彩排与兜底参考；实际回答依据仍严格绑定所关联的 evidenceIds。
                           </p>
                         </div>
@@ -1175,13 +1183,13 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
 
                       {activePack.unpreparedGaps.length > 0 && (
                         <div
-                          className="border border-amber/35 bg-amber-tint/60 rounded p-3 text-xs space-y-1"
+                          className="border border-amber/35 bg-amber-tint/60 rounded p-3.5 text-xs space-y-1"
                           data-testid="unprepared-gaps"
                         >
                           <span className="font-semibold text-amber-ink block">
                             尚未准备事项（建议场前补充到事实白名单）
                           </span>
-                          <ul className="list-disc pl-4 text-amber-ink space-y-0.5">
+                          <ul className="list-disc pl-4 text-amber-ink space-y-0.5 leading-relaxed">
                             {activePack.unpreparedGaps.map((gap, i) => (
                               <li key={i}>{gap}</li>
                             ))}
@@ -1189,44 +1197,46 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                         </div>
                       )}
 
-                      <div className="space-y-3">
+                      <div className="divide-y divide-line border border-line rounded bg-surface">
                         {activePack.qaCards.map((qa) => (
                           <div
                             key={qa.id}
-                            className="border border-line bg-ground/60 rounded p-3.5 space-y-2 text-xs"
+                            className="p-3.5 space-y-2 text-xs"
                             data-testid={`qa-card-${qa.id}`}
                           >
                             <div className="flex flex-wrap items-center justify-between gap-2">
-                              <div className="flex items-center gap-1.5">
+                              <div className="flex flex-wrap items-center gap-1.5">
                                 <Badge variant="violet">AI 预测问题 · 非已确认事实</Badge>
                                 <Badge variant={qa.prepared ? 'resolved' : 'amber'}>
                                   {qa.prepared ? '有事实支撑' : '尚无完整实证'}
                                 </Badge>
                               </div>
-                              <span className="text-[10px] font-mono text-ink-3">
+                              <span className="text-xs font-mono text-ink-3 tabular-nums">
                                 依据数：{qa.evidenceIds.length}
                               </span>
                             </div>
 
                             <h3 className="text-sm font-semibold text-ink">{qa.question}</h3>
-                            <p className="text-[11px] text-ink-3">提问动机：{qa.rationale}</p>
+                            <p className="text-xs text-ink-3 leading-relaxed">
+                              提问动机：{qa.rationale}
+                            </p>
 
                             <div className="space-y-1">
-                              <span className="text-[11px] font-medium text-ink-2 block">
+                              <span className="text-xs font-medium text-ink-2 block">
                                 建议回应口径（可修改）：
                               </span>
                               <textarea
-                                rows={2}
+                                rows={3}
                                 value={qa.suggestedAnswer}
                                 onChange={(e) =>
                                   updateQACard(qa.id, { suggestedAnswer: e.target.value })
                                 }
-                                className="w-full border border-line bg-surface rounded px-2.5 py-1.5 text-ink"
+                                className="w-full border border-line bg-ground rounded px-2.5 py-2 text-ink leading-relaxed focus-visible:outline-none focus-visible:border-ink"
                               />
                             </div>
 
                             {qa.gapNote && (
-                              <p className="text-[11px] text-amber-ink">缺口提示：{qa.gapNote}</p>
+                              <p className="text-xs text-amber-ink">缺口提示：{qa.gapNote}</p>
                             )}
                           </div>
                         ))}
@@ -1235,42 +1245,44 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
 
                     {/* D. Progress Structure */}
                     <TabsContent value="structure" className="space-y-3 pt-3" data-testid="progress-structure">
-                      {activePack.progressNodes.map((node) => (
-                        <div
-                          key={node.chapterId}
-                          className="border border-line bg-ground/60 rounded p-3.5 space-y-2 text-xs"
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="font-semibold text-ink flex items-center gap-2">
-                              <ListChecks className="w-4 h-4 text-amber" />
-                              第 {node.order + 1} 章 · {node.title}
-                            </span>
-                            <span className="font-mono text-[11px] text-ink-3">
-                              目标 {formatDuration(node.targetDurationSec)}
-                            </span>
-                          </div>
-                          <div className="flex flex-wrap gap-1.5">
-                            {node.keyPoints.map((kp) => (
-                              <span
-                                key={kp.id}
-                                className="px-2 py-0.5 rounded border border-line bg-surface text-ink-2 text-[11px]"
-                              >
-                                {kp.label}
+                      <div className="divide-y divide-line border border-line rounded bg-surface">
+                        {activePack.progressNodes.map((node) => (
+                          <div
+                            key={node.chapterId}
+                            className="p-3.5 space-y-2 text-xs"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="font-semibold text-ink flex items-center gap-2">
+                                <ListChecks className="w-4 h-4 text-amber shrink-0" />
+                                第 {node.order + 1} 章 · {node.title}
                               </span>
-                            ))}
+                              <span className="font-mono text-xs text-ink-3 tabular-nums whitespace-nowrap">
+                                目标 {formatDuration(node.targetDurationSec)}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {node.keyPoints.map((kp) => (
+                                <span
+                                  key={kp.id}
+                                  className="px-2.5 py-1 rounded bg-surface-muted text-ink-2 text-xs"
+                                >
+                                  {kp.label}
+                                </span>
+                              ))}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </TabsContent>
                   </Tabs>
                 </div>
 
                 {/* Microphone & Privacy Notice + Launch Gate */}
                 <div
-                  className="border-2 border-ink bg-surface rounded-md p-5 space-y-4 shadow-sm"
+                  className="border border-ink/25 bg-surface rounded-md p-5 space-y-4"
                   data-testid="launch-gate"
                 >
-                  <div className="flex items-start gap-3 bg-ground border border-line rounded p-3.5 text-xs">
+                  <div className="flex items-start gap-3 bg-surface-muted rounded p-3.5 text-xs">
                     <Mic className="w-4 h-4 text-amber shrink-0 mt-0.5" />
                     <div className="space-y-1.5 flex-1">
                       <strong className="font-semibold text-ink block">
@@ -1280,27 +1292,27 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                         CueX 场中协同可使用浏览器麦克风（16kHz PCM16LE 流式传输至本地 ASR 或浏览器 Web Speech API），或使用显式标注的文本仿真测试。
                         音频流仅用于当场转写与实时决策，不作背景静默留存；场后个人记忆仅在您手动点击「允许写入」后保存，且您可随时一键清除本场全部会话数据。
                       </p>
-                      <label className="inline-flex items-center gap-2 pt-1 cursor-pointer select-none font-medium text-ink">
+                      <label className="inline-flex items-center gap-2.5 min-h-[44px] py-1 cursor-pointer select-none font-medium text-ink">
                         <input
                           type="checkbox"
                           checked={privacyAccepted}
                           onChange={(e) => onPrivacyChange(e.target.checked)}
                           data-testid="privacy-consent-checkbox"
-                          className="w-4 h-4 accent-ink rounded"
+                          className="w-4 h-4 accent-ink rounded shrink-0"
                         />
                         <span>我已了解麦克风采集边界与会话隐私控制，同意进入实时协同</span>
                       </label>
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
                     <div className="flex flex-wrap items-center gap-3 text-xs">
                       <label className="flex items-center gap-1.5 text-ink-2">
                         <span>初始视角：</span>
                         <select
                           value={launchViewMode}
                           onChange={(e) => setLaunchViewMode(e.target.value as ViewMode)}
-                          className="border border-line bg-ground rounded px-2 py-1 text-ink"
+                          className="h-9 border border-line bg-ground rounded px-2.5 text-ink focus-visible:outline-none focus-visible:border-ink"
                         >
                           <option value="focus">Focus（演讲者极简）</option>
                           <option value="inspector">Inspector（开发透视）</option>
@@ -1311,7 +1323,7 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                         <select
                           value={launchMaxLevel}
                           onChange={(e) => setLaunchMaxLevel(e.target.value as InterventionLevel)}
-                          className="border border-line bg-ground rounded px-2 py-1 text-ink font-mono"
+                          className="h-9 border border-line bg-ground rounded px-2.5 text-ink font-mono focus-visible:outline-none focus-visible:border-ink"
                         >
                           <option value="L0">L0 · 静默</option>
                           <option value="L1">L1 · 微光</option>
@@ -1335,7 +1347,7 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                             maxLevel: launchMaxLevel,
                           })
                         }
-                        className="gap-1.5"
+                        className="gap-1.5 min-h-[40px]"
                       >
                         <ShieldCheck className="w-4 h-4 text-violet" />
                         <span>开始彩排模式 (Rehearsal)</span>
@@ -1352,7 +1364,7 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
                             maxLevel: launchMaxLevel,
                           })
                         }
-                        className="gap-1.5"
+                        className="gap-1.5 min-h-[40px]"
                       >
                         <span>进入正式演讲 (Live)</span>
                         <ArrowRight className="w-4 h-4" />

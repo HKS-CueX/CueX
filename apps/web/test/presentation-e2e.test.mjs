@@ -17,14 +17,16 @@ async function fileExists(targetPath) {
 }
 
 async function launchBrowser() {
+  const launchArgs = ['--mute-audio'];
   if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
     return chromium.launch({
       headless: true,
+      args: launchArgs,
       executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
     });
   }
   try {
-    return await chromium.launch({ headless: true });
+    return await chromium.launch({ headless: true, args: launchArgs });
   } catch (err) {
     const cacheDirs = [
       path.join(homedir(), 'Library/Caches/ms-playwright'),
@@ -43,7 +45,7 @@ async function launchBrowser() {
           const linux = path.join(cacheDir, entry, 'chrome-linux/headless_shell');
           for (const candidate of [macArm, linux]) {
             if (await fileExists(candidate)) {
-              return chromium.launch({ headless: true, executablePath: candidate });
+              return chromium.launch({ headless: true, args: launchArgs, executablePath: candidate });
             }
           }
         }
@@ -54,14 +56,14 @@ async function launchBrowser() {
             'chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing'
           );
           if (await fileExists(macArm)) {
-            return chromium.launch({ headless: true, executablePath: macArm });
+            return chromium.launch({ headless: true, args: launchArgs, executablePath: macArm });
           }
         }
       }
     }
     const systemChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
     if (await fileExists(systemChrome)) {
-      return chromium.launch({ headless: true, executablePath: systemChrome });
+      return chromium.launch({ headless: true, args: launchArgs, executablePath: systemChrome });
     }
     throw err;
   }
@@ -85,7 +87,7 @@ let serverOrigin;
 let webOrigin;
 let tempDir;
 
-async function startProcess(command, args, env, detectReady) {
+async function startProcess(command, args, env, detectReady, readyUrl) {
   const child = spawn(command, args, {
     cwd: root,
     env: { ...process.env, ...env },
@@ -94,27 +96,51 @@ async function startProcess(command, args, env, detectReady) {
   processes.push(child);
   let output = '';
   return new Promise((resolve, reject) => {
+    let settled = false;
+    const cleanup = () => {
+      clearTimeout(timeout);
+      if (pollTimer) clearInterval(pollTimer);
+    };
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve(value);
+    };
+    const fail = (err) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(err);
+    };
     const timeout = setTimeout(() => {
-      reject(new Error(`Startup timeout for ${command} ${args.join(' ')}:\n${output}`));
+      fail(new Error(`Startup timeout for ${command} ${args.join(' ')}:\n${output}`));
     }, 30000);
+    const pollTimer = readyUrl
+      ? setInterval(async () => {
+          try {
+            const res = await fetch(readyUrl);
+            if (res.ok) finish(readyUrl.replace(/\/health$/, ''));
+          } catch {
+            // retry until server binds
+          }
+        }, 150)
+      : null;
     const onChunk = (chunk) => {
       output += chunk.toString();
       const match = detectReady(output);
       if (match) {
-        clearTimeout(timeout);
-        resolve(match);
+        finish(match);
       }
     };
     child.stdout.on('data', onChunk);
     child.stderr.on('data', onChunk);
     child.once('error', (err) => {
-      clearTimeout(timeout);
-      reject(err);
+      fail(err);
     });
     child.once('exit', (code) => {
       if (code) {
-        clearTimeout(timeout);
-        reject(new Error(`${command} exited with code ${code}:\n${output}`));
+        fail(new Error(`${command} exited with code ${code}:\n${output}`));
       }
     });
   });
@@ -160,7 +186,8 @@ before(async () => {
         return `http://127.0.0.1:${serverPort}`;
       }
       return null;
-    }
+    },
+    `http://127.0.0.1:${serverPort}/health`
   );
   serverOrigin = `http://127.0.0.1:${serverPort}`;
 

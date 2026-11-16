@@ -165,6 +165,7 @@ export const MemoryInspectorPanel: React.FC<MemoryInspectorPanelProps> = ({
               type="text"
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
+              aria-label="记忆标题"
               placeholder="记忆标题（例如：开场习惯）"
               className="sm:col-span-2 border border-line bg-surface rounded px-2.5 py-1.5 text-ink"
               required
@@ -172,6 +173,7 @@ export const MemoryInspectorPanel: React.FC<MemoryInspectorPanelProps> = ({
             <select
               value={newCategory}
               onChange={(e) => setNewCategory(e.target.value as MemoryCategory)}
+              aria-label="记忆类别"
               className="border border-line bg-surface rounded px-2.5 py-1.5 text-ink"
             >
               {Object.entries(MEMORY_CATEGORY_LABELS).map(([k, label]) => (
@@ -185,6 +187,7 @@ export const MemoryInspectorPanel: React.FC<MemoryInspectorPanelProps> = ({
             rows={2}
             value={newContent}
             onChange={(e) => setNewContent(e.target.value)}
+            aria-label="记忆内容"
             placeholder="需要 CueX 在后续场次记住的偏好、术语或边界说明..."
             className="w-full border border-line bg-surface rounded px-2.5 py-1.5 text-ink"
             required
@@ -206,11 +209,11 @@ export const MemoryInspectorPanel: React.FC<MemoryInspectorPanelProps> = ({
         </div>
       ) : items.length === 0 ? (
         <div
-          className="border border-dashed border-line-strong bg-ground/40 rounded p-5 text-center space-y-1"
+          className="bg-surface-muted rounded p-5 text-center space-y-1"
           data-testid="memory-empty"
         >
-          <p className="text-xs font-medium text-ink-2">当前没有已写入的个人长期记忆</p>
-          <p className="text-[11px] text-ink-3">
+          <p className="text-sm font-medium text-ink-2">当前没有已写入的个人长期记忆</p>
+          <p className="text-xs text-ink-3">
             场后复盘若生成记忆建议，仅在您点击「允许写入」后才会出现在此处。
           </p>
         </div>
@@ -269,28 +272,28 @@ export const MemoryInspectorPanel: React.FC<MemoryInspectorPanelProps> = ({
                   </div>
                 ) : (
                   <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-1 min-w-0">
+                    <div className="space-y-1.5 min-w-0">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-xs font-semibold text-ink">{item.title}</span>
-                        <Badge variant="secondary" className="text-[10px]">
+                        <span className="text-sm font-semibold text-ink">{item.title}</span>
+                        <Badge variant="secondary">
                           {MEMORY_CATEGORY_LABELS[item.category] ?? item.category}
                         </Badge>
-                        <Badge variant="outline" className="text-[10px]">
+                        <Badge variant="outline">
                           {SCOPE_LABELS[item.scope] ?? item.scope}
                         </Badge>
-                        <Badge variant="resolved" className="text-[10px]">
+                        <Badge variant="resolved">
                           {PRIVACY_LABELS[item.privacyLevel] ?? item.privacyLevel}
                         </Badge>
                       </div>
                       <p className="text-xs text-ink-2 leading-relaxed break-words">
                         {item.content}
                       </p>
-                      <p className="text-[10px] font-mono text-ink-3">
+                      <p className="text-xs font-mono text-ink-3 tabular-nums">
                         更新于 {new Date(item.updatedAt).toLocaleString()}
                       </p>
                     </div>
 
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <Button
                         type="button"
                         variant="ghost"
@@ -298,8 +301,9 @@ export const MemoryInspectorPanel: React.FC<MemoryInspectorPanelProps> = ({
                         onClick={() => startEdit(item)}
                         aria-label={`编辑 ${item.title}`}
                         data-testid={`memory-edit-${item.memoryId}`}
+                        className="min-h-9 min-w-9"
                       >
-                        <Edit3 className="w-3.5 h-3.5 text-ink-2" />
+                        <Edit3 className="w-4 h-4 text-ink-2" />
                       </Button>
                       <Button
                         type="button"
@@ -308,8 +312,9 @@ export const MemoryInspectorPanel: React.FC<MemoryInspectorPanelProps> = ({
                         onClick={() => void handleDelete(item.memoryId)}
                         aria-label={`删除 ${item.title}`}
                         data-testid={`memory-delete-${item.memoryId}`}
+                        className="min-h-9 min-w-9"
                       >
-                        <Trash2 className="w-3.5 h-3.5 text-amber-ink" />
+                        <Trash2 className="w-4 h-4 text-amber-ink" />
                       </Button>
                     </div>
                   </div>

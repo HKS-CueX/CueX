@@ -20,6 +20,17 @@ import type {
 import type { ScenarioCapabilityDescriptor, ScenarioId } from '#src/scenario';
 import type { UtcIso8601 } from '#src/versions';
 
+export interface LlmSubsystemHealthStatus {
+  backend: string;
+  mode: 'real' | 'local_fallback';
+  healthy: boolean;
+  detail?: string;
+  provider?: string;
+  model?: string;
+  degraded?: boolean;
+  lastHealthCheckAt?: UtcIso8601;
+}
+
 export interface HealthStatusResponse {
   ok: boolean;
   service: string;
@@ -28,18 +39,8 @@ export interface HealthStatusResponse {
   wsProtocolVersion: string;
   timestamp: UtcIso8601;
   asr: AsrCapabilityStatus;
-  system1: {
-    backend: string;
-    mode: 'real' | 'local_fallback';
-    healthy: boolean;
-    detail?: string;
-  };
-  system2: {
-    backend: string;
-    mode: 'real' | 'local_fallback';
-    healthy: boolean;
-    detail?: string;
-  };
+  system1: LlmSubsystemHealthStatus;
+  system2: LlmSubsystemHealthStatus;
 }
 
 export interface ScenariosListResponse {

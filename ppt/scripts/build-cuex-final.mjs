@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import net from 'node:net';
 import os from 'node:os';
@@ -26,15 +26,21 @@ function toRepoRel(absPath) {
 }
 
 async function ensureDirs() {
-  for (const sub of ['', 'brand', 'pitch', 'business', 'evidence', 'previews']) {
+  for (const sub of ['', 'brand', 'assets', 'assets/brand', 'pitch', 'business', 'demo', 'evidence', 'previews']) {
     await fs.mkdir(path.join(OUT_ROOT, sub), { recursive: true });
   }
+}
+
+async function readPngDataUrl(absPath) {
+  const buf = await fs.readFile(absPath);
+  return `data:image/png;base64,${buf.toString('base64')}`;
 }
 
 async function getAssetUrls() {
   const fontUrl = (name) => pathToFileURL(path.join(REPO_ROOT, 'assets', 'fonts', name)).href;
   const svgPath = path.join(REPO_ROOT, 'assets', 'brand', 'cuex-symbol-dimensional.svg');
   const svgContent = await fs.readFile(svgPath, 'utf8');
+  const previewDir = path.join(OUT_ROOT, 'assets', 'previews');
   return {
     fonts: {
       instrumentSerif: fontUrl('InstrumentSerif-Regular.ttf'),
@@ -43,7 +49,12 @@ async function getAssetUrls() {
       jetbrainsMono: fontUrl('JetBrainsMono-VF.ttf'),
       inter: fontUrl('Inter-VF.ttf'),
     },
+    symbolSvg: svgContent,
     symbolDim: `data:image/svg+xml;base64,${Buffer.from(svgContent, 'utf8').toString('base64')}`,
+    uiCompilerFacts: await readPngDataUrl(path.join(previewDir, 'ui-compiler-facts-1440.png')),
+    uiStageFocusL2: await readPngDataUrl(path.join(previewDir, 'ui-stage-focus-l2-1440.png')),
+    uiStageInspector: await readPngDataUrl(path.join(previewDir, 'ui-stage-inspector-1440.png')),
+    uiReflection: await readPngDataUrl(path.join(previewDir, 'ui-reflection-1440.png')),
   };
 }
 
@@ -259,7 +270,7 @@ async function findCachedHeadlessShell() {
 }
 
 async function launchBrowser(chromium) {
-  const launchArgs = ['--enable-webgl', '--ignore-gpu-blocklist'];
+  const launchArgs = ['--enable-webgl', '--ignore-gpu-blocklist', '--mute-audio', '--allow-file-access-from-files'];
   if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) {
     return chromium.launch({ headless: true, executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH, args: launchArgs });
   }
@@ -305,6 +316,8 @@ async function main() {
       scale: 1,
     });
     await fs.copyFile(coverPng, path.join(OUT_ROOT, 'previews', 'cover.png'));
+    await fs.copyFile(coverPng, path.join(OUT_ROOT, 'assets', 'CueX-Cover.png'));
+    await fs.copyFile(coverPng, path.join(OUT_ROOT, 'assets', 'brand', 'CueX-Cover.png'));
 
     const tokenProofPng = path.join(OUT_ROOT, 'evidence', 'token-usage-proof.png');
     await renderHtmlToPng(browser, {
@@ -314,6 +327,7 @@ async function main() {
       pngPath: tokenProofPng,
       scale: 1,
     });
+    await fs.copyFile(tokenProofPng, path.join(OUT_ROOT, 'demo', 'token-usage-proof.png'));
 
     const jobSpecPdf = path.join(OUT_ROOT, 'business', 'CueX-AI-Employee-Job-Spec.pdf');
     const jobSpecPreview = path.join(OUT_ROOT, 'previews', 'job-spec-p1.png');
@@ -367,21 +381,95 @@ async function main() {
     }
     await fs.writeFile(combinedPdf, await combinedDoc.save());
 
+    // Render standalone Phase 3/4 HTML -> PDF deliverables (2p BMC, 1p Job Spec, 2p Competitive Analysis)
+    const standaloneDocs = [
+      {
+        htmlPath: path.join(OUT_ROOT, 'mandatory', 'business-model-canvas', 'source', 'CueX-Business-Model-Canvas.html'),
+        pdfPath: path.join(OUT_ROOT, 'mandatory', 'business-model-canvas', 'CueX-Business-Model-Canvas.pdf'),
+        previewDir: path.join(OUT_ROOT, 'mandatory', 'business-model-canvas', 'previews'),
+        widthPx: 1123,
+        heightPx: 794,
+        pdfWidth: '297mm',
+        pdfHeight: '210mm',
+        expectPages: 2,
+      },
+      {
+        htmlPath: path.join(OUT_ROOT, 'mandatory', 'ai-employee-job-spec', 'source', 'CueX-AI-Employee-Job-Specification.html'),
+        pdfPath: path.join(OUT_ROOT, 'mandatory', 'ai-employee-job-spec', 'CueX-AI-Employee-Job-Specification.pdf'),
+        previewDir: path.join(OUT_ROOT, 'mandatory', 'ai-employee-job-spec', 'previews'),
+        widthPx: 794,
+        heightPx: 1123,
+        pdfWidth: '210mm',
+        pdfHeight: '297mm',
+        expectPages: 1,
+      },
+      {
+        htmlPath: path.join(OUT_ROOT, 'business', 'CueX-Competitive-Analysis.html'),
+        pdfPath: path.join(OUT_ROOT, 'business', 'CueX-Competitive-Analysis.pdf'),
+        previewDir: null,
+        widthPx: 1123,
+        heightPx: 794,
+        pdfWidth: '297mm',
+        pdfHeight: '210mm',
+        expectPages: 2,
+      },
+    ];
+    for (const sd of standaloneDocs) {
+      const ctx = await browser.newContext({ viewport: { width: sd.widthPx, height: sd.heightPx }, deviceScaleFactor: 2 });
+      const pg = await ctx.newPage();
+      await pg.goto(pathToFileURL(sd.htmlPath).href, { waitUntil: 'load' });
+      await pg.evaluate(async () => { await document.fonts.ready; });
+      await pg.waitForTimeout(150);
+      const pdfBytes = await pg.pdf({
+        width: sd.pdfWidth,
+        height: sd.pdfHeight,
+        margin: { top: '0mm', bottom: '0mm', left: '0mm', right: '0mm' },
+        printBackground: true,
+        preferCSSPageSize: true,
+      });
+      const pdfDoc = await PDFDocument.load(pdfBytes);
+      if (pdfDoc.getPageCount() !== sd.expectPages) {
+        throw new Error(`Expected ${sd.expectPages} pages for ${toRepoRel(sd.pdfPath)}, got ${pdfDoc.getPageCount()}`);
+      }
+      await fs.writeFile(sd.pdfPath, pdfBytes);
+      if (sd.previewDir) {
+        await fs.mkdir(sd.previewDir, { recursive: true });
+        for (const existing of await fs.readdir(sd.previewDir)) {
+          if (/^page-\d+\.png$/.test(existing)) await fs.unlink(path.join(sd.previewDir, existing));
+        }
+        try {
+          execFileSync('pdftoppm', ['-png', '-r', '180', sd.pdfPath, path.join(sd.previewDir, 'page')]);
+        } catch {
+          for (let i = 1; i <= sd.expectPages; i++) {
+            const el = pg.locator('section.sheet, .page, body').nth(sd.expectPages > 1 ? i - 1 : 0);
+            await el.screenshot({ path: path.join(sd.previewDir, `page-${i}.png`), type: 'png' });
+          }
+        }
+      }
+      await ctx.close();
+    }
+
     const verification = {
       schemaVersion: 'cuex-final-verification-v1',
       generatedAt: new Date().toISOString(),
       dataStatus: metrics.dataStatus,
       evalSource: metrics.eval.sourceLabel,
+      phase3RealValidationLocked: metrics.phase3RealValidation?.status === 'REAL_E2E_LOCKED',
       tokenProofEmbedded: true,
       outputs: {
         coverPng: toRepoRel(coverPng),
+        assetsCoverPng: 'deliverables/cuex-final/assets/CueX-Cover.png',
         tokenProofPng: toRepoRel(tokenProofPng),
+        demoTokenProofPng: 'deliverables/cuex-final/demo/token-usage-proof.png',
         bpPitchPdf: { path: toRepoRel(bpResult.pitchBp), pages: bpResult.pageCount },
         bpBusinessPdf: { path: toRepoRel(bpResult.bizBp), pages: bpResult.pageCount },
         jobSpecPdf: { path: toRepoRel(jobSpecPdf), pages: 1 },
+        mandatoryJobSpecPdf: { path: 'deliverables/cuex-final/mandatory/ai-employee-job-spec/CueX-AI-Employee-Job-Specification.pdf', pages: 1 },
         bmcPdf: { path: toRepoRel(bmcPdf), pages: 1 },
+        mandatoryBmcPdf: { path: 'deliverables/cuex-final/mandatory/business-model-canvas/CueX-Business-Model-Canvas.pdf', pages: 2 },
         unitEconomicsPdf: { path: toRepoRel(uePdf), pages: 1 },
         combinedBmcUePdf: { path: toRepoRel(combinedPdf), pages: 2 },
+        competitiveAnalysisPdf: { path: 'deliverables/cuex-final/business/CueX-Competitive-Analysis.pdf', pages: 2 },
         previewsDir: toRepoRel(path.join(OUT_ROOT, 'previews')),
       },
       checks: {
