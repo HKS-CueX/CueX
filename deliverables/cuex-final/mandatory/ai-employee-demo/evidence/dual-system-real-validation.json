@@ -1,0 +1,690 @@
+{
+  "generatedAt": "2026-11-16T01:48:32.572Z",
+  "strictSilentMode": true,
+  "audioPlaybackTriggered": false,
+  "routingVerification": {
+    "s1CallsRoutedToCpa": 0,
+    "colabAsrUnauthorizedHttp": 401,
+    "colabS1UnauthorizedHttp": 401,
+    "asrCapability": {
+      "backend": "colab-gpu-asr",
+      "mode": "colab_gpu",
+      "available": true,
+      "streaming": true,
+      "detail": "Colab GPU ASR ready (NVIDIA RTX PRO 6000 Blackwell Server Edition, model=FunAudioLLM/SenseVoiceSmall, avgRTF=0.00399).",
+      "lifecycleState": "ready",
+      "gpuName": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+      "modelId": "FunAudioLLM/SenseVoiceSmall",
+      "rtf": 0.00399,
+      "lastHealthCheckAt": "2026-11-16T01:45:43.623Z",
+      "fallbackActive": false
+    },
+    "s1DirectKeepAliveProbes": [
+      {
+        "label": "fluent_intro",
+        "latencyMs": 371,
+        "model": "autotrust/JEV-27B",
+        "promptFormat": "jev-v1",
+        "calibrated": true,
+        "top": "false",
+        "probTrue": 0.494089,
+        "selectedSlot": 0,
+        "margin": 0.011822,
+        "entropy": 0.999899,
+        "usage": {
+          "inputTokens": 67,
+          "outputTokens": 1,
+          "cachedInputTokens": 0,
+          "modelCalls": 1
+        }
+      },
+      {
+        "label": "topic_drift",
+        "latencyMs": 371,
+        "model": "autotrust/JEV-27B",
+        "promptFormat": "jev-v1",
+        "calibrated": true,
+        "top": "false",
+        "probTrue": 0.494887,
+        "selectedSlot": 0,
+        "margin": 0.010226,
+        "entropy": 0.999925,
+        "usage": {
+          "inputTokens": 65,
+          "outputTokens": 1,
+          "cachedInputTokens": 0,
+          "modelCalls": 1
+        }
+      },
+      {
+        "label": "hesitation_gap",
+        "latencyMs": 376,
+        "model": "autotrust/JEV-27B",
+        "promptFormat": "jev-v1",
+        "calibrated": true,
+        "top": "true",
+        "probTrue": 0.807122,
+        "selectedSlot": 1,
+        "margin": 0.614244,
+        "entropy": 0.707453,
+        "usage": {
+          "inputTokens": 67,
+          "outputTokens": 1,
+          "cachedInputTokens": 0,
+          "modelCalls": 1
+        }
+      }
+    ],
+    "cpaResponsesVsChatComparison": {
+      "model": "gemini-4-hydrogen",
+      "reasoningEffort": "medium",
+      "responses": {
+        "runs": [
+          {
+            "endpoint": "responses",
+            "model": "gemini-4-hydrogen",
+            "reasoningEffort": "medium",
+            "latencyMs": 6394,
+            "statusOk": true,
+            "usage": {
+              "inputTokens": 122,
+              "outputTokens": 642,
+              "cachedInputTokens": 0,
+              "reasoningTokens": 589,
+              "totalTokens": 764,
+              "usageReported": true
+            }
+          },
+          {
+            "endpoint": "responses",
+            "model": "gemini-4-hydrogen",
+            "reasoningEffort": "medium",
+            "latencyMs": 5793,
+            "statusOk": true,
+            "usage": {
+              "inputTokens": 111,
+              "outputTokens": 494,
+              "cachedInputTokens": 0,
+              "reasoningTokens": 449,
+              "totalTokens": 605,
+              "usageReported": true
+            }
+          }
+        ],
+        "avgMs": 6094,
+        "p50Ms": 5793,
+        "p95Ms": 6394
+      },
+      "chat_completions": {
+        "runs": [
+          {
+            "endpoint": "chat_completions",
+            "model": "gemini-4-hydrogen",
+            "reasoningEffort": "medium",
+            "latencyMs": 5951,
+            "statusOk": true,
+            "usage": {
+              "inputTokens": 122,
+              "outputTokens": 520,
+              "cachedInputTokens": 0,
+              "reasoningTokens": 469,
+              "totalTokens": 642,
+              "usageReported": true
+            }
+          },
+          {
+            "endpoint": "chat_completions",
+            "model": "gemini-4-hydrogen",
+            "reasoningEffort": "medium",
+            "latencyMs": 6086,
+            "statusOk": true,
+            "usage": {
+              "inputTokens": 111,
+              "outputTokens": 509,
+              "cachedInputTokens": 0,
+              "reasoningTokens": 463,
+              "totalTokens": 620,
+              "usageReported": true
+            }
+          }
+        ],
+        "avgMs": 6019,
+        "p50Ms": 5951,
+        "p95Ms": 6086
+      }
+    },
+    "initialGatewayHealth": {
+      "ok": true,
+      "service": "cuex-server",
+      "version": "2.0.0",
+      "apiVersion": "2026-11",
+      "wsProtocolVersion": "2.0",
+      "timestamp": "2026-11-16T01:46:14.316Z",
+      "asr": {
+        "backend": "colab-gpu-asr",
+        "mode": "colab_gpu",
+        "available": true,
+        "streaming": true,
+        "detail": "Colab GPU ASR ready (NVIDIA RTX PRO 6000 Blackwell Server Edition, model=FunAudioLLM/SenseVoiceSmall, avgRTF=0.00399).",
+        "lifecycleState": "ready",
+        "gpuName": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+        "modelId": "FunAudioLLM/SenseVoiceSmall",
+        "rtf": 0.00399,
+        "lastHealthCheckAt": "2026-11-16T01:46:12.736Z",
+        "fallbackActive": false
+      },
+      "system1": {
+        "backend": "colab-jev-27b",
+        "mode": "real",
+        "healthy": true,
+        "detail": "JEV System 1 ready (model=autotrust/JEV-27B, format=jev-v1, calibrated=true)",
+        "provider": "colab-jev-s1",
+        "model": "autotrust/JEV-27B",
+        "degraded": false,
+        "fallbackActive": false,
+        "promptFormat": "jev-v1",
+        "calibrated": true,
+        "lastHealthCheckAt": "2026-11-16T01:46:13.485Z"
+      },
+      "system2": {
+        "backend": "cpa:[REDACTED_ENDPOINT]:gemini-4-hydrogen",
+        "mode": "real",
+        "healthy": true,
+        "detail": "CPA ready (cpa:[REDACTED_ENDPOINT], model=gemini-4-hydrogen, endpoint=responses, effort=medium)",
+        "provider": "cpa:[REDACTED_ENDPOINT]",
+        "model": "gemini-4-hydrogen",
+        "degraded": false,
+        "fallbackActive": false,
+        "reasoningEffort": "medium",
+        "lastHealthCheckAt": "2026-11-16T01:46:12.736Z"
+      },
+      "compiler": {
+        "backend": "cpa_responses",
+        "mode": "real",
+        "healthy": true,
+        "detail": "CPA compiler ready (model=gemini-4-hydrogen, effort=medium).",
+        "provider": "cpa:[REDACTED_ENDPOINT]",
+        "model": "gemini-4-hydrogen",
+        "degraded": false,
+        "fallbackActive": false,
+        "reasoningEffort": "medium",
+        "lastHealthCheckAt": "2026-11-16T01:46:12.736Z"
+      },
+      "reflection": {
+        "backend": "cpa_responses",
+        "mode": "real",
+        "healthy": true,
+        "detail": "CPA reflection ready (model=gemini-4-hydrogen, effort=medium).",
+        "provider": "cpa:[REDACTED_ENDPOINT]",
+        "model": "gemini-4-hydrogen",
+        "degraded": false,
+        "fallbackActive": false,
+        "reasoningEffort": "medium",
+        "lastHealthCheckAt": "2026-11-16T01:46:12.736Z"
+      },
+      "dualSystemMetrics": {
+        "s1Evaluations": 0,
+        "s1Escalations": 0,
+        "s2AsyncDispatches": 0,
+        "s2Completed": 0,
+        "s2CancelledAsStale": 0,
+        "s2Coalesced": 0,
+        "guidanceRevisionsIssued": 0,
+        "guidanceAppliedCount": 0,
+        "guidanceExpiredOrOverridden": 0
+      }
+    },
+    "finalGatewayHealth": {
+      "ok": true,
+      "service": "cuex-server",
+      "version": "2.0.0",
+      "apiVersion": "2026-11",
+      "wsProtocolVersion": "2.0",
+      "timestamp": "2026-11-16T01:48:32.564Z",
+      "asr": {
+        "backend": "colab-gpu-asr",
+        "mode": "colab_gpu",
+        "available": true,
+        "streaming": true,
+        "detail": "Colab GPU ASR ready (NVIDIA RTX PRO 6000 Blackwell Server Edition, model=FunAudioLLM/SenseVoiceSmall, avgRTF=0.00399).",
+        "lifecycleState": "ready",
+        "gpuName": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+        "modelId": "FunAudioLLM/SenseVoiceSmall",
+        "rtf": 0.00399,
+        "lastHealthCheckAt": "2026-11-16T01:48:30.965Z",
+        "fallbackActive": false
+      },
+      "system1": {
+        "backend": "colab-jev-27b",
+        "mode": "real",
+        "healthy": true,
+        "detail": "JEV System 1 ready (model=autotrust/JEV-27B, format=jev-v1, calibrated=true)",
+        "provider": "colab-jev-s1",
+        "model": "autotrust/JEV-27B",
+        "degraded": false,
+        "fallbackActive": false,
+        "promptFormat": "jev-v1",
+        "calibrated": true,
+        "lastHealthCheckAt": "2026-11-16T01:48:31.709Z"
+      },
+      "system2": {
+        "backend": "cpa:[REDACTED_ENDPOINT]:gemini-4-hydrogen",
+        "mode": "real",
+        "healthy": true,
+        "detail": "CPA ready (cpa:[REDACTED_ENDPOINT], model=gemini-4-hydrogen, endpoint=responses, effort=medium)",
+        "provider": "cpa:[REDACTED_ENDPOINT]",
+        "model": "gemini-4-hydrogen",
+        "degraded": false,
+        "fallbackActive": false,
+        "reasoningEffort": "medium",
+        "lastHealthCheckAt": "2026-11-16T01:48:30.965Z"
+      },
+      "compiler": {
+        "backend": "cpa_responses",
+        "mode": "real",
+        "healthy": true,
+        "detail": "CPA compiler ready (model=gemini-4-hydrogen, effort=medium).",
+        "provider": "cpa:[REDACTED_ENDPOINT]",
+        "model": "gemini-4-hydrogen",
+        "degraded": false,
+        "fallbackActive": false,
+        "reasoningEffort": "medium",
+        "lastHealthCheckAt": "2026-11-16T01:48:30.965Z"
+      },
+      "reflection": {
+        "backend": "cpa_responses",
+        "mode": "real",
+        "healthy": true,
+        "detail": "CPA reflection ready (model=gemini-4-hydrogen, effort=medium).",
+        "provider": "cpa:[REDACTED_ENDPOINT]",
+        "model": "gemini-4-hydrogen",
+        "degraded": false,
+        "fallbackActive": false,
+        "reasoningEffort": "medium",
+        "lastHealthCheckAt": "2026-11-16T01:48:30.965Z"
+      },
+      "dualSystemMetrics": {
+        "s1Evaluations": 11,
+        "s1Escalations": 7,
+        "s2AsyncDispatches": 7,
+        "s2Completed": 4,
+        "s2CancelledAsStale": 2,
+        "s2Coalesced": 2,
+        "guidanceRevisionsIssued": 4,
+        "guidanceAppliedCount": 4,
+        "guidanceExpiredOrOverridden": 2,
+        "updatedAt": "2026-11-16T01:48:19.488Z",
+        "s1LastLatencyMs": 560,
+        "s1P50LatencyMs": 558,
+        "s1P95LatencyMs": 1029,
+        "s2LastLatencyMs": 12168,
+        "s2P50LatencyMs": 8177,
+        "s2P95LatencyMs": 12168
+      }
+    }
+  },
+  "compiledPackSummary": {
+    "packId": "pack_1794793574330",
+    "compiledBy": "llm_compiler",
+    "chapterCount": 5,
+    "evidenceCount": 20,
+    "qaCardsCount": 6
+  },
+  "gatewayThreeWayTelemetry": {
+    "system1": {
+      "backend": "colab-jev-27b",
+      "model": "autotrust/JEV-27B",
+      "promptFormat": "jev-v1",
+      "calibrated": true,
+      "totalEvaluations": 17,
+      "remoteJevCalls": 17,
+      "localFallbackCalls": 0,
+      "latencyStatsMs": {
+        "avgMs": 784,
+        "p50Ms": 618,
+        "p95Ms": 1188,
+        "maxMs": 1188
+      },
+      "decisionDistribution": {
+        "fluent:none": 5,
+        "on_track:none": 2,
+        "drifting:trigger_l1": 4,
+        "recovering:withdraw_active": 2,
+        "hesitating:trigger_l2": 1,
+        "omitting_key_point:trigger_l1": 1,
+        "answering_question:trigger_l2": 2
+      }
+    },
+    "system2AndCpaTiers": {
+      "system2": {
+        "calls": 5,
+        "inputTokens": 3341,
+        "outputTokens": 5802,
+        "reasoningTokens": 4750,
+        "cachedInputTokens": 0,
+        "totalTokens": 9143,
+        "model": "gemini-4-hydrogen",
+        "reasoningEffort": "medium",
+        "latencyStatsMs": {
+          "avgMs": 9124,
+          "p50Ms": 8594,
+          "p95Ms": 12168,
+          "maxMs": 12168
+        }
+      },
+      "compiler": {
+        "calls": 1,
+        "inputTokens": 1580,
+        "outputTokens": 4018,
+        "reasoningTokens": 2520,
+        "cachedInputTokens": 0,
+        "totalTokens": 5598,
+        "model": "gemini-4-hydrogen",
+        "reasoningEffort": "medium",
+        "latencyStatsMs": {
+          "avgMs": 22141,
+          "p50Ms": 22141,
+          "p95Ms": 22141,
+          "maxMs": 22141
+        }
+      },
+      "reflection": {
+        "calls": 3,
+        "inputTokens": 1229,
+        "outputTokens": 5130,
+        "reasoningTokens": 4845,
+        "cachedInputTokens": 0,
+        "totalTokens": 6359,
+        "model": "gemini-4-hydrogen",
+        "reasoningEffort": "medium",
+        "latencyStatsMs": {
+          "avgMs": 10638,
+          "p50Ms": 11230,
+          "p95Ms": 11239,
+          "maxMs": 11239
+        }
+      }
+    },
+    "dualSystemCollaboration": {
+      "s1Evaluations": 11,
+      "s1Escalations": 7,
+      "s2AsyncDispatches": 7,
+      "s2Completed": 4,
+      "s2CancelledAsStale": 2,
+      "s2Coalesced": 2,
+      "guidanceRevisionsIssued": 4,
+      "guidanceAppliedCount": 4,
+      "guidanceExpiredOrOverridden": 2,
+      "updatedAt": "2026-11-16T01:48:19.488Z",
+      "s1LastLatencyMs": 560,
+      "s1P50LatencyMs": 558,
+      "s1P95LatencyMs": 1029,
+      "s2LastLatencyMs": 12168,
+      "s2P50LatencyMs": 8177,
+      "s2P95LatencyMs": 12168
+    },
+    "reflectionResult": {
+      "utility": {
+        "helpfulCount": 2,
+        "distractingCount": 0,
+        "lambda": 2,
+        "netUtilityScore": 2,
+        "explicitHelpfulCount": 0,
+        "explicitDistractingCount": 0,
+        "withdrawnBeforeDisruptionCount": 3,
+        "suppressedCount": 1,
+        "formula": "V = H - λI"
+      },
+      "diagnosisSummary": {
+        "overallSummary": "本次演练无超时与偏航（0次），辅助净效用为2（帮助2次、干扰0次、自动撤回3次）。但内容覆盖率仅13.3%（遗漏13项要点），且有1个关于明年第四季度海外净营收与B轮投前估值的提问未作答，建议补充核心要点并准备相关财务问答。（V = 2）",
+        "coverageRatio": 0.133,
+        "missedPoints": [
+          {
+            "chapterId": "ch_1",
+            "chapterTitle": "CueX — 在深度思考之外，接住当下",
+            "pointId": "kp_1_2",
+            "label": "适用场景：黑客松路演、学术答辩、OPC 主理人产品发布与高风险现场沟"
+          },
+          {
+            "chapterId": "ch_2",
+            "chapterTitle": "第一章：临场断点与注意力摩擦",
+            "pointId": "kp_2_1",
+            "label": "**痛点核心**：传统慢思考 AI 聊天窗生成 2000 字长回答，"
+          },
+          {
+            "chapterId": "ch_2",
+            "chapterTitle": "第一章：临场断点与注意力摩擦",
+            "pointId": "kp_2_2",
+            "label": "**传统提词器局限**：固定滚动脚本一旦遇到评委临场打断、跳章或追问"
+          },
+          {
+            "chapterId": "ch_2",
+            "chapterTitle": "第一章：临场断点与注意力摩擦",
+            "pointId": "kp_2_3",
+            "label": "**核心判断原则**：自然停顿本身不等于卡壳。"
+          },
+          {
+            "chapterId": "ch_3",
+            "chapterTitle": "第二章：Universal Cognitive Runtime 与双脑门控",
+            "pointId": "kp_3_1",
+            "label": "**通用认知运行时**：底层通过 `ContextStore` 维护"
+          },
+          {
+            "chapterId": "ch_3",
+            "chapterTitle": "第二章：Universal Cognitive Runtime 与双脑门控",
+            "pointId": "kp_3_2",
+            "label": "**System 1 + System 2 分层协同**：Syste"
+          },
+          {
+            "chapterId": "ch_3",
+            "chapterTitle": "第二章：Universal Cognitive Runtime 与双脑门控",
+            "pointId": "kp_3_3",
+            "label": "System 2 按需结合已确认证据生成结构化候选，"
+          },
+          {
+            "chapterId": "ch_4",
+            "chapterTitle": "第三章：L0–L3 克制干预与事实防幻觉边界",
+            "pointId": "kp_4_1",
+            "label": "**L0–L3 四级最小必要干预**：平时保持 `L0` 静默；"
+          },
+          {
+            "chapterId": "ch_4",
+            "chapterTitle": "第三章：L0–L3 克制干预与事实防幻觉边界",
+            "pointId": "kp_4_2",
+            "label": "必要时先给 `L1` 边缘轻锚点，"
+          },
+          {
+            "chapterId": "ch_4",
+            "chapterTitle": "第三章：L0–L3 克制干预与事实防幻觉边界",
+            "pointId": "kp_4_3",
+            "label": "仅在深水区 Q&A 给出 `L3` 结构化要点支架。"
+          },
+          {
+            "chapterId": "ch_5",
+            "chapterTitle": "第四章：单位经济、净效用公式与数据主权",
+            "pointId": "kp_5_1",
+            "label": "**净效用函数**：使用探索性指标 `V = H - λI`（默认惩"
+          },
+          {
+            "chapterId": "ch_5",
+            "chapterTitle": "第四章：单位经济、净效用公式与数据主权",
+            "pointId": "kp_5_2",
+            "label": "**分层定价假设**：`CueX Free`（¥0，"
+          },
+          {
+            "chapterId": "ch_5",
+            "chapterTitle": "第四章：单位经济、净效用公式与数据主权",
+            "pointId": "kp_5_3",
+            "label": "**10 项全成本透明核算**：涵盖流式语音 ASR、大模型推理与会"
+          }
+        ],
+        "overtimeChapters": [],
+        "unansweredQuestions": [
+          {
+            "segmentId": "seg_7_1794793675534",
+            "question": "请问你们明年第四季度海外净营收预计有多少亿美元，B轮融资投前估值具体是多少？",
+            "missingInfoNotice": "资料库及事实白名单中暂无直接匹配的已核验数据，请勿现场编造指标。"
+          }
+        ],
+        "driftCount": 0,
+        "autoWithdrawCount": 3
+      },
+      "telemetry": {
+        "sessionId": "sess_10577c530148",
+        "updatedAt": "2026-11-16T01:48:30.959Z",
+        "usageSource": "provider_reported",
+        "inputTokens": 9411,
+        "outputTokens": 6207,
+        "cachedInputTokens": 0,
+        "reasoningTokens": 5241,
+        "totalTokens": 15618,
+        "modelCalls": 27,
+        "retries": 0,
+        "localRuleEvaluations": 0,
+        "latencyMs": 9446,
+        "latencyStats": {
+          "avgMs": 3364,
+          "p95Ms": 12168,
+          "maxMs": 12168
+        },
+        "degraded": false,
+        "usingLocalFallback": false,
+        "asrProvider": "colab-gpu-asr",
+        "asrDurationMs": 33370,
+        "costFen": 0,
+        "cost": {
+          "amountFen": 0,
+          "currency": "CNY"
+        },
+        "estimation": {
+          "isEstimated": false,
+          "source": "provider_reported",
+          "usingLocalFallback": false,
+          "notes": "Exact provider-reported tokens for model calls; 0 tokens for deterministic local rule steps."
+        },
+        "byTier": {
+          "system1": {
+            "tier": "system1",
+            "provider": "colab-jev-27b",
+            "model": "autotrust/JEV-27B",
+            "calls": 22,
+            "retries": 0,
+            "inputTokens": 6213,
+            "outputTokens": 22,
+            "cachedInputTokens": 0,
+            "reasoningTokens": 0,
+            "latencyMsTotal": 7859,
+            "latencyMsAvg": 357,
+            "usageSource": "provider_reported",
+            "degraded": false,
+            "costFen": 0
+          },
+          "system2": {
+            "tier": "system2",
+            "provider": "cpa:[REDACTED_ENDPOINT]",
+            "model": "gemini-4-hydrogen",
+            "calls": 4,
+            "retries": 0,
+            "inputTokens": 2781,
+            "outputTokens": 4775,
+            "cachedInputTokens": 0,
+            "reasoningTokens": 3924,
+            "latencyMsTotal": 36511,
+            "latencyMsAvg": 9128,
+            "usageSource": "provider_reported",
+            "degraded": false,
+            "costFen": 0
+          },
+          "reflection": {
+            "tier": "reflection",
+            "provider": "cpa:[REDACTED_ENDPOINT]",
+            "model": "gemini-4-hydrogen",
+            "calls": 1,
+            "retries": 0,
+            "inputTokens": 417,
+            "outputTokens": 1410,
+            "cachedInputTokens": 0,
+            "reasoningTokens": 1317,
+            "latencyMsTotal": 9446,
+            "latencyMsAvg": 9446,
+            "usageSource": "provider_reported",
+            "degraded": false,
+            "costFen": 0
+          }
+        },
+        "lastSystem1LatencyMs": 560,
+        "lastSystem2LatencyMs": 12168,
+        "dualSystem": {
+          "s1Evaluations": 11,
+          "s1Escalations": 7,
+          "s2AsyncDispatches": 7,
+          "s2Completed": 4,
+          "s2CancelledAsStale": 2,
+          "s2Coalesced": 2,
+          "guidanceRevisionsIssued": 4,
+          "guidanceAppliedCount": 4,
+          "guidanceExpiredOrOverridden": 2,
+          "updatedAt": "2026-11-16T01:48:19.488Z",
+          "s1LastLatencyMs": 560,
+          "s1P50LatencyMs": 558,
+          "s1P95LatencyMs": 1029,
+          "s2LastLatencyMs": 12168,
+          "s2P50LatencyMs": 8177,
+          "s2P95LatencyMs": 12168
+        }
+      },
+      "timelineLength": 19
+    }
+  },
+  "scenarios": [
+    {
+      "id": "scenario_a_intro_natural_companion",
+      "title": "正常开场流畅陈述（真实 WAV -> :10086 ASR -> :10010 JEV-27B）+ Companion 只读隔离",
+      "passed": true,
+      "transcript": "为好，我们是进行好了一点团队，带来的产品叫CueXCueX是在深度思考之外，接触当下的快思考外挂，帮助演讲者在台上保持眼神交流与核心表达。",
+      "shownCount": 0,
+      "companionReadOnlyBlocked": true
+    },
+    {
+      "id": "scenario_b_omission_drift_async_recovery",
+      "title": "遗漏+跑偏（真实 WAV 流）异步 S1/S2 解耦、Guidance 写入、Companion 同步与自愈撤回",
+      "passed": true,
+      "omitShownCount": 0,
+      "nonBlockingS1ToS2GapMs": 9113,
+      "withdrawnReason": "user_recovered"
+    },
+    {
+      "id": "scenario_c_full_bidirectional_qa_coalesce_cancel_reflection",
+      "title": "犹豫卡顿 + 指导闭环 + 有据/无据问答边界 + 高频合并/切章取消 + 伴随求助 + 真实 CPA 复盘",
+      "passed": true,
+      "qaGrounded": {
+        "grounded": true,
+        "evidenceCount": 1
+      },
+      "qaUngroundedHonesty": {
+        "grounded": false,
+        "evidenceIds": [],
+        "missingEvidenceNotice": "Verified Evidence 为空，缺少明年海外净营收预测及B轮投前估值的核实资料。",
+        "cueText": "资料库未覆盖该数据，请坦诚说明暂无已核验记录。"
+      },
+      "dualSystemMetricsSnapshot": {
+        "s1Evaluations": 11,
+        "s1Escalations": 7,
+        "s2AsyncDispatches": 7,
+        "s2Completed": 4,
+        "s2CancelledAsStale": 2,
+        "s2Coalesced": 2,
+        "guidanceRevisionsIssued": 4,
+        "guidanceAppliedCount": 4,
+        "guidanceExpiredOrOverridden": 2,
+        "updatedAt": "2026-11-16T01:48:19.488Z",
+        "s1LastLatencyMs": 560,
+        "s1P50LatencyMs": 558,
+        "s1P95LatencyMs": 1029,
+        "s2LastLatencyMs": 12168,
+        "s2P50LatencyMs": 8177,
+        "s2P95LatencyMs": 12168
+      }
+    }
+  ]
+}

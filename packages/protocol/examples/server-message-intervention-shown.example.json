@@ -1,0 +1,66 @@
+{
+  "type": "intervention.shown",
+  "correlationId": "corr_speech_004",
+  "serverSeq": 12,
+  "envelope": {
+    "specVersion": "1.0",
+    "eventId": "ev_srv_012",
+    "eventType": "intervention.shown",
+    "eventVersion": 1,
+    "occurredAt": "2026-11-16T04:00:15.000Z",
+    "sessionId": "sess_demo_001",
+    "correlationId": "corr_speech_004",
+    "producer": "cuex-runtime/gateway",
+    "privacyClass": "session"
+  },
+  "payload": {
+    "sessionId": "sess_demo_001",
+    "intervention": {
+      "interventionId": "int_004",
+      "sessionId": "sess_demo_001",
+      "candidateId": "cand_004",
+      "level": "L2",
+      "title": "关键指标遗漏",
+      "cueText": "6/6 通过 · 0.69ms",
+      "evidenceIds": ["ev_fact_01"],
+      "grounded": true,
+      "basedOnSegmentId": "seg_004",
+      "contextVersion": 3,
+      "shownAt": "2026-11-16T04:00:15.000Z",
+      "chapterId": "ch_1"
+    },
+    "decision": {
+      "decisionId": "dec_004",
+      "sessionId": "sess_demo_001",
+      "timestamp": "2026-11-16T04:00:15.000Z",
+      "contextVersion": 3,
+      "selectedAction": "show_l2_keyword",
+      "level": "L2",
+      "candidateId": "cand_004",
+      "interventionId": "int_004",
+      "reason": "Detected key point omission in ch_1 with verified grounded evidence.",
+      "trace": {
+        "evaluatedAt": "2026-11-16T04:00:15.000Z",
+        "contextVersion": 3,
+        "candidateId": "cand_004",
+        "candidateContextVersion": 3,
+        "ttlRemainingMs": 11850,
+        "groundedChecked": true,
+        "evidenceCount": 1,
+        "cooldownRemainingMs": 0,
+        "ceilingLevel": "L3",
+        "silentMode": false,
+        "paused": false,
+        "signalsEvaluated": {
+          "silenceMs": 1700,
+          "semanticGap": true,
+          "drift": false,
+          "openQuestion": false,
+          "manualHelp": false,
+          "recovery": false
+        },
+        "rulesApplied": ["context_version_match", "ttl_valid", "evidence_grounded", "ceiling_ok"]
+      }
+    }
+  }
+}

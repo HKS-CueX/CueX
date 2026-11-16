@@ -1,57 +1,186 @@
 import React from 'react';
+import type { AuthSessionResponse, HealthStatusResponse } from '@cuex/protocol';
+import { Activity, Database, UserCircle2 } from 'lucide-react';
+import { COLAB_ASR_LIFECYCLE_LABELS } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 
-export type ViewKey = 'home' | 'live' | 'review';
+export type ViewKey = 'home' | 'compiler' | 'stage' | 'reflection';
 
 interface NavbarProps {
   currentView: ViewKey;
   onSelectView: (view: ViewKey) => void;
-  className?: string;
+  health: HealthStatusResponse | null;
+  authSession?: AuthSessionResponse | null;
+  onOpenMemory: () => void;
+  onOpenAccount: () => void;
+  sessionActive?: boolean;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ currentView, onSelectView, className }) => {
+export const Navbar: React.FC<NavbarProps> = ({
+  currentView,
+  onSelectView,
+  health,
+  authSession = null,
+  onOpenMemory,
+  onOpenAccount,
+  sessionActive = false,
+}) => {
   const navItems: { key: ViewKey; label: string }[] = [
-    { key: 'home', label: '首页' },
-    { key: 'live', label: '实时演练' },
-    { key: 'review', label: '复盘示例' },
+    { key: 'home', label: '首页概览' },
+    { key: 'compiler', label: '场前编译' },
+    { key: 'stage', label: '场中协同' },
+    { key: 'reflection', label: '场后复盘' },
   ];
 
-  return (
-    <header className={cn('w-full border-b border-line bg-surface/90 backdrop-blur-md sticky top-0 z-40', className)}>
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-4">
-        <button
-          type="button"
-          onClick={() => onSelectView('home')}
-          className="flex items-center gap-2 text-ink hover:opacity-80 transition-opacity"
-          aria-label="CueX 首页"
-        >
-          <img src="/brand/cuex-symbol-dimensional.svg" width="28" height="28" alt="" className="cuex-nav-mark shrink-0" />
-          <span className="font-bold tracking-tight text-lg font-ui" translate="no">CueX</span>
-          <span className="text-xs text-ink-3 hidden sm:inline ml-2">临场应对训练</span>
-        </button>
+  const s1Real = Boolean(
+    health &&
+      health.system1.mode === 'real' &&
+      health.system1.healthy &&
+      !health.system1.fallbackActive &&
+      !health.system1.degraded
+  );
+  const s2Real = Boolean(
+    health &&
+      health.system2.mode === 'real' &&
+      health.system2.healthy &&
+      !health.system2.fallbackActive &&
+      !health.system2.degraded
+  );
+  const colabLifecycle = health?.asr.lifecycleState;
 
-        <nav className="flex items-center gap-1.5" aria-label="主导航">
+  // 如实区分三路通道（Colab ASR / S1 快思考 / S2 慢思考），绝不把 S1 回退伪装为实时模型
+  const llmSummaryLabel = !health
+    ? ''
+    : s1Real && s2Real
+      ? '双系统实时'
+      : !s1Real && s2Real
+        ? 'S1回退·S2实时'
+        : s1Real && !s2Real
+          ? 'S1实时·S2回退'
+          : '规则兜底';
+
+  const runtimeLabel = !health
+    ? '后端检测中'
+    : health.asr.mode === 'colab_gpu' && colabLifecycle
+      ? `${llmSummaryLabel} · ${COLAB_ASR_LIFECYCLE_LABELS[colabLifecycle]}`
+      : s1Real || s2Real
+        ? llmSummaryLabel
+        : '本地规则引擎';
+
+  const runtimeTitle = health
+    ? `ASR: ${health.asr.modelId ?? health.asr.backend} (${health.asr.lifecycleState ?? health.asr.mode}) | S1: ${health.system1.model ?? health.system1.backend}${health.system1.fallbackActive ? ' [已降级]' : ''} | S2: ${health.system2.model ?? health.system2.backend}${health.system2.fallbackActive ? ' [已降级]' : ''}`
+    : '等待健康检查';
+
+  const accountLabel = authSession?.user.displayName || '账户';
+  const activePlan = authSession?.usageSummary?.activePlanId?.toUpperCase() || 'FREE';
+
+  return (
+    <header className="w-full border-b border-line bg-surface sticky top-0 z-40">
+      <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 flex flex-wrap md:flex-nowrap items-center justify-between gap-x-2 lg:gap-x-4 md:h-14">
+        {/* Left: Official Wordmark */}
+        <div className="order-1 h-12 md:h-auto flex items-center gap-3 min-w-0 shrink-0">
+          <button
+            type="button"
+            onClick={() => onSelectView('home')}
+            className="inline-flex items-center gap-2 min-h-[40px] sm:min-h-[36px] text-ink focus-visible:outline-none"
+            aria-label="CueX 首页"
+          >
+            <img
+              src="/brand/cuex-wordmark.svg"
+              alt="CueX"
+              width="64"
+              height="29"
+              className="cuex-nav-mark h-7 w-auto block shrink-0"
+            />
+            <span className="sr-only">CueX</span>
+          </button>
+          <span className="hidden xl:inline-block h-4 w-px bg-line shrink-0" aria-hidden="true" />
+          <span className="hidden xl:inline text-xs text-ink-3 whitespace-nowrap">
+            你的快思考外挂 · CueX Presentation
+          </span>
+        </div>
+
+        {/* Center: Unified Primary Navigation (1 single DOM nav, zero duplicate testids) */}
+        <nav
+          className="order-3 md:order-2 w-full md:w-auto grid grid-cols-4 md:flex items-center justify-center gap-1 border-t border-line md:border-t-0 py-1 md:py-0"
+          aria-label="主导航"
+        >
           {navItems.map((item) => {
             const isActive = currentView === item.key;
             return (
               <button
                 key={item.key}
                 type="button"
+                data-testid={`nav-${item.key}`}
                 onClick={() => onSelectView(item.key)}
                 className={cn(
-                  'px-3.5 py-1.5 text-xs sm:text-sm rounded-[2px] transition-colors whitespace-nowrap',
+                  'transition-transform duration-100 relative inline-flex items-center justify-center gap-1 md:gap-1.5 min-h-[44px] md:min-h-0 px-1 md:px-2.5 lg:px-3.5 md:h-8 rounded text-xs lg:text-sm whitespace-nowrap active:scale-[0.97]',
                   isActive
                     ? 'bg-ink text-ground font-medium'
                     : 'text-ink-2 hover:bg-ground-2 hover:text-ink'
                 )}
                 aria-current={isActive ? 'page' : undefined}
               >
-                {item.label}
+                <span>{item.label}</span>
+                {item.key === 'stage' && sessionActive && (
+                  <span
+                    className="w-1.5 h-1.5 rounded-full bg-amber shrink-0"
+                    title="场中会话进行中"
+                  />
+                )}
               </button>
             );
           })}
         </nav>
+
+        {/* Right: Health Readout + Account & Memory Utilities */}
+        <div className="order-2 md:order-3 h-12 md:h-auto flex items-center gap-1.5 sm:gap-2 shrink-0">
+          <div
+            className="hidden lg:inline-flex items-center gap-1.5 px-2.5 h-8 rounded border border-line bg-ground text-xs text-ink-2 whitespace-nowrap max-w-[260px]"
+            title={runtimeTitle}
+            data-testid="nav-health-badge"
+          >
+            <Activity
+              className={cn(
+                'w-3.5 h-3.5 shrink-0',
+                (colabLifecycle === 'ready' || (!colabLifecycle && health?.ok)) && s1Real && s2Real
+                  ? 'text-resolved'
+                  : colabLifecycle === 'disconnected' || colabLifecycle === 'unavailable'
+                    ? 'text-alert'
+                    : health?.ok
+                      ? 'text-amber'
+                      : 'text-ink-3'
+              )}
+            />
+            <span className="truncate">{runtimeLabel}</span>
+          </div>
+
+          <button
+            type="button"
+            onClick={onOpenAccount}
+            data-testid="open-account-drawer"
+            className="cuex-btn inline-flex items-center gap-1.5 px-2.5 min-h-[40px] sm:min-h-0 sm:h-8 rounded border border-line-strong bg-surface hover:bg-ground-2 text-xs text-ink-2 hover:text-ink active:scale-[0.97] max-w-[132px] sm:max-w-[176px]"
+            title="账户隔离、套餐用量、会话历史与数据主权"
+          >
+            <UserCircle2 className="w-3.5 h-3.5 text-amber shrink-0" />
+            <span className="truncate">{accountLabel}</span>
+            <span className="hidden sm:inline px-1.5 py-0.5 rounded-sm bg-ground-2 text-xs font-mono text-ink-3 shrink-0 num leading-none">
+              {activePlan}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onOpenMemory}
+            data-testid="open-memory-drawer"
+            className="cuex-btn inline-flex items-center gap-1.5 px-2.5 min-h-[40px] sm:min-h-0 sm:h-8 rounded border border-line-strong bg-surface hover:bg-ground-2 text-xs text-ink-2 hover:text-ink whitespace-nowrap active:scale-[0.97]"
+            title="个人记忆治理"
+          >
+            <Database className="w-3.5 h-3.5 text-violet shrink-0" />
+            <span className="hidden xl:inline">个人记忆治理</span>
+            <span className="hidden sm:inline xl:hidden">记忆治理</span>
+          </button>
+        </div>
       </div>
     </header>
   );

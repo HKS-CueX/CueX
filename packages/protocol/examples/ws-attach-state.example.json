@@ -1,0 +1,16 @@
+{
+  "sessionId": "sess_demo_01",
+  "lastSeenSeq": 24,
+  "role": "companion",
+  "activePrimaryConnected": true,
+  "canCaptureMic": false,
+  "companionCount": 1,
+  "rolePolicy": {
+    "role": "companion",
+    "canCaptureMic": false,
+    "canControlSession": false,
+    "canModifyContext": false,
+    "canViewInspector": true,
+    "canInteractWithCues": true
+  }
+}

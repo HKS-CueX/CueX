@@ -1,0 +1,40 @@
+{
+  "packTitle": "CueX Presentation 高压 Q&A 备答与诚实缺口清单",
+  "qaCards": [
+    {
+      "id": "demo_qa_01",
+      "question": "如果用户用 29 元单场 Event 版本无限彩排，把语音识别成本刷爆怎么办？",
+      "isPrediction": true,
+      "prepared": true,
+      "evidenceIds": ["demo_fact_05", "demo_fact_06"],
+      "suggestedAnswer": "产品与服务端实施双重护栏：Event 单场内含 120 分钟高保真云端 ASR 配额与 20 场次上限，超出后触发配额保护或无缝切换端侧/文本演练，从源头上防止亏损击穿。"
+    },
+    {
+      "id": "demo_qa_02",
+      "question": "为什么其他通用 AI 工具或提词器不能简单复制你们的体验？",
+      "isPrediction": true,
+      "prepared": true,
+      "evidenceIds": ["demo_fact_01", "demo_fact_02", "demo_fact_03"],
+      "suggestedAnswer": "我们不把单次缓存或模型调用包装成壁垒。核心差异在于三点叠加：L0 静默克制门控与 7 种自愈自动撤回、讲前原文 Evidence 强绑定防幻觉，以及人工审批的复盘记忆闭环。"
+    },
+    {
+      "id": "demo_qa_03",
+      "question": "目前社交、教学、商务销售场景都可以直接实机上线使用了吗？",
+      "isPrediction": true,
+      "prepared": true,
+      "evidenceIds": ["demo_fact_01"],
+      "suggestedAnswer": "目前仅 CueX Presentation 完整落地闭环，Social、Teaching、Sales 与 Custom 均明确标注为 Planned 路线图方向，遵循同一套 Universal Runtime 协议演进。"
+    },
+    {
+      "id": "demo_qa_04",
+      "question": "你们过去 12 个月已审计付费营收与已签约企业合同总额是多少？",
+      "isPrediction": true,
+      "prepared": false,
+      "evidenceIds": [],
+      "gapNote": "刻意保留的未覆盖问题：当前演示资料未录入任何已发生商业营收或签约企业合同数，遇到此类追问系统应诚实输出“资料未覆盖”，严禁编造数字。"
+    }
+  ],
+  "unpreparedGaps": [
+    "未录入已审计历史营收、已签约企业客户名单及固定团队人力成本预算。"
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "cuex-final-verification-v1",
+  "generatedAt": "2026-11-16T00:24:22.957Z",
+  "dataStatus": "EVAL_LOCKED",
+  "evalSource": "[本地实测 Eval (local_rule_zero) + 云端公开费率建模]",
+  "phase3RealValidationLocked": true,
+  "tokenProofEmbedded": true,
+  "outputs": {
+    "coverPng": "deliverables/cuex-final/brand/CueX-Cover.png",
+    "assetsCoverPng": "deliverables/cuex-final/assets/CueX-Cover.png",
+    "tokenProofPng": "deliverables/cuex-final/evidence/token-usage-proof.png",
+    "demoTokenProofPng": "deliverables/cuex-final/demo/token-usage-proof.png",
+    "bpPitchPdf": {
+      "path": "deliverables/cuex-final/pitch/CueX-BP.pdf",
+      "pages": 8
+    },
+    "bpBusinessPdf": {
+      "path": "deliverables/cuex-final/business/CueX-Business-Plan.pdf",
+      "pages": 8
+    },
+    "jobSpecPdf": {
+      "path": "deliverables/cuex-final/business/CueX-AI-Employee-Job-Spec.pdf",
+      "pages": 1
+    },
+    "mandatoryJobSpecPdf": {
+      "path": "deliverables/cuex-final/mandatory/ai-employee-job-spec/CueX-AI-Employee-Job-Specification.pdf",
+      "pages": 1
+    },
+    "bmcPdf": {
+      "path": "deliverables/cuex-final/business/CueX-Business-Model-Canvas.pdf",
+      "pages": 1
+    },
+    "mandatoryBmcPdf": {
+      "path": "deliverables/cuex-final/mandatory/business-model-canvas/CueX-Business-Model-Canvas.pdf",
+      "pages": 2
+    },
+    "unitEconomicsPdf": {
+      "path": "deliverables/cuex-final/business/CueX-Unit-Economics.pdf",
+      "pages": 1
+    },
+    "combinedBmcUePdf": {
+      "path": "deliverables/cuex-final/business/CueX-BMC-and-Unit-Economics.pdf",
+      "pages": 2
+    },
+    "competitiveAnalysisPdf": {
+      "path": "deliverables/cuex-final/business/CueX-Competitive-Analysis.pdf",
+      "pages": 2
+    },
+    "previewsDir": "deliverables/cuex-final/previews"
+  },
+  "checks": {
+    "strictPageCountsPassed": true,
+    "allArtifactsGenerated": true,
+    "noExternalMockConsoleScreenshot": true,
+    "metricsSyncPassed": true,
+    "scannedFiles": 47
+  }
+}

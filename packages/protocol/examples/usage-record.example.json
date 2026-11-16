@@ -1,0 +1,17 @@
+{
+  "id": "usage_001",
+  "userId": "usr_local_owner",
+  "tenantId": "tenant_local_default",
+  "sessionId": "sess_demo_001",
+  "entitlementId": "ent_free_001",
+  "usageType": "session_started",
+  "quantity": 1,
+  "unit": "count",
+  "occurredAt": "2026-11-16T04:00:00.000Z",
+  "idempotencyKey": "sess_start_sess_demo_001",
+  "source": "gateway/session-start",
+  "costFen": 0,
+  "metadata": {
+    "mode": "rehearsal"
+  }
+}

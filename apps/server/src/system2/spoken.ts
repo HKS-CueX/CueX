@@ -32,7 +32,7 @@ export function bigramDice(a: string, b: string): number {
   return (2 * shared) / (x.length + y.length);
 }
 
-/** TTS pauses on punctuation. A model sometimes leaves the last clause bare, so close it: a question mark for a question, else a full stop. */
+/** Spoken prompts read cleaner with sentence-ending punctuation; close bare final clauses consistently. */
 export function ensureEnding(line: string): string {
   const t = line.trim();
   if (!t || /[。？！?!…]$/.test(t)) return t;
@@ -47,7 +47,7 @@ const FILLER_BEFORE = '能|可|是|有|要|会|该|应|怎|什么|多少|哪|为
 const FILLER = new RegExp(`(?<!${NOT_FILLER_AFTER})(?:到底|究竟)(?=${FILLER_BEFORE})`, 'g');
 
 /**
- * Removes 到底 / 究竟 when they are filler adverbs: "这药到底能用在谁身上" becomes "这药能用在谁身上".
+ * Removes 到底 / 究竟 when they are filler adverbs: "这方案到底能不能落地" becomes "这方案能不能落地".
  * The model keeps using them although the prompt says not to, and a rewrite call would cost a second round trip.
  */
 export function stripFiller(text: string): string {

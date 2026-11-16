@@ -1,5 +1,22 @@
-EGFR
-肾小球滤过率
-七十五岁
-安舒平
-ANSHU
+CueX
+CueX Presentation
+System 1
+System 2
+Context Pack
+Fact Whitelist
+Q&A
+KPI
+Latency
+SLA
+Benchmark
+WebSocket
+sherpa-onnx
+路演
+答辩
+核心论点
+事实白名单
+余光提示
+最小必要干预
+自动撤回
+单点重练
+净效用

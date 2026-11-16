@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuex.ai/schemas/presentation-context-pack.v2.schema.json",
+  "title": "PresentationContextPack",
+  "description": "Compiled CueX Presentation context pack containing CueSheet, lockable FactWhitelist, AI-predicted Q&A cards, ProgressNodes, and Evidence.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "packId",
+    "schemaVersion",
+    "scenarioId",
+    "title",
+    "sceneType",
+    "goal",
+    "audience",
+    "targetDurationSec",
+    "cueSheet",
+    "facts",
+    "qaCards",
+    "unpreparedGaps",
+    "progressNodes",
+    "evidence",
+    "forbiddenClaims",
+    "compiledBy",
+    "warnings",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "packId": { "type": "string", "minLength": 1 },
+    "schemaVersion": { "type": "integer", "const": 2 },
+    "scenarioId": { "const": "presentation" },
+    "title": { "type": "string", "minLength": 1 },
+    "sceneType": {
+      "type": "string",
+      "enum": ["pitch", "defense", "academic", "keynote", "general"]
+    },
+    "goal": { "type": "string", "minLength": 1 },
+    "audience": { "type": "string" },
+    "targetDurationSec": { "type": "number", "exclusiveMinimum": 0 },
+    "cueSheet": { "type": "object" },
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "text", "source", "userConfirmed", "locked", "verified", "evidenceId"]
+      }
+    },
+    "qaCards": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "question", "suggestedAnswer", "evidenceIds", "isPrediction", "prepared"],
+        "properties": {
+          "isPrediction": { "const": true }
+        }
+      }
+    },
+    "unpreparedGaps": { "type": "array", "items": { "type": "string" } },
+    "progressNodes": { "type": "array" },
+    "evidence": {
+      "type": "array",
+      "items": { "$ref": "https://cuex.ai/schemas/evidence.v2.schema.json" }
+    },
+    "forbiddenClaims": { "type": "array", "items": { "type": "string" } },
+    "compiledBy": { "type": "string", "enum": ["local_compiler", "llm_compiler"] },
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  }
+}

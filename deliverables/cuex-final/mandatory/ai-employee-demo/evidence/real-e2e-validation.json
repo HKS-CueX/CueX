@@ -1,0 +1,892 @@
+{
+  "schemaVersion": "real-e2e-validation.v2",
+  "validatedAt": "2026-11-15T23:27:42.641Z",
+  "startedAt": "2026-11-15T23:19:33.720Z",
+  "silentValidationOnly": true,
+  "models": {
+    "system1": "gemini-4-hydrogen",
+    "system2": "gemini-4-hydrogen",
+    "asrModel": "FunAudioLLM/SenseVoiceSmall",
+    "gpuName": "NVIDIA RTX PRO 6000 Blackwell Server Edition"
+  },
+  "colabDirectChecks": {
+    "unauthorizedHealthStatus": 401,
+    "initialProbe": {
+      "backend": "colab-gpu-asr",
+      "mode": "colab_gpu",
+      "lifecycleState": "ready",
+      "available": true,
+      "gpuName": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+      "modelId": "FunAudioLLM/SenseVoiceSmall",
+      "rtf": 0.004
+    },
+    "liveStreamFlushCheck": {
+      "passed": true,
+      "finalsAfterFirstFlush": 2,
+      "totalFinals": 4,
+      "transcripts": [
+        "我们首先打透的第一个商业场景是。",
+        "那个QX presentation演讲。",
+        "答辩林场引导师。",
+        "上台前只要一分钟导入讲稿，就能编译成带原文溯源的证据卡片。"
+      ]
+    },
+    "batchResultsCount": 14,
+    "batchResults": [
+      {
+        "clipId": "clip_01_intro_natural",
+        "category": "natural_speed",
+        "audioDurationSec": 16.265,
+        "latencyMs": 54.03,
+        "rtf": 0.00332,
+        "cer": 0.1045,
+        "text": "各位评委好，我们是进行好了一点团队，带来的产品叫gueXQX是在深度思考之外，接触当下的快思考外挂，帮助演讲者在台上保持眼神交流与核心表达。",
+        "groundTruth": "各位评委好，我们是记性好了一点团队，带来的产品叫CueX。CueX是在深度思考之外接住当下的快思考外挂，帮助演讲者在台上保持眼神交流与核心表达。"
+      },
+      {
+        "clipId": "clip_02_pain_point_fast",
+        "category": "fast_speed",
+        "audioDurationSec": 13.248,
+        "latencyMs": 45.54,
+        "rtf": 0.00344,
+        "cer": 0.058,
+        "text": "传统滚动题词器一遇到评委临场打断或跳讲就彻底失灵。而市面上常规副驾驶只要检测到开口就往屏幕里灌满整段回答人在紧张时分，心独自，反而丢掉眼神和雨流。",
+        "groundTruth": "传统滚动提词器一遇到评委临场打断或跳讲就彻底失灵，而市面上常规副驾驶只要检测到开口就往屏幕里灌满整段回答，人在紧张时分心读字反而丢掉眼神和语流。"
+      },
+      {
+        "clipId": "clip_03_pauses_fillers",
+        "category": "pauses_and_fillers",
+        "audioDurationSec": 17.988,
+        "latencyMs": 55.96,
+        "rtf": 0.00311,
+        "cer": 0.0541,
+        "text": "就是说我们首先打透的第一个商业场景是那个QX presentation演讲与答辩临场引导师。上台前只要一分钟导入讲稿，就能编译成带原文溯源的证据卡片。",
+        "groundTruth": "就是说，我们首先打透的第一个商业场景是，嗯那个，CueX Presentation演讲与答辩临场引导师。上台前只要一分钟导入讲稿，就能编译成带原文溯源的证据卡片。"
+      },
+      {
+        "clipId": "clip_04_numbers_proper_nouns",
+        "category": "numbers_and_proper_nouns",
+        "audioDurationSec": 18.307,
+        "latencyMs": 55.24,
+        "rtf": 0.00302,
+        "cer": 0,
+        "text": "在单位经济模型里，pro版本定价59元，每月或499元，每年含240分钟云端语音配额event单场29元，含120分钟，基准直接贡献毛利率达到83.8%。",
+        "groundTruth": "在单位经济模型里，Pro版本定价59元每月或499元每年，含240分钟云端语音配额，Event单场29元含120分钟，基准直接贡献毛利率达到83.8%。"
+      },
+      {
+        "clipId": "clip_05_architecture_bilingual",
+        "category": "bilingual_mixed",
+        "audioDurationSec": 18.412,
+        "latencyMs": 59.91,
+        "rtf": 0.00325,
+        "cer": 0.2397,
+        "text": "底层不是写死的演讲提示词，而是univeveralc room time通用认知运行时，由context cell维护版本号event bus驱动sstem一和stem2异步协同，再由interventioncont独立门控。",
+        "groundTruth": "底层不是写死的演讲提示词，而是Universal Cognitive Runtime通用认知运行时，由ContextStore维护版本号，EventBus驱动System 1和System 2异步协同，再由InterventionController独立门控。"
+      },
+      {
+        "clipId": "clip_06_quiet_mic_gain",
+        "category": "quiet_mic_gain",
+        "audioDurationSec": 15.249,
+        "latencyMs": 50.43,
+        "rtf": 0.00331,
+        "cer": 0.0172,
+        "text": "当演讲偏离关键锚点或卡壳停顿时，系统先给出L一边缘轻提示，必要时升级到L2关键词锚点。一旦讲者自己接回正轨，提示立即自动撤回。",
+        "groundTruth": "当演讲偏离关键锚点或卡壳停顿时，系统先给出L1边缘轻提示，必要时升级到L2关键词锚点，一旦讲者自己接回正轨，提示立即自动撤回。"
+      },
+      {
+        "clipId": "clip_07_loud_mic_gain",
+        "category": "loud_mic_gain",
+        "audioDurationSec": 10.236,
+        "latencyMs": 40.66,
+        "rtf": 0.00397,
+        "cer": 0.0217,
+        "text": "我们用探索性指标V等于H减去2倍I来衡量每次干预是否真的有效，避免把屏幕变成喋喋不休的聊天窗口。",
+        "groundTruth": "我们用探索性指标V等于H减去二倍I来衡量每次干预是否真的有效，避免把屏幕变成喋喋不休的聊天窗口。"
+      },
+      {
+        "clipId": "clip_08_moderate_room_noise",
+        "category": "moderate_background_noise",
+        "audioDurationSec": 13.099,
+        "latencyMs": 44.51,
+        "rtf": 0.0034,
+        "cer": 0.0377,
+        "text": "散场之后，系统自动生成结构化复盘报告，覆盖章节号时遗漏重点语未回答问题，个人偏好记忆必须经过人工逐条确认才能保存。",
+        "groundTruth": "散场之后系统自动生成结构化复盘报告，覆盖章节耗时、遗漏重点与未回答问题，个人偏好记忆必须经过人工逐条确认才能保存。"
+      },
+      {
+        "clipId": "clip_09_speaker_interruption_qa",
+        "category": "speaker_interruption_qa",
+        "audioDurationSec": 12.382,
+        "latencyMs": 44.39,
+        "rtf": 0.00359,
+        "cer": 0.0508,
+        "text": "目前，我们的并发长连接成本和流式语音识别已经做了完整核算。打断一下，如果用户用29元加场版本无线彩排，把语音识别额度刷到怎么办？",
+        "groundTruth": "目前我们的并发长连接成本和流式语音识别已经做了完整核算。打断一下，如果用户用29元单场版本无限彩排把语音识别额度刷爆怎么办？"
+      },
+      {
+        "clipId": "clip_10_deliberate_omission_demo",
+        "category": "deliberate_omission",
+        "audioDurationSec": 14.966,
+        "latencyMs": 50.58,
+        "rtf": 0.00338,
+        "cer": 0.1471,
+        "text": "刚才介绍了QX的双系统架构和暗场付费模式。接下来我们直接跳到未来90天市场推广计划，通过社群和校园答辩场景获取第一批30到50名种子用户。",
+        "groundTruth": "刚才介绍了CueX的双系统架构和按场付费模式，接下来我们直接跳到未来九十天市场推广计划，通过社群和校园答辩场景获取第一批三十到五十名种子用户。"
+      },
+      {
+        "clipId": "clip_11_topic_drift_demo",
+        "category": "topic_drift",
+        "audioDurationSec": 12.873,
+        "latencyMs": 44.63,
+        "rtf": 0.00347,
+        "cer": 0.0196,
+        "text": "其实说到硬件发展，我前几年买过很多智能手环，和降噪耳机，天天研究蓝牙协议，焊电池续航，周末还喜欢去公园跑步拍风景。",
+        "groundTruth": "其实说到硬件发展，我前几年买过很多智能手环和降噪耳机，天天研究蓝牙协议和电池续航，周末还喜欢去公园跑步拍风景。"
+      },
+      {
+        "clipId": "clip_12_qa_defense_bilingual",
+        "category": "qa_bilingual_defense",
+        "audioDurationSec": 15.609,
+        "latencyMs": 50.63,
+        "rtf": 0.00324,
+        "cer": 0.2687,
+        "text": "我们不把单个大模型ATI包装成护城盒QX的壁垒在于L临静默克制门控TTT原文墙绑定房幻觉，以及用户可控的复盘记忆闭环。",
+        "groundTruth": "我们不把单个大模型API包装成护城河，CueX的壁垒在于L0静默克制门控、PPT原文Evidence强绑定防幻觉，以及用户可控的复盘记忆闭环。"
+      },
+      {
+        "clipId": "clip_13_privacy_sovereignty",
+        "category": "privacy_and_formats",
+        "audioDurationSec": 14.54,
+        "latencyMs": 47.66,
+        "rtf": 0.00328,
+        "cer": 0.0806,
+        "text": "用户可以随时一键导出JSON或markdown格式的个人复盘与记忆包，也可以执行绘画及或账号及擦除，至依法保留最小化计费审计流水。",
+        "groundTruth": "用户可以随时一键导出JSON或Markdown格式的个人复盘与记忆包，也可以执行会话级或账号级擦除，只依法保留最小化计费审计流水。"
+      },
+      {
+        "clipId": "clip_14_long_multiturn_continuous",
+        "category": "long_multiturn_streaming",
+        "audioDurationSec": 32.17,
+        "latencyMs": 88.01,
+        "rtf": 0.00274,
+        "cer": 0.1145,
+        "text": "各位评委QX不是另一个生成2000字报告的慢思考工具。在路演硕博答辩汉产品发布的关键1分钟里，讲者真正需要的视频时，L0保持静默卡壳时给出2到6个字的L2关键锚点接回话头后自动撤回的刻制外挂。结合实时GTU语音识别与结构化证据库，我们实现了毫秒级门控决策与可审计的成本模型。",
+        "groundTruth": "各位评委，CueX不是另一个生成两千字报告的慢思考工具。在路演、硕博答辩和产品发布的关键十分钟里，讲者真正需要的是平时L0保持静默、卡壳时给出两到六个字的L2关键锚点、接回话头后自动撤回的克制外挂。结合实时GPU语音识别与结构化证据库，我们实现了毫秒级门控决策与可审计的成本模型。"
+      }
+    ]
+  },
+  "gatewayE2e": {
+    "healthSnapshot": {
+      "ok": true,
+      "service": "cuex-server",
+      "version": "2.0.0",
+      "apiVersion": "2026-11",
+      "wsProtocolVersion": "2.0",
+      "timestamp": "2026-11-15T23:20:01.298Z",
+      "asr": {
+        "backend": "colab-gpu-asr",
+        "mode": "colab_gpu",
+        "available": true,
+        "streaming": true,
+        "detail": "Colab GPU ASR ready (NVIDIA RTX PRO 6000 Blackwell Server Edition, model=FunAudioLLM/SenseVoiceSmall, avgRTF=0.00398).",
+        "lifecycleState": "ready",
+        "gpuName": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+        "modelId": "FunAudioLLM/SenseVoiceSmall",
+        "rtf": 0.00398,
+        "lastHealthCheckAt": "2026-11-15T23:19:59.909Z",
+        "fallbackActive": false
+      },
+      "system1": {
+        "backend": "cpa:<redacted-host>:gemini-4-hydrogen",
+        "mode": "real",
+        "healthy": true,
+        "detail": "CPA ready (cpa:<redacted-host>, model=gemini-4-hydrogen, endpoint=responses)",
+        "provider": "cpa:<redacted-host>",
+        "model": "gemini-4-hydrogen",
+        "degraded": false,
+        "lastHealthCheckAt": "2026-11-15T23:19:59.909Z"
+      },
+      "system2": {
+        "backend": "cpa:<redacted-host>:gemini-4-hydrogen",
+        "mode": "real",
+        "healthy": true,
+        "detail": "CPA ready (cpa:<redacted-host>, model=gemini-4-hydrogen, endpoint=responses)",
+        "provider": "cpa:<redacted-host>",
+        "model": "gemini-4-hydrogen",
+        "degraded": false,
+        "lastHealthCheckAt": "2026-11-15T23:19:59.909Z"
+      }
+    },
+    "compileCheck": {
+      "packId": "pack_1794784801309",
+      "compiledBy": "llm_compiler",
+      "factsCount": 21,
+      "qaCardsCount": 6
+    },
+    "streamingClips": [
+      {
+        "clipId": "clip_01_intro_natural",
+        "category": "natural_speed",
+        "expectedCueBehavior": "L0_silent",
+        "durationSec": 16.265,
+        "partialCount": 3,
+        "transcripts": [
+          "评委好，我们是即行好了一点团队带来的产品叫CueXCueX是在深度思考之外，接触当下的快思考外挂，帮助演讲者在台上保持眼神交流与核心表达。"
+        ],
+        "streamingCer": 0.0746,
+        "s1Verdicts": [
+          {
+            "cognitiveState": "fluent",
+            "interventionNeed": "none",
+            "recommendedLevel": "L0"
+          },
+          {
+            "cognitiveState": "fluent",
+            "interventionNeed": "none",
+            "recommendedLevel": "L0"
+          }
+        ],
+        "shownInterventions": [],
+        "withdrawnReasons": []
+      },
+      {
+        "clipId": "clip_02_pain_point_fast",
+        "category": "fast_speed",
+        "expectedCueBehavior": "L0_silent",
+        "durationSec": 13.248,
+        "partialCount": 2,
+        "transcripts": [
+          "滚动题词器一遇到评委临场打断或跳桨就彻底失灵，而市面上常规副驾驶只要检测到开口就往屏幕里灌满整段回答人在紧张时分，心独自反而丢掉眼神和雨流。"
+        ],
+        "streamingCer": 0.1014,
+        "s1Verdicts": [
+          {
+            "cognitiveState": "fluent",
+            "interventionNeed": "none",
+            "recommendedLevel": "L0"
+          }
+        ],
+        "shownInterventions": [
+          {
+            "interventionId": "int_1_1794784860495",
+            "level": "L1",
+            "title": "拉回主线：定位与场景",
+            "cueText": "顺势切回主线：CueX 是通用实时认知底座，首站聚焦演讲答辩，直击 5 分钟核心路演 + 2 分钟高压问答。",
+            "grounded": true,
+            "evidenceIds": [
+              "ev_9"
+            ]
+          }
+        ],
+        "withdrawnReasons": []
+      },
+      {
+        "clipId": "clip_03_pauses_fillers",
+        "category": "pauses_and_fillers",
+        "expectedCueBehavior": "L0_silent_no_false_trigger_on_natural_pause",
+        "durationSec": 17.988,
+        "partialCount": 2,
+        "transcripts": [
+          "就是说我们首先打透的第一个商业场景是。",
+          "那个CueX presentation演讲与答辩临场引导师。"
+        ],
+        "streamingCer": 0.3784,
+        "s1Verdicts": [
+          {
+            "cognitiveState": "fluent",
+            "interventionNeed": "none",
+            "recommendedLevel": "L0"
+          },
+          {
+            "cognitiveState": "hesitating",
+            "interventionNeed": "none",
+            "recommendedLevel": "L0"
+          },
+          {
+            "cognitiveState": "fluent",
+            "interventionNeed": "none",
+            "recommendedLevel": "L0"
+          },
+          {
+            "cognitiveState": "fluent",
+            "interventionNeed": "none",
+            "recommendedLevel": "L0"
+          }
+        ],
+        "shownInterventions": [],
+        "withdrawnReasons": []
+      },
+      {
+        "clipId": "clip_04_numbers_proper_nouns",
+        "category": "numbers_and_proper_nouns",
+        "expectedCueBehavior": "L0_silent_or_fact_grounded",
+        "durationSec": 18.307,
+        "partialCount": 3,
+        "transcripts": [
+          "单位经济模型里，pro版本定价59元，每月或499元，每年含240分钟云端语音配额event单场29元，含120分钟，基准直接贡献毛利率达到83.8%。"
+        ],
+        "streamingCer": 0.0143,
+        "s1Verdicts": [
+          {
+            "cognitiveState": "drifting",
+            "interventionNeed": "trigger_l2",
+            "recommendedLevel": "L2"
+          }
+        ],
+        "shownInterventions": [
+          {
+            "interventionId": "int_1_1794784909085",
+            "level": "L2",
+            "title": "偏离主线：拉回产品定位与开场",
+            "cueText": "先跳过定价与毛利，拉回 CueX 通用认知底座定位与适用场景。",
+            "grounded": true,
+            "evidenceIds": [
+              "ev_9"
+            ]
+          }
+        ],
+        "withdrawnReasons": []
+      },
+      {
+        "clipId": "clip_05_architecture_bilingual",
+        "category": "bilingual_mixed",
+        "expectedCueBehavior": "L0_silent",
+        "durationSec": 18.412,
+        "partialCount": 3,
+        "transcripts": [
+          "底层不是写死的演讲提示词，而是univeveralctive room time通用认知运行时，由context cell维护版本号event bus驱动stem一和stem2异步协同，再由interventionconter独立门控。"
+        ],
+        "streamingCer": 0.1983,
+        "s1Verdicts": [
+          {
+            "cognitiveState": "fluent",
+            "interventionNeed": "none",
+            "recommendedLevel": "L0"
+          },
+          {
+            "cognitiveState": "hesitating",
+            "interventionNeed": "trigger_l1",
+            "recommendedLevel": "L1"
+          }
+        ],
+        "shownInterventions": [],
+        "withdrawnReasons": []
+      },
+      {
+        "clipId": "clip_06_quiet_mic_gain",
+        "category": "quiet_mic_gain",
+        "expectedCueBehavior": "L2_auto_withdraw_on_recovery",
+        "durationSec": 15.249,
+        "partialCount": 3,
+        "transcripts": [
+          "演讲偏离关键锚点或卡壳停顿时，系统先给出L一边缘轻提示，必要时升级到L2关键词锚点。一旦讲者自己接回正轨，提示立即自动撤回。"
+        ],
+        "streamingCer": 0.0345,
+        "s1Verdicts": [
+          {
+            "cognitiveState": "fluent",
+            "interventionNeed": "none",
+            "recommendedLevel": "L0"
+          },
+          {
+            "cognitiveState": "hesitating",
+            "interventionNeed": "trigger_l1",
+            "recommendedLevel": "L1"
+          }
+        ],
+        "shownInterventions": [],
+        "withdrawnReasons": []
+      },
+      {
+        "clipId": "clip_07_loud_mic_gain",
+        "category": "loud_mic_gain",
+        "expectedCueBehavior": "L0_silent",
+        "durationSec": 10.236,
+        "partialCount": 1,
+        "transcripts": [
+          "用探索性指标V等于H减去2倍I来衡量每次干预是否真的有效，避免把屏幕变成喋喋不休的聊天窗口。"
+        ],
+        "streamingCer": 0.0652,
+        "s1Verdicts": [
+          {
+            "cognitiveState": "fluent",
+            "interventionNeed": "none",
+            "recommendedLevel": "L0"
+          },
+          {
+            "cognitiveState": "hesitating",
+            "interventionNeed": "trigger_l1",
+            "recommendedLevel": "L1"
+          }
+        ],
+        "shownInterventions": [],
+        "withdrawnReasons": []
+      },
+      {
+        "clipId": "clip_08_moderate_room_noise",
+        "category": "moderate_background_noise",
+        "expectedCueBehavior": "L0_silent",
+        "durationSec": 13.099,
+        "partialCount": 2,
+        "transcripts": [
+          "自动生成结构化复盘报告覆盖章节号时遗漏重点语未回答问题，个人偏好记忆必须经过人工逐条确认才能保存。"
+        ],
+        "streamingCer": 0.1509,
+        "s1Verdicts": [
+          {
+            "cognitiveState": "drifting",
+            "interventionNeed": "trigger_l1",
+            "recommendedLevel": "L1"
+          }
+        ],
+        "shownInterventions": [
+          {
+            "interventionId": "int_1_1794785006796",
+            "level": "L1",
+            "title": "回到开篇定位与场景",
+            "cueText": "先收回复盘细节，回到开篇：CueX是通用实时认知底座，专注高风险现场沟通，今天看5分钟路演加2分钟问答。",
+            "grounded": true,
+            "evidenceIds": [
+              "ev_9"
+            ]
+          }
+        ],
+        "withdrawnReasons": []
+      },
+      {
+        "clipId": "clip_09_speaker_interruption_qa",
+        "category": "speaker_interruption_qa",
+        "expectedCueBehavior": "L2_or_L3_qa_grounded_cue",
+        "durationSec": 12.382,
+        "partialCount": 2,
+        "transcripts": [
+          "连我们的并发长连接成本和流逝语音识别已经做了完整核算。打断一下，如果用户用29元场版本无线彩排，把语音识别额度刷到怎么办？"
+        ],
+        "streamingCer": 0.1017,
+        "s1Verdicts": [
+          {
+            "cognitiveState": "answering_question",
+            "interventionNeed": "trigger_l2",
+            "recommendedLevel": "L2"
+          }
+        ],
+        "shownInterventions": [
+          {
+            "interventionId": "int_1_1794785030246",
+            "level": "L2",
+            "title": "29元单场设配额上限防刷爆",
+            "cueText": "29元单场并非无限，设14天120分钟云端ASR上限防刷爆，高频需求引导升59元月度Pro版。",
+            "grounded": true,
+            "evidenceIds": [
+              "ev_5"
+            ]
+          }
+        ],
+        "withdrawnReasons": []
+      },
+      {
+        "clipId": "clip_10_deliberate_omission_demo",
+        "category": "deliberate_omission",
+        "expectedCueBehavior": "L2_omission_cue_for_unit_economics",
+        "durationSec": 14.966,
+        "partialCount": 3,
+        "transcripts": [
+          "刚才介绍了CueX的双系统架构和暗场付费模式。接下来我们直接跳到未来90天市场推广计划，通过社群和校园答辩场景获取第一批30到50名种子用户。",
+          "补充说明核心单位经济与净效用公式：我们定义 V = H - λI，默认 λ = 2，Event 净贡献率 87.3%，Pro 直接贡献率 83.8%。"
+        ],
+        "streamingCer": 0.9118,
+        "s1Verdicts": [
+          {
+            "cognitiveState": "omitting_key_point",
+            "interventionNeed": "trigger_l1",
+            "recommendedLevel": "L1"
+          },
+          {
+            "cognitiveState": "recovering",
+            "interventionNeed": "withdraw_active",
+            "recommendedLevel": "L0"
+          },
+          {
+            "cognitiveState": "fluent",
+            "interventionNeed": "none",
+            "recommendedLevel": "L0"
+          }
+        ],
+        "shownInterventions": [
+          {
+            "interventionId": "int_1_1794785056089",
+            "level": "L1",
+            "title": "拉回第四章：净效用与单位经济",
+            "cueText": "先别跳推广，回到第四章：先讲净效用 V = H - λI（λ = 2），再讲分层定价和 10 项全成本核算。",
+            "grounded": true,
+            "evidenceIds": [
+              "ev_4",
+              "ev_5",
+              "ev_6"
+            ]
+          }
+        ],
+        "withdrawnReasons": [
+          {
+            "reason": "user_recovered"
+          }
+        ],
+        "recoveryWithdrawVerified": true
+      },
+      {
+        "clipId": "clip_11_topic_drift_demo",
+        "category": "topic_drift",
+        "expectedCueBehavior": "L1_or_L2_drift_anchor",
+        "durationSec": 12.873,
+        "partialCount": 2,
+        "transcripts": [
+          "发展，我前几年买过很多智能手环，焊降噪耳机，天天研究蓝牙协议，焊电池续航，周末还喜欢去公园跑步拍风景。",
+          "回到正题，我们看 CueX 的临场核心判断原则：传统滚动提词器会打断语流，CueX 联合语义遗漏与停顿门控控制时机。"
+        ],
+        "streamingCer": 1.1569,
+        "s1Verdicts": [
+          {
+            "cognitiveState": "drifting",
+            "interventionNeed": "trigger_l2",
+            "recommendedLevel": "L2"
+          },
+          {
+            "cognitiveState": "recovering",
+            "interventionNeed": "withdraw_active",
+            "recommendedLevel": "L0"
+          },
+          {
+            "cognitiveState": "fluent",
+            "interventionNeed": "none",
+            "recommendedLevel": "L0"
+          }
+        ],
+        "shownInterventions": [
+          {
+            "interventionId": "int_1_1794785090453",
+            "level": "L2",
+            "title": "拉回主线：聚焦CueX定位",
+            "cueText": "先拉回主线：CueX是通用实时认知底座，首个场景聚焦演讲答辩，按5分钟核心路演加2分钟问答推进。",
+            "grounded": true,
+            "evidenceIds": [
+              "ev_9"
+            ]
+          }
+        ],
+        "withdrawnReasons": [
+          {
+            "reason": "user_recovered"
+          }
+        ],
+        "driftRecoveryWithdrawn": true
+      },
+      {
+        "clipId": "clip_12_qa_defense_bilingual",
+        "category": "qa_bilingual_defense",
+        "expectedCueBehavior": "L0_silent_or_withdraw_recovered",
+        "durationSec": 15.609,
+        "partialCount": 3,
+        "transcripts": [
+          "各大模型ATI包装成护成盒CueX的壁垒在于L临静默克制门控PTT原文墙绑定房幻觉以及用户可控的复盘记忆闭环。"
+        ],
+        "streamingCer": 0.3134,
+        "s1Verdicts": [
+          {
+            "cognitiveState": "fluent",
+            "interventionNeed": "none",
+            "recommendedLevel": "L0"
+          },
+          {
+            "cognitiveState": "hesitating",
+            "interventionNeed": "trigger_l1",
+            "recommendedLevel": "L1"
+          }
+        ],
+        "shownInterventions": [],
+        "withdrawnReasons": []
+      },
+      {
+        "clipId": "clip_13_privacy_sovereignty",
+        "category": "privacy_and_formats",
+        "expectedCueBehavior": "L0_silent",
+        "durationSec": 14.54,
+        "partialCount": 2,
+        "transcripts": [
+          "不可以随时一键导出JSON或markdown格式的个人复盘与记忆包，也可以执行绘画及或账号及擦除，至依法保留最小化计费审计流水。"
+        ],
+        "streamingCer": 0.1129,
+        "s1Verdicts": [
+          {
+            "cognitiveState": "drifting",
+            "interventionNeed": "trigger_l1",
+            "recommendedLevel": "L1"
+          }
+        ],
+        "shownInterventions": [
+          {
+            "interventionId": "int_1_1794785155712",
+            "level": "L1",
+            "title": "拉回主线：定位与场景",
+            "cueText": "先略过数据导出，拉回到CueX定位、适用场景与演示节奏。",
+            "grounded": true,
+            "evidenceIds": [
+              "ev_9"
+            ]
+          }
+        ],
+        "withdrawnReasons": []
+      },
+      {
+        "clipId": "clip_14_long_multiturn_continuous",
+        "category": "long_multiturn_streaming",
+        "expectedCueBehavior": "streaming_partial_and_multi_final_segments",
+        "durationSec": 32.17,
+        "partialCount": 5,
+        "transcripts": [
+          "作位评委CueX不是另一个生成2000字报告的慢思考工具在路演硕伯答辩汉产品发布的关键1分钟里，讲者真正需要的视频时，L0保持静默，卡壳时给出2到6个字的L2关键锚点接回话头后自动。"
+        ],
+        "streamingCer": 0.4427,
+        "s1Verdicts": [
+          {
+            "cognitiveState": "fluent",
+            "interventionNeed": "none",
+            "recommendedLevel": "L0"
+          },
+          {
+            "cognitiveState": "fluent",
+            "interventionNeed": "none",
+            "recommendedLevel": "L0"
+          }
+        ],
+        "shownInterventions": [],
+        "withdrawnReasons": []
+      }
+    ],
+    "streamingClipCount": 14,
+    "longSessionTelemetry": {
+      "sessionId": "sess_d8c868009800",
+      "updatedAt": "2026-11-15T23:26:27.429Z",
+      "usageSource": "provider_reported",
+      "inputTokens": 1677,
+      "outputTokens": 2674,
+      "cachedInputTokens": 0,
+      "reasoningTokens": 2417,
+      "totalTokens": 4351,
+      "modelCalls": 3,
+      "retries": 0,
+      "localRuleEvaluations": 0,
+      "latencyMs": 10469,
+      "latencyStats": {
+        "avgMs": 6312,
+        "p95Ms": 10469,
+        "maxMs": 10469
+      },
+      "degraded": false,
+      "usingLocalFallback": false,
+      "asrProvider": "colab-gpu-asr",
+      "asrDurationMs": 33670,
+      "costFen": 0,
+      "cost": {
+        "amountFen": 0,
+        "currency": "CNY"
+      },
+      "estimation": {
+        "isEstimated": false,
+        "source": "provider_reported",
+        "usingLocalFallback": false,
+        "notes": "Exact provider-reported tokens for model calls; 0 tokens for deterministic local rule steps."
+      },
+      "byTier": {
+        "system1": {
+          "tier": "system1",
+          "provider": "cpa:<redacted-host>",
+          "model": "gemini-4-hydrogen",
+          "calls": 2,
+          "retries": 0,
+          "inputTokens": 1309,
+          "outputTokens": 621,
+          "cachedInputTokens": 0,
+          "reasoningTokens": 460,
+          "latencyMsTotal": 8467,
+          "latencyMsAvg": 4234,
+          "usageSource": "provider_reported",
+          "degraded": false,
+          "costFen": 0
+        },
+        "reflection": {
+          "tier": "reflection",
+          "provider": "cpa:<redacted-host>",
+          "model": "gemini-4-hydrogen",
+          "calls": 1,
+          "retries": 0,
+          "inputTokens": 368,
+          "outputTokens": 2053,
+          "cachedInputTokens": 0,
+          "reasoningTokens": 1957,
+          "latencyMsTotal": 10469,
+          "latencyMsAvg": 10469,
+          "usageSource": "provider_reported",
+          "degraded": false,
+          "costFen": 0
+        }
+      },
+      "lastSystem1LatencyMs": 2426
+    },
+    "longSessionReflectionSummary": {
+      "utility": {
+        "helpfulCount": 0,
+        "distractingCount": 0,
+        "lambda": 2,
+        "netUtilityScore": 0,
+        "explicitHelpfulCount": 0,
+        "explicitDistractingCount": 0,
+        "withdrawnBeforeDisruptionCount": 0,
+        "suppressedCount": 1,
+        "formula": "V = H - λI"
+      },
+      "coverageRatio": 0.2,
+      "missedPointsCount": 12,
+      "unansweredQuestionsCount": 0,
+      "overallSummary": "本次演练要点覆盖率为0.2，遗漏了痛点核心、L0–L3干预、分层定价及全成本核算等12项要点。过程无超时章节与未答问题，偏离和自动撤回均为0次；净效用分为0（有效0次、干扰0次，λ=2）。建议下次重点补齐遗漏的核心机制与定价成本表达。（V = 0）"
+    },
+    "sovereigntyChecks": {
+      "unconfirmedMemoryRejectedStatus": 400,
+      "confirmedMemorySavedStatus": 201,
+      "exportStatus": 200,
+      "wipeStatus": 200,
+      "wipeReceiptId": "del_df42422e-00e7-4b41-89fd-cbab3271280b"
+    },
+    "chapterChangeWithdrawalCheck": {
+      "passed": true,
+      "reason": "chapter_changed"
+    },
+    "manualDismissAndSilentCheck": {
+      "passed": true,
+      "dismissReason": "user_dismissed",
+      "silentShownCount": 0
+    },
+    "ungroundedQaHonestyCheck": {
+      "passed": true,
+      "candidateKind": "missing_evidence_notice",
+      "grounded": false,
+      "cueText": "资料库未覆盖该数据，请坦诚说明暂无已核验记录。"
+    }
+  },
+  "scenarioMatrix": {
+    "#1_opening_greeting_L0": {
+      "passed": true,
+      "clip": "clip_01_intro_natural",
+      "cer": 0.0746
+    },
+    "#2_fast_speech_L0": {
+      "passed": true,
+      "clip": "clip_02_pain_point_fast",
+      "cer": 0.1014
+    },
+    "#3_natural_pause_zero_false_trigger": {
+      "passed": true,
+      "clip": "clip_03_pauses_fillers",
+      "cer": 0.3784,
+      "shown": []
+    },
+    "#4_numbers_proper_nouns_asr": {
+      "passed": true,
+      "clip": "clip_04_numbers_proper_nouns",
+      "cer": 0.0143
+    },
+    "#5_bilingual_architecture_asr": {
+      "passed": true,
+      "clip": "clip_05_architecture_bilingual",
+      "cer": 0.1983
+    },
+    "#6_quiet_loud_noise_robustness": {
+      "passed": true,
+      "quietCer": 0.0345,
+      "loudCer": 0.0652,
+      "roomNoiseCer": 0.1509
+    },
+    "#7_live_qa_grounded_and_ungrounded": {
+      "passed": true,
+      "groundedClip": "clip_09_speaker_interruption_qa",
+      "groundedShown": [
+        {
+          "interventionId": "int_1_1794785030246",
+          "level": "L2",
+          "title": "29元单场设配额上限防刷爆",
+          "cueText": "29元单场并非无限，设14天120分钟云端ASR上限防刷爆，高频需求引导升59元月度Pro版。",
+          "grounded": true,
+          "evidenceIds": [
+            "ev_5"
+          ]
+        }
+      ],
+      "ungroundedGap": {
+        "passed": true,
+        "candidateKind": "missing_evidence_notice",
+        "grounded": false,
+        "cueText": "资料库未覆盖该数据，请坦诚说明暂无已核验记录。"
+      }
+    },
+    "#8_chapter_change_stale_withdrawal": {
+      "passed": true,
+      "reason": "chapter_changed"
+    },
+    "#9_candidate_ttl_expiry": {
+      "passed": true,
+      "withdrawalReason": "candidate_expired",
+      "advancedClockMs": 13000
+    },
+    "#10_mid_session_colab_disconnect_reconnect": {
+      "passed": true,
+      "wsUpgradesObserved": 2,
+      "simulatedMidStreamDropTriggered": true,
+      "restartingStateObserved": false,
+      "recoveredFinalTranscript": "在深度思考之外，接触当下的快思考外挂，帮助演讲者在台上保持眼神交流与核心表达。"
+    },
+    "#11_cpa_timeout_honest_degraded_zero_hallucination": {
+      "passed": true,
+      "degraded": true,
+      "usageSource": "local_rule_zero",
+      "candidateKind": "missing_evidence_notice",
+      "grounded": false,
+      "cueText": "资料库未覆盖该数据，请坦诚说明暂无已核验记录。",
+      "fabricatedNumbers": false
+    },
+    "#12_omission_and_drift_self_recovery_withdraw": {
+      "passed": true,
+      "omissionClip": "clip_10_deliberate_omission_demo",
+      "omissionRecovered": true,
+      "driftClip": "clip_11_topic_drift_demo",
+      "driftWithdrawn": true
+    },
+    "#13_manual_help_dismiss_and_silent_mode": {
+      "passed": true,
+      "dismissReason": "user_dismissed",
+      "silentShownCount": 0
+    },
+    "#14_long_multiturn_reflection_and_sovereignty": {
+      "passed": true,
+      "clip": "clip_14_long_multiturn_continuous",
+      "partialCount": 5,
+      "sovereignty": {
+        "unconfirmedMemoryRejectedStatus": 400,
+        "confirmedMemorySavedStatus": 201,
+        "exportStatus": 200,
+        "wipeStatus": 200,
+        "wipeReceiptId": "del_df42422e-00e7-4b41-89fd-cbab3271280b"
+      },
+      "unreachableColab": {
+        "mode": "colab_gpu",
+        "lifecycleState": "unavailable",
+        "available": false,
+        "fallbackActive": true
+      }
+    }
+  },
+  "unreachableColabFallbackCheck": {
+    "mode": "colab_gpu",
+    "lifecycleState": "unavailable",
+    "available": false,
+    "fallbackActive": true
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "memoryId": "mem_pref_001",
+  "schemaVersion": 2,
+  "tenantId": "tenant_local_default",
+  "userId": "usr_local_owner",
+  "scenarioId": "presentation",
+  "category": "preference",
+  "title": "默认保持极简余光 L2",
+  "content": "正式路演时优先使用 L1 边缘光与不超过 6 字的 L2 关键词提示，非必要不展开 L3。",
+  "tags": ["level-preference", "pitch"],
+  "sourceSessionId": "sess_demo_001",
+  "userConfirmed": true,
+  "privacyLevel": "local_private",
+  "scope": "global",
+  "createdAt": "2026-11-16T04:00:00.000Z",
+  "updatedAt": "2026-11-16T04:00:00.000Z"
+}

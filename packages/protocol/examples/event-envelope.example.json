@@ -1,0 +1,23 @@
+{
+  "specVersion": "1.0",
+  "eventId": "ev_env_01JY7M001",
+  "eventType": "intervention.shown",
+  "eventVersion": 1,
+  "occurredAt": "2026-11-16T04:00:00.000Z",
+  "sessionId": "sess_demo_001",
+  "tenantId": "tenant_local_default",
+  "userId": "usr_local_owner",
+  "correlationId": "corr_speech_seg_004",
+  "causationId": "cand_004",
+  "producer": "cuex-runtime/intervention-controller",
+  "traceId": "trace_01JY7M001",
+  "privacyClass": "session",
+  "idempotencyKey": "idem_show_cand_004",
+  "payload": {
+    "interventionId": "int_004",
+    "level": "L2",
+    "title": "关键数据提示",
+    "cueText": "离线基准 6/6",
+    "evidenceIds": ["ev_fact_01"]
+  }
+}

@@ -1,4 +1,4 @@
-import type { AsrCallbacks, AsrEngine, AsrStream } from '../contracts';
+import type { AsrCallbacks, AsrEngine, AsrStream } from './types';
 import { findModelFile, loadSherpa, type SherpaOnlineRecognizer } from './sherpa';
 
 export interface LocalAsrOptions {

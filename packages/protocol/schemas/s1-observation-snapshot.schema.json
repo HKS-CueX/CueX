@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuex.ai/schemas/s1-observation-snapshot.v2.schema.json",
+  "title": "S1ObservationSnapshot",
+  "description": "Single-turn real System 1 calibrated decision head observation on the shared cognitive blackboard.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "turnSeq",
+    "observedAtMs",
+    "decisionType",
+    "selectedSlot",
+    "label",
+    "calibratedConfidence",
+    "margin",
+    "entropy",
+    "escalatedToS2",
+    "latencyMs",
+    "degraded",
+    "providerKind"
+  ],
+  "properties": {
+    "turnSeq": { "type": "integer", "minimum": 0 },
+    "observedAtMs": { "type": "number", "minimum": 0 },
+    "observedAt": { "type": "string", "format": "date-time" },
+    "decisionType": { "type": "string", "enum": ["noul", "choice", "score", "unknown"] },
+    "selectedSlot": { "type": "integer", "minimum": -1 },
+    "label": { "type": "string", "minLength": 1 },
+    "calibratedConfidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "margin": { "type": "number", "minimum": 0 },
+    "entropy": { "type": "number", "minimum": 0 },
+    "escalationReason": { "type": "string" },
+    "escalatedToS2": { "type": "boolean" },
+    "latencyMs": { "type": "number", "minimum": 0 },
+    "degraded": { "type": "boolean" },
+    "providerKind": { "type": "string", "enum": ["colab_jev", "local_jev", "local_rule_zero"] },
+    "model": { "type": "string" },
+    "promptFormat": { "type": "string", "enum": ["jev-v1", "jevstyle-v1", "chat", "rule_zero"] },
+    "calibrated": { "type": "boolean" },
+    "guidanceAppliedRevision": { "type": "integer", "minimum": 0 }
+  }
+}

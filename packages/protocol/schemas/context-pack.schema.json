@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuex.ai/schemas/context-pack.v2.schema.json",
+  "title": "ContextPack",
+  "description": "Domain-agnostic compiled context pack with verified evidence items.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "packId",
+    "schemaVersion",
+    "scenarioId",
+    "title",
+    "goal",
+    "constraints",
+    "forbiddenClaims",
+    "chapters",
+    "evidence",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "packId": { "type": "string", "minLength": 1 },
+    "schemaVersion": { "type": "integer", "const": 2 },
+    "tenantId": { "type": "string" },
+    "userId": { "type": "string" },
+    "scenarioId": {
+      "type": "string",
+      "enum": ["presentation", "social", "teaching", "sales", "custom"]
+    },
+    "title": { "type": "string", "minLength": 1 },
+    "description": { "type": "string" },
+    "goal": { "type": "string", "minLength": 1 },
+    "audience": { "type": "string" },
+    "targetDurationSec": { "type": "number", "exclusiveMinimum": 0 },
+    "constraints": { "type": "array", "items": { "type": "string" } },
+    "forbiddenClaims": { "type": "array", "items": { "type": "string" } },
+    "chapters": { "type": "array" },
+    "evidence": {
+      "type": "array",
+      "items": { "$ref": "https://cuex.ai/schemas/evidence.v2.schema.json" }
+    },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  }
+}

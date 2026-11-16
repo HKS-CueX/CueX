@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuex.ai/schemas/client-message.v2.schema.json",
+  "title": "ClientMessage",
+  "description": "Client-to-server WebSocket command frame with optional EventEnvelopeMeta and idempotency/correlation fields.",
+  "type": "object",
+  "required": ["type", "payload"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": [
+        "session.start",
+        "session.stop",
+        "session.pause",
+        "session.resume",
+        "session.silent",
+        "session.end",
+        "session.wipe",
+        "audio.chunk",
+        "speech.delta",
+        "chapter.set",
+        "intervention.request_help",
+        "intervention.dismiss",
+        "intervention.set_ceiling",
+        "intervention.feedback",
+        "rehearsal.start",
+        "view.mode",
+        "session.attach",
+        "ping"
+      ]
+    },
+    "payload": { "type": "object" },
+    "envelope": { "type": "object" },
+    "idempotencyKey": { "type": "string" },
+    "correlationId": { "type": "string" },
+    "clientSeq": { "type": "integer", "minimum": 0 }
+  }
+}

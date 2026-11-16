@@ -15,18 +15,13 @@ export interface SherpaOnlineRecognizer {
   reset(stream: SherpaOnlineStream): void;
   getResult(stream: SherpaOnlineStream): { text: string };
 }
-export interface SherpaOfflineTts {
-  /** Returning 0 from onProgress stops generation. */
-  generateAsync(request: { text: string; sid: number; speed: number; onProgress?: () => number }): Promise<{ samples: Float32Array; sampleRate: number }>;
-}
 export interface SherpaModule {
   OnlineRecognizer: new (config: object) => SherpaOnlineRecognizer;
-  OfflineTts: { createAsync(config: object): Promise<SherpaOfflineTts> };
 }
 
 let cached: SherpaModule | undefined;
 
-/** Loaded on first use, so a Mac that only runs Edge TTS never touches the native library. */
+/** Loaded lazily so environments in text-only ASR mode never load native libraries unnecessarily. */
 export function loadSherpa(): SherpaModule {
   if (!cached) {
     try {

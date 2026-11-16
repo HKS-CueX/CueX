@@ -1,0 +1,19 @@
+{
+  "ok": false,
+  "error": {
+    "code": "PAYMENT_NOT_CONFIGURED",
+    "message": "Live merchant checkout is disabled; preview sandbox mode is active.",
+    "httpStatus": 501,
+    "retryable": false,
+    "correlationId": "corr_checkout_001",
+    "requestId": "req_01JY7M002",
+    "timestamp": "2026-11-16T04:00:00.000Z",
+    "details": [
+      {
+        "path": "paymentChannel",
+        "message": "Production merchant credentials are not configured in this environment.",
+        "code": "sandbox_only"
+      }
+    ]
+  }
+}

@@ -1,0 +1,775 @@
+{
+  "schemaVersion": "cpa-llm-report.v2",
+  "validatedAt": "2026-11-15T23:29:37.171Z",
+  "startedAt": "2026-11-15T23:28:18.689Z",
+  "provider": "cpa:<redacted-host>",
+  "apiMode": "auto",
+  "models": {
+    "system1": "gemini-4-hydrogen",
+    "system1ReasoningEffort": "low",
+    "system2": "gemini-4-hydrogen",
+    "compiler": "gemini-4-hydrogen",
+    "reflection": "gemini-4-hydrogen"
+  },
+  "requestCount": 21,
+  "successCount": 18,
+  "errorCount": 3,
+  "inputTokens": 9034,
+  "outputTokens": 10277,
+  "reasoningTokens": 7126,
+  "cachedInputTokens": 0,
+  "p50LatencyMs": 2040,
+  "p95LatencyMs": 8203,
+  "timeoutCount": 1,
+  "retryCount": 1,
+  "health": {
+    "system1": {
+      "ok": true,
+      "detail": "CPA ready (cpa:<redacted-host>, model=gemini-4-hydrogen, endpoint=responses)",
+      "provider": "cpa:<redacted-host>",
+      "model": "gemini-4-hydrogen",
+      "degraded": false,
+      "lastHealthCheckAt": "2026-11-15T23:28:18.690Z"
+    },
+    "system2": {
+      "ok": true,
+      "detail": "CPA ready (cpa:<redacted-host>, model=gemini-4-hydrogen, endpoint=responses)",
+      "provider": "cpa:<redacted-host>",
+      "model": "gemini-4-hydrogen",
+      "degraded": false,
+      "lastHealthCheckAt": "2026-11-15T23:28:18.690Z"
+    }
+  },
+  "s1ModelBenchmark": {
+    "note": "Head-to-head live CPA benchmark comparing default gemini-4-hydrogen (reasoningEffort=low) vs optional fast override gemini-3.5-flash-lite across identical 6 S1 utterances.",
+    "models": {
+      "gemini-4-hydrogen": {
+        "model": "gemini-4-hydrogen",
+        "reasoningEffort": "low",
+        "passedCount": 6,
+        "totalCases": 6,
+        "accuracy": 1,
+        "p50LatencyMs": 4162,
+        "p95LatencyMs": 5309,
+        "avgLatencyMs": 3741,
+        "inputTokens": 3236,
+        "outputTokens": 1584,
+        "reasoningTokens": 1110,
+        "cases": {
+          "introGreetingQuiet": {
+            "passed": true,
+            "expected": "fluent / L0 (opening greeting must not trigger Q&A)",
+            "cognitiveState": "fluent",
+            "interventionNeed": "none",
+            "recommendedLevel": "L0",
+            "recoveryDetected": false,
+            "missingPointIds": [
+              "kp_intro_1",
+              "kp_intro_2"
+            ],
+            "latencyMs": 2040,
+            "usage": {
+              "inputTokens": 538,
+              "outputTokens": 64,
+              "cachedInputTokens": 0,
+              "reasoningTokens": 0,
+              "modelCalls": 1,
+              "retries": 0,
+              "usageSource": "provider_reported",
+              "degraded": false,
+              "costFen": 0,
+              "provider": "cpa:<redacted-host>",
+              "model": "gemini-4-hydrogen"
+            }
+          },
+          "fluentQuiet": {
+            "passed": true,
+            "expected": "fluent / L0",
+            "cognitiveState": "fluent",
+            "interventionNeed": "none",
+            "recommendedLevel": "L0",
+            "recoveryDetected": false,
+            "missingPointIds": [],
+            "latencyMs": 1893,
+            "usage": {
+              "inputTokens": 559,
+              "outputTokens": 82,
+              "cachedInputTokens": 0,
+              "reasoningTokens": 0,
+              "modelCalls": 1,
+              "retries": 0,
+              "usageSource": "provider_reported",
+              "degraded": false,
+              "costFen": 0,
+              "provider": "cpa:<redacted-host>",
+              "model": "gemini-4-hydrogen"
+            }
+          },
+          "omissionTrigger": {
+            "passed": true,
+            "expected": "omitting_key_point / trigger_l1|trigger_l2",
+            "cognitiveState": "omitting_key_point",
+            "interventionNeed": "trigger_l1",
+            "recommendedLevel": "L1",
+            "recoveryDetected": false,
+            "missingPointIds": [
+              "kp_arch_2"
+            ],
+            "latencyMs": 4717,
+            "usage": {
+              "inputTokens": 550,
+              "outputTokens": 324,
+              "cachedInputTokens": 0,
+              "reasoningTokens": 235,
+              "modelCalls": 1,
+              "retries": 0,
+              "usageSource": "provider_reported",
+              "degraded": false,
+              "costFen": 0,
+              "provider": "cpa:<redacted-host>",
+              "model": "gemini-4-hydrogen"
+            }
+          },
+          "recoveryWithdraw": {
+            "passed": true,
+            "expected": "recovering / withdraw_active / L0",
+            "cognitiveState": "recovering",
+            "interventionNeed": "withdraw_active",
+            "recommendedLevel": "L0",
+            "recoveryDetected": true,
+            "missingPointIds": [],
+            "latencyMs": 4162,
+            "usage": {
+              "inputTokens": 567,
+              "outputTokens": 243,
+              "cachedInputTokens": 0,
+              "reasoningTokens": 159,
+              "modelCalls": 1,
+              "retries": 0,
+              "usageSource": "provider_reported",
+              "degraded": false,
+              "costFen": 0,
+              "provider": "cpa:<redacted-host>",
+              "model": "gemini-4-hydrogen"
+            }
+          },
+          "pauseWithoutGapQuiet": {
+            "passed": true,
+            "expected": "L0 (intentional pause without semantic gap must stay silent)",
+            "cognitiveState": "fluent",
+            "interventionNeed": "none",
+            "recommendedLevel": "L0",
+            "recoveryDetected": false,
+            "missingPointIds": [],
+            "latencyMs": 4325,
+            "usage": {
+              "inputTokens": 499,
+              "outputTokens": 345,
+              "cachedInputTokens": 0,
+              "reasoningTokens": 271,
+              "modelCalls": 1,
+              "retries": 0,
+              "usageSource": "provider_reported",
+              "degraded": false,
+              "costFen": 0,
+              "provider": "cpa:<redacted-host>",
+              "model": "gemini-4-hydrogen"
+            }
+          },
+          "qaDetect": {
+            "passed": true,
+            "expected": "answering_question / trigger_l2 / L2",
+            "cognitiveState": "answering_question",
+            "interventionNeed": "trigger_l2",
+            "recommendedLevel": "L2",
+            "recoveryDetected": false,
+            "missingPointIds": [
+              "kp_qa_1"
+            ],
+            "latencyMs": 5309,
+            "usage": {
+              "inputTokens": 523,
+              "outputTokens": 526,
+              "cachedInputTokens": 0,
+              "reasoningTokens": 445,
+              "modelCalls": 1,
+              "retries": 0,
+              "usageSource": "provider_reported",
+              "degraded": false,
+              "costFen": 0,
+              "provider": "cpa:<redacted-host>",
+              "model": "gemini-4-hydrogen"
+            }
+          }
+        }
+      },
+      "gemini-3.5-flash-lite": {
+        "model": "gemini-3.5-flash-lite",
+        "reasoningEffort": "provider_default",
+        "passedCount": 4,
+        "totalCases": 6,
+        "accuracy": 0.6667,
+        "p50LatencyMs": 1511,
+        "p95LatencyMs": 1638,
+        "avgLatencyMs": 1521,
+        "inputTokens": 3130,
+        "outputTokens": 782,
+        "reasoningTokens": 0,
+        "cases": {
+          "introGreetingQuiet": {
+            "passed": true,
+            "expected": "fluent / L0 (opening greeting must not trigger Q&A)",
+            "cognitiveState": "fluent",
+            "interventionNeed": "none",
+            "recommendedLevel": "L0",
+            "recoveryDetected": false,
+            "missingPointIds": [
+              "kp_intro_1",
+              "kp_intro_2"
+            ],
+            "latencyMs": 1450,
+            "usage": {
+              "inputTokens": 519,
+              "outputTokens": 106,
+              "cachedInputTokens": 0,
+              "reasoningTokens": 0,
+              "modelCalls": 1,
+              "retries": 0,
+              "usageSource": "provider_reported",
+              "degraded": false,
+              "costFen": 0,
+              "provider": "cpa:<redacted-host>",
+              "model": "gemini-3.5-flash-lite"
+            }
+          },
+          "fluentQuiet": {
+            "passed": true,
+            "expected": "fluent / L0",
+            "cognitiveState": "fluent",
+            "interventionNeed": "none",
+            "recommendedLevel": "L0",
+            "recoveryDetected": false,
+            "missingPointIds": [],
+            "latencyMs": 1534,
+            "usage": {
+              "inputTokens": 540,
+              "outputTokens": 150,
+              "cachedInputTokens": 0,
+              "reasoningTokens": 0,
+              "modelCalls": 1,
+              "retries": 0,
+              "usageSource": "provider_reported",
+              "degraded": false,
+              "costFen": 0,
+              "provider": "cpa:<redacted-host>",
+              "model": "gemini-3.5-flash-lite"
+            }
+          },
+          "omissionTrigger": {
+            "passed": false,
+            "expected": "omitting_key_point / trigger_l1|trigger_l2",
+            "cognitiveState": "drifting",
+            "interventionNeed": "trigger_l1",
+            "recommendedLevel": "L1",
+            "recoveryDetected": false,
+            "missingPointIds": [
+              "kp_arch_2"
+            ],
+            "latencyMs": 1357,
+            "usage": {
+              "inputTokens": 534,
+              "outputTokens": 152,
+              "cachedInputTokens": 0,
+              "reasoningTokens": 0,
+              "modelCalls": 1,
+              "retries": 0,
+              "usageSource": "provider_reported",
+              "degraded": false,
+              "costFen": 0,
+              "provider": "cpa:<redacted-host>",
+              "model": "gemini-3.5-flash-lite"
+            }
+          },
+          "recoveryWithdraw": {
+            "passed": true,
+            "expected": "recovering / withdraw_active / L0",
+            "cognitiveState": "recovering",
+            "interventionNeed": "withdraw_active",
+            "recommendedLevel": "L0",
+            "recoveryDetected": true,
+            "missingPointIds": [],
+            "latencyMs": 1511,
+            "usage": {
+              "inputTokens": 553,
+              "outputTokens": 122,
+              "cachedInputTokens": 0,
+              "reasoningTokens": 0,
+              "modelCalls": 1,
+              "retries": 0,
+              "usageSource": "provider_reported",
+              "degraded": false,
+              "costFen": 0,
+              "provider": "cpa:<redacted-host>",
+              "model": "gemini-3.5-flash-lite"
+            }
+          },
+          "pauseWithoutGapQuiet": {
+            "passed": true,
+            "expected": "L0 (intentional pause without semantic gap must stay silent)",
+            "cognitiveState": "fluent",
+            "interventionNeed": "none",
+            "recommendedLevel": "L0",
+            "recoveryDetected": false,
+            "missingPointIds": [],
+            "latencyMs": 1636,
+            "usage": {
+              "inputTokens": 480,
+              "outputTokens": 117,
+              "cachedInputTokens": 0,
+              "reasoningTokens": 0,
+              "modelCalls": 1,
+              "retries": 0,
+              "usageSource": "provider_reported",
+              "degraded": false,
+              "costFen": 0,
+              "provider": "cpa:<redacted-host>",
+              "model": "gemini-3.5-flash-lite"
+            }
+          },
+          "qaDetect": {
+            "passed": false,
+            "expected": "answering_question / trigger_l2 / L2",
+            "cognitiveState": "answering_question",
+            "interventionNeed": "trigger_l1",
+            "recommendedLevel": "L1",
+            "recoveryDetected": false,
+            "missingPointIds": [
+              "kp_qa_1"
+            ],
+            "latencyMs": 1638,
+            "usage": {
+              "inputTokens": 504,
+              "outputTokens": 135,
+              "cachedInputTokens": 0,
+              "reasoningTokens": 0,
+              "modelCalls": 1,
+              "retries": 0,
+              "usageSource": "provider_reported",
+              "degraded": false,
+              "costFen": 0,
+              "provider": "cpa:<redacted-host>",
+              "model": "gemini-3.5-flash-lite"
+            }
+          }
+        }
+      }
+    }
+  },
+  "system1Checks": {
+    "introGreetingQuiet": {
+      "cognitiveState": "fluent",
+      "interventionNeed": "none",
+      "recommendedLevel": "L0",
+      "latencyMs": 2040,
+      "usage": {
+        "inputTokens": 538,
+        "outputTokens": 64,
+        "cachedInputTokens": 0,
+        "reasoningTokens": 0,
+        "modelCalls": 1,
+        "retries": 0,
+        "usageSource": "provider_reported",
+        "degraded": false,
+        "costFen": 0,
+        "provider": "cpa:<redacted-host>",
+        "model": "gemini-4-hydrogen"
+      }
+    },
+    "fluentQuiet": {
+      "cognitiveState": "fluent",
+      "interventionNeed": "none",
+      "recommendedLevel": "L0",
+      "latencyMs": 1893,
+      "usage": {
+        "inputTokens": 559,
+        "outputTokens": 82,
+        "cachedInputTokens": 0,
+        "reasoningTokens": 0,
+        "modelCalls": 1,
+        "retries": 0,
+        "usageSource": "provider_reported",
+        "degraded": false,
+        "costFen": 0,
+        "provider": "cpa:<redacted-host>",
+        "model": "gemini-4-hydrogen"
+      }
+    },
+    "omissionTrigger": {
+      "cognitiveState": "omitting_key_point",
+      "interventionNeed": "trigger_l1",
+      "recommendedLevel": "L1",
+      "missingPointIds": [
+        "kp_arch_2"
+      ],
+      "latencyMs": 4717,
+      "usage": {
+        "inputTokens": 550,
+        "outputTokens": 324,
+        "cachedInputTokens": 0,
+        "reasoningTokens": 235,
+        "modelCalls": 1,
+        "retries": 0,
+        "usageSource": "provider_reported",
+        "degraded": false,
+        "costFen": 0,
+        "provider": "cpa:<redacted-host>",
+        "model": "gemini-4-hydrogen"
+      }
+    },
+    "recoveryWithdraw": {
+      "cognitiveState": "recovering",
+      "interventionNeed": "withdraw_active",
+      "recoveryDetected": true,
+      "latencyMs": 4162,
+      "usage": {
+        "inputTokens": 567,
+        "outputTokens": 243,
+        "cachedInputTokens": 0,
+        "reasoningTokens": 159,
+        "modelCalls": 1,
+        "retries": 0,
+        "usageSource": "provider_reported",
+        "degraded": false,
+        "costFen": 0,
+        "provider": "cpa:<redacted-host>",
+        "model": "gemini-4-hydrogen"
+      }
+    },
+    "pauseWithoutGapQuiet": {
+      "cognitiveState": "fluent",
+      "interventionNeed": "none",
+      "recommendedLevel": "L0",
+      "latencyMs": 4325,
+      "usage": {
+        "inputTokens": 499,
+        "outputTokens": 345,
+        "cachedInputTokens": 0,
+        "reasoningTokens": 271,
+        "modelCalls": 1,
+        "retries": 0,
+        "usageSource": "provider_reported",
+        "degraded": false,
+        "costFen": 0,
+        "provider": "cpa:<redacted-host>",
+        "model": "gemini-4-hydrogen"
+      }
+    },
+    "qaDetect": {
+      "cognitiveState": "answering_question",
+      "interventionNeed": "trigger_l2",
+      "recommendedLevel": "L2",
+      "latencyMs": 5309,
+      "usage": {
+        "inputTokens": 523,
+        "outputTokens": 526,
+        "cachedInputTokens": 0,
+        "reasoningTokens": 445,
+        "modelCalls": 1,
+        "retries": 0,
+        "usageSource": "provider_reported",
+        "degraded": false,
+        "costFen": 0,
+        "provider": "cpa:<redacted-host>",
+        "model": "gemini-4-hydrogen"
+      }
+    }
+  },
+  "system2Checks": {
+    "groundedQa": {
+      "status": "synthesized",
+      "grounded": true,
+      "evidenceIds": [
+        "ev_sample_7"
+      ],
+      "title": "低打扰量化：V = H - λI",
+      "cueText": "我们用净效用公式 V = H - λI 量化，默认 λ = 2，一次多余打扰至少抵消两次有效提示。",
+      "latencyMs": 7168,
+      "usage": {
+        "inputTokens": 460,
+        "outputTokens": 1273,
+        "cachedInputTokens": 0,
+        "reasoningTokens": 1127,
+        "modelCalls": 1,
+        "retries": 0,
+        "usageSource": "provider_reported",
+        "degraded": false,
+        "costFen": 0,
+        "provider": "cpa:<redacted-host>",
+        "model": "gemini-4-hydrogen"
+      }
+    },
+    "ungroundedQaGap": {
+      "status": "insufficient_evidence",
+      "grounded": false,
+      "evidenceIds": [],
+      "candidateKind": "missing_evidence_notice",
+      "cueText": "资料库未覆盖该数据，请坦诚说明暂无已核验记录。",
+      "latencyMs": 5470,
+      "usage": {
+        "inputTokens": 392,
+        "outputTokens": 865,
+        "cachedInputTokens": 0,
+        "reasoningTokens": 708,
+        "modelCalls": 1,
+        "retries": 0,
+        "usageSource": "provider_reported",
+        "degraded": false,
+        "costFen": 0,
+        "provider": "cpa:<redacted-host>",
+        "model": "gemini-4-hydrogen"
+      }
+    }
+  },
+  "compilerCheck": {
+    "cpaUsed": true,
+    "compiledBy": "llm_compiler",
+    "factsCount": 23,
+    "qaCardsCount": 6,
+    "latencyMs": 13367,
+    "usage": {
+      "inputTokens": 750,
+      "outputTokens": 2179,
+      "cachedInputTokens": 0,
+      "reasoningTokens": 894,
+      "modelCalls": 1,
+      "retries": 0,
+      "usageSource": "provider_reported",
+      "degraded": false,
+      "costFen": 0,
+      "provider": "cpa:<redacted-host>",
+      "model": "gemini-4-hydrogen"
+    }
+  },
+  "reflectionCheck": {
+    "cpaUsed": true,
+    "utilityPreserved": true,
+    "utilityFormula": "V = H - λI",
+    "overallSummary": "本次演练覆盖率为0，共遗漏10项要点（涵盖CueX定位、System 1与System 2机制、干预控制及订阅模式等）。演练中超时章节、未答问题、跑偏及自动撤回次数均为0；在λ=2设定下，有用与干扰提示各0次，效用得分0。建议优先补全核心要点。（V = 0）",
+    "latencyMs": 6509,
+    "usage": {
+      "inputTokens": 302,
+      "outputTokens": 1272,
+      "cachedInputTokens": 0,
+      "reasoningTokens": 1180,
+      "modelCalls": 1,
+      "retries": 0,
+      "usageSource": "provider_reported",
+      "degraded": false,
+      "costFen": 0,
+      "provider": "cpa:<redacted-host>",
+      "model": "gemini-4-hydrogen"
+    }
+  },
+  "liveMatrixChecks": {
+    "streamingCompletion": {
+      "passed": true,
+      "model": "gemini-4-hydrogen",
+      "endpoint": "responses",
+      "firstTokenLatencyMs": 5195,
+      "totalLatencyMs": 5270,
+      "chunkCount": 2,
+      "deltaCount": 2,
+      "excerpt": "CueX 净效用机制采用 V = H - λI，默认 λ=2。",
+      "usage": {
+        "inputTokens": 85,
+        "outputTokens": 659,
+        "cachedInputTokens": 0,
+        "reasoningTokens": 636,
+        "totalTokens": 744,
+        "usageReported": true
+      }
+    },
+    "longContextPack": {
+      "passed": true,
+      "chaptersCount": 5,
+      "factsCount": 23,
+      "evidenceCount": 23,
+      "s2Status": "synthesized",
+      "s2Grounded": true,
+      "s2EvidenceIds": [
+        "ev_3",
+        "ev_15",
+        "ev_16"
+      ],
+      "s2LatencyMs": 8203,
+      "usage": {
+        "inputTokens": 679,
+        "outputTokens": 1663,
+        "cachedInputTokens": 0,
+        "reasoningTokens": 1471,
+        "modelCalls": 1,
+        "retries": 0,
+        "usageSource": "provider_reported",
+        "degraded": false,
+        "costFen": 0,
+        "provider": "cpa:<redacted-host>",
+        "model": "gemini-4-hydrogen"
+      }
+    },
+    "invalidModelId": {
+      "passed": true,
+      "error": "[PROVIDER_UNAVAILABLE] CPA HTTP 400: unknown provider for model cuex-nonexistent-model-validation-404"
+    },
+    "timeoutAndAbort": {
+      "passed": true,
+      "timeoutElapsedMs": 254,
+      "degraded": true,
+      "usageSource": "local_rule_zero",
+      "status": "insufficient_evidence",
+      "cueText": "资料库未覆盖该数据，请坦诚说明暂无已核验记录。",
+      "abortElapsedMs": 62,
+      "abortError": "Explicit caller abort signal"
+    }
+  },
+  "mockContractMatrix": {
+    "isolatedFromLiveTelemetry": true,
+    "auth401And403": {
+      "passed": true,
+      "attempts401": 1,
+      "attempts403": 1,
+      "secretRedacted": true,
+      "failFastNoRetry": true
+    },
+    "rateLimit429Retry": {
+      "passed": true,
+      "attempts": 2,
+      "retries": 1,
+      "recovered": true
+    },
+    "upstream503CircuitAndFallback": {
+      "passed": true,
+      "attemptsObserved": 4,
+      "circuitOpened": true,
+      "fallbackUsageSource": "local_rule_zero",
+      "fallbackDegraded": true
+    },
+    "malformedResponse": {
+      "passed": true,
+      "error": "[PROVIDER_UNAVAILABLE] CPA HTTP 200 non-JSON response"
+    },
+    "staleContextVersionAndIdempotency": {
+      "passed": true,
+      "staleRejectionReason": "stale_context_version",
+      "firstShowAction": "show_l2_keyword",
+      "duplicateSuppressionAction": "stay_silent"
+    },
+    "providerUnreportedAttribution": {
+      "passed": true,
+      "usageSource": "provider_unreported",
+      "inputTokens": 0,
+      "outputTokens": 0
+    }
+  },
+  "aggregatedTelemetry": {
+    "sessionId": "sess_cpa_live_validation",
+    "updatedAt": "2026-11-15T23:28:26.190Z",
+    "usageSource": "provider_reported",
+    "inputTokens": 5904,
+    "outputTokens": 9495,
+    "cachedInputTokens": 0,
+    "reasoningTokens": 7126,
+    "totalTokens": 15399,
+    "modelCalls": 12,
+    "retries": 0,
+    "localRuleEvaluations": 0,
+    "latencyMs": 5270,
+    "latencyStats": {
+      "avgMs": 5703,
+      "p95Ms": 13367,
+      "maxMs": 13367
+    },
+    "degraded": false,
+    "usingLocalFallback": false,
+    "asrProvider": "text_only_offline",
+    "asrDurationMs": 0,
+    "costFen": 0,
+    "cost": {
+      "amountFen": 0,
+      "currency": "CNY"
+    },
+    "estimation": {
+      "isEstimated": false,
+      "source": "provider_reported",
+      "usingLocalFallback": false,
+      "notes": "Exact provider-reported tokens for model calls; 0 tokens for deterministic local rule steps."
+    },
+    "byTier": {
+      "system1": {
+        "tier": "system1",
+        "provider": "cpa:<redacted-host>",
+        "model": "gemini-4-hydrogen",
+        "calls": 6,
+        "retries": 0,
+        "inputTokens": 3236,
+        "outputTokens": 1584,
+        "cachedInputTokens": 0,
+        "reasoningTokens": 1110,
+        "latencyMsTotal": 22446,
+        "latencyMsAvg": 3741,
+        "usageSource": "provider_reported",
+        "degraded": false,
+        "costFen": 0
+      },
+      "system2": {
+        "tier": "system2",
+        "provider": "cpa:<redacted-host>",
+        "model": "gemini-4-hydrogen",
+        "calls": 4,
+        "retries": 0,
+        "inputTokens": 1616,
+        "outputTokens": 4460,
+        "cachedInputTokens": 0,
+        "reasoningTokens": 3942,
+        "latencyMsTotal": 26111,
+        "latencyMsAvg": 6528,
+        "usageSource": "provider_reported",
+        "degraded": false,
+        "costFen": 0
+      },
+      "compiler": {
+        "tier": "compiler",
+        "provider": "cpa:<redacted-host>",
+        "model": "gemini-4-hydrogen",
+        "calls": 1,
+        "retries": 0,
+        "inputTokens": 750,
+        "outputTokens": 2179,
+        "cachedInputTokens": 0,
+        "reasoningTokens": 894,
+        "latencyMsTotal": 13367,
+        "latencyMsAvg": 13367,
+        "usageSource": "provider_reported",
+        "degraded": false,
+        "costFen": 0
+      },
+      "reflection": {
+        "tier": "reflection",
+        "provider": "cpa:<redacted-host>",
+        "model": "gemini-4-hydrogen",
+        "calls": 1,
+        "retries": 0,
+        "inputTokens": 302,
+        "outputTokens": 1272,
+        "cachedInputTokens": 0,
+        "reasoningTokens": 1180,
+        "latencyMsTotal": 6509,
+        "latencyMsAvg": 6509,
+        "usageSource": "provider_reported",
+        "degraded": false,
+        "costFen": 0
+      }
+    },
+    "lastSystem1LatencyMs": 5309,
+    "lastSystem2LatencyMs": 5270
+  }
+}

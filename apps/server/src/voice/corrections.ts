@@ -1,4 +1,4 @@
-import type { AsrCorrection } from '../contracts';
+import type { AsrCorrection } from './types';
 
 interface Rule {
   regex: RegExp;
@@ -13,7 +13,6 @@ function compile(corrections: readonly AsrCorrection[]): Rule[] {
     try {
       rules.push({ regex: new RegExp(pattern, 'g'), replacement });
     } catch (error) {
-      // A typo in the table must not take the microphone down. test/voice-asr-corrections.test.ts guards the shipped table.
       console.warn(`[voice] ignoring invalid ASR correction ${JSON.stringify(pattern)}: ${(error as Error).message}`);
     }
   }
@@ -21,9 +20,8 @@ function compile(corrections: readonly AsrCorrection[]): Rule[] {
 }
 
 /**
- * Rewrite known misrecognitions in rep ASR text, for example 克瑞三十到六十 to eGFR 30到60.
- * Rules run in table order, each on the output of the one before. Call it on partials and finals alike.
- * Keep this module free of heavy imports: the gateway loads it even in fake mode.
+ * Rewrite known technical/term misrecognitions in live speech transcripts, e.g. Q系/kill x -> CueX.
+ * Rules run in table order on partials and finals alike without blocking the event loop.
  */
 export function correctAsrText(text: string, corrections?: readonly AsrCorrection[]): string {
   if (!text || !corrections?.length) return text;

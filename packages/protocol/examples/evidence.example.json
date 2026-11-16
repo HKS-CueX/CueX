@@ -1,0 +1,22 @@
+{
+  "id": "ev_fact_01",
+  "schemaVersion": 2,
+  "text": "本地离线 6 例确定性评测通过率为 6/6，平均控制器决策延迟 0.69ms。",
+  "source": "CueX 演示资料包 · 第 3 页",
+  "sourceType": "compiler_extracted",
+  "sourceDocumentId": "doc_cuex_pitch_v1",
+  "locationRef": "slide:3#bullet-2",
+  "contentHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "title": "离线评测实测指标",
+  "tags": ["eval", "latency"],
+  "timestamp": "2026-11-16T04:00:00.000Z",
+  "createdAt": "2026-11-16T04:00:00.000Z",
+  "updatedAt": "2026-11-16T04:00:00.000Z",
+  "confidence": 0.98,
+  "scope": "document",
+  "privacyLevel": "session",
+  "userConfirmed": true,
+  "verified": true,
+  "locked": true,
+  "lifecycle": "active"
+}

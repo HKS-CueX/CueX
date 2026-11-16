@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>CueX Business Model Canvas — 9-Block Canonical &amp; HKS 8-Field Mapping</title>
+<style>
+  @font-face {
+    font-family: 'CueXDisplay';
+    src: url('../../../../../assets/fonts/InstrumentSerif-Regular.ttf') format('truetype');
+    font-weight: 400;
+  }
+  @font-face {
+    font-family: 'CueXCJKSerif';
+    src: url('../../../../../assets/fonts/NotoSerifSC-VF.ttf') format('truetype');
+    font-weight: 200 900;
+  }
+  @font-face {
+    font-family: 'CueXCJK';
+    src: url('../../../../../assets/fonts/NotoSansSC-VF.ttf') format('truetype');
+    font-weight: 100 900;
+  }
+  @font-face {
+    font-family: 'CueXSans';
+    src: url('../../../../../assets/fonts/Inter-VF.ttf') format('truetype');
+    font-weight: 100 900;
+  }
+  @font-face {
+    font-family: 'CueXMono';
+    src: url('../../../../../assets/fonts/JetBrainsMono-VF.ttf') format('truetype');
+    font-weight: 100 800;
+  }
+
+  * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
+  .tabular { font-variant-numeric: tabular-nums; }
+
+  @page { size: 297mm 210mm; margin: 0; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 297mm;
+    background: #F8F7F3;
+    color: #111318;
+    font-family: 'CueXSans', 'CueXCJK', 'PingFang SC', sans-serif;
+  }
+
+  .page {
+    position: relative;
+    width: 297mm;
+    height: 209.5mm;
+    padding: 8.5mm 11mm 7.5mm 11mm;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+    page-break-after: always;
+    background: #F8F7F3;
+  }
+  .page:last-child { page-break-after: auto; }
+
+  .topbar {
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 4px;
+    background: linear-gradient(90deg, #FF7A2F, #7C3AED);
+  }
+
+  .hdr {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-bottom: 1.5px solid #111318;
+    padding-bottom: 5px;
+    gap: 12px;
+  }
+  .hdr-title {
+    margin: 0;
+    font-family: 'CueXCJKSerif', serif;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+  }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2.5px 8px;
+    border-radius: 999px;
+    font-family: 'CueXMono', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .pill-warm { background: #FDF5EE; border: 1px solid rgba(232,122,36,0.38); color: #B45309; }
+  .pill-violet { background: #F4F1FC; border: 1px solid rgba(124,58,237,0.35); color: #6D28D9; }
+  .pill-sage { background: #EEF6F2; border: 1px solid rgba(36,106,77,0.35); color: #246A4D; }
+  .pill-neutral { background: #F2EFE8; border: 1px solid #D9D6CE; color: #555863; }
+
+  .context-strip {
+    display: grid;
+    grid-template-columns: 1.05fr 1fr 1.1fr 0.85fr;
+    gap: 6px;
+    margin: 5px 0;
+  }
+  .ctx-box {
+    background: #FFFFFF;
+    border: 1px solid #D9D6CE;
+    border-radius: 6px;
+    padding: 5px 8px;
+  }
+  .ctx-lbl {
+    font-family: 'CueXMono', monospace;
+    font-size: 8.5px;
+    font-weight: 700;
+    color: #555863;
+    letter-spacing: 0.04em;
+    margin-bottom: 2px;
+    display: flex;
+    justify-content: space-between;
+  }
+  .ctx-txt {
+    font-size: 9.2px;
+    line-height: 1.38;
+    color: #111318;
+  }
+
+  /* Classic Osterwalder 5-Column Top + 2-Column Bottom */
+  .bmc-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 0;
+  }
+  .bmc-top {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 0.92fr 0.96fr 1.18fr 0.96fr 0.98fr;
+    gap: 6px;
+    min-height: 0;
+  }
+  .bmc-col-split {
+    display: grid;
+    grid-template-rows: 1fr 1fr;
+    gap: 6px;
+    min-height: 0;
+  }
+  .bmc-bottom {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    height: 36.5mm;
+  }
+
+  .block {
+    background: #FFFFFF;
+    border: 1px solid #D9D6CE;
+    border-radius: 7px;
+    padding: 6px 8.5px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .block-focal {
+    background: linear-gradient(180deg, #FFFDF9 0%, #FFFFFF 100%);
+    border: 1.4px solid rgba(232,122,36,0.55);
+  }
+  .block-hdr {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #EAE6DC;
+    padding-bottom: 3px;
+    margin-bottom: 4px;
+    gap: 4px;
+  }
+  .block-title {
+    font-size: 10.4px;
+    font-weight: 800;
+    color: #111318;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+  }
+  .bno {
+    font-family: 'CueXMono', monospace;
+    font-size: 8.8px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: #F2EFE8;
+    color: #111318;
+    border: 1px solid #D9D6CE;
+  }
+  .btag {
+    font-family: 'CueXMono', monospace;
+    font-size: 8px;
+    color: #6B6E78;
+    white-space: nowrap;
+  }
+  .block ul {
+    margin: 0;
+    padding-left: 13px;
+    font-size: 9.2px;
+    line-height: 1.4;
+    color: #1D2028;
+  }
+  .block li { margin-bottom: 2.5px; }
+  .block li:last-child { margin-bottom: 0; }
+
+  .kpi-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 5px;
+    margin-top: 4px;
+  }
+  .kpi {
+    background: #F8F7F3;
+    border: 1px solid #E3DFD5;
+    border-radius: 5px;
+    padding: 3.5px 6px;
+  }
+  .kpi-k { font-size: 8px; color: #555863; }
+  .kpi-v { font-family: 'CueXMono', monospace; font-size: 10.5px; font-weight: 800; color: #111318; margin-top: 1px; }
+
+  /* Page 2 Layout */
+  .p2-top {
+    display: grid;
+    grid-template-columns: 0.95fr 1.25fr;
+    gap: 7px;
+    margin: 6px 0;
+  }
+  .card {
+    background: #FFFFFF;
+    border: 1px solid #D9D6CE;
+    border-radius: 7px;
+    padding: 7px 10px;
+  }
+  .card-title {
+    font-size: 11px;
+    font-weight: 800;
+    border-bottom: 1px solid #EAE6DC;
+    padding-bottom: 3.5px;
+    margin-bottom: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .sep-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 5px;
+  }
+  .sep-box {
+    background: #F8F7F3;
+    border: 1px solid #E3DFD5;
+    border-radius: 5px;
+    padding: 5px 7px;
+    font-size: 8.9px;
+    line-height: 1.38;
+  }
+  .sep-box-slot {
+    background: #F4F1FC;
+    border: 1px dashed #7C3AED;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 8.9px;
+    line-height: 1.35;
+  }
+  th, td {
+    border: 1px solid #DEDAD0;
+    padding: 4px 6.5px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: #F2EFE8;
+    font-weight: 800;
+    color: #111318;
+    font-size: 8.8px;
+  }
+  tr:nth-child(even) td { background: #FCFBFA; }
+
+  .ftr {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid #D9D6CE;
+    padding-top: 4px;
+    font-size: 8.8px;
+    color: #555863;
+  }
+  code {
+    font-family: 'CueXMono', monospace;
+    font-size: 8.4px;
+    background: #F2EFE8;
+    padding: 0.5px 3px;
+    border-radius: 3px;
+  }
+</style>
+</head>
+<body>
+
+<!-- ==================== PAGE 1: CANONICAL 9-BLOCK BMC ==================== -->
+<section class="page">
+  <div class="topbar"></div>
+
+  <header class="hdr">
+    <div style="display:flex; align-items:center; gap:9px;">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" style="width:26px; height:26px; flex-shrink:0;" fill="none">
+        <defs>
+          <linearGradient id="amber1" x1="22" y1="12" x2="139" y2="144" gradientUnits="userSpaceOnUse"><stop stop-color="#FFD6A1"/><stop offset=".22" stop-color="#FF9A4A"/><stop offset=".56" stop-color="#FF7A2F"/><stop offset="1" stop-color="#BF3F14"/></linearGradient>
+          <linearGradient id="violet1" x1="136" y1="14" x2="20" y2="146" gradientUnits="userSpaceOnUse"><stop stop-color="#E0DFFF"/><stop offset=".24" stop-color="#B5B3FF"/><stop offset=".6" stop-color="#8E8CFF"/><stop offset="1" stop-color="#5754BA"/></linearGradient>
+        </defs>
+        <path d="M27 21 142 143" stroke="#8D3817" stroke-width="17" stroke-linecap="round"/>
+        <path d="M20 13 135 135" stroke="url(#amber1)" stroke-width="17" stroke-linecap="round"/>
+        <path d="M142 21 27 143" stroke="#494687" stroke-width="17" stroke-linecap="round"/>
+        <path d="M135 13 20 135" stroke="url(#violet1)" stroke-width="17" stroke-linecap="round"/>
+      </svg>
+      <div>
+        <div style="font-family:'CueXMono',monospace; font-size:8.6px; font-weight:700; color:#7C3AED; letter-spacing:0.06em;">
+          CANONICAL 9-BLOCK OSTERWALDER BMC · HKS 2026 OPC 创新赛道
+        </div>
+        <h1 class="hdr-title" style="font-size:18.5px; white-space:nowrap;">CueX 商业模式画布：通用实时认知外挂 × Presentation</h1>
+      </div>
+    </div>
+    <div style="display:flex; gap:5px; align-items:center; flex-wrap:nowrap; justify-content:flex-end;">
+      <span class="pill pill-warm">已实现闭环: CueX Presentation</span>
+      <span class="pill pill-violet">Phase 4 Verified · E2E Telemetry Locked</span>
+      <span class="pill pill-neutral">团队: 记性好了一点</span>
+    </div>
+  </header>
+
+  <!-- ICP / Problem / JTBD / Scope Guard Strip -->
+  <div class="context-strip">
+    <div class="ctx-box" style="border-left:3px solid #E87A24;">
+      <div class="ctx-lbl"><span>PRIMARY ICP (P1→P2→P3)</span><span>[商业假设]</span></div>
+      <div class="ctx-txt"><strong>P1</strong> OPC 一人公司/路演创始人 → <strong>P2</strong> 硕博毕业答辩 → <strong>P3</strong> 职业讲师/架构师。种子验证队列：<code>20–30 → 30–50 人</code>。</div>
+    </div>
+    <div class="ctx-box" style="border-left:3px solid #C94A2A;">
+      <div class="ctx-lbl"><span>CORE PROBLEM (核心痛点)</span><span>[市场诊断]</span></div>
+      <div class="ctx-txt">传统提词器遇 Q&amp;A 即死机；重型 Copilot 吐长文霸屏致眼神断联且易瞎编数字；会后纪要不管台上 3 秒救场。</div>
+    </div>
+    <div class="ctx-box" style="border-left:3px solid #7C3AED;">
+      <div class="ctx-lbl"><span>JTBD (核心待办任务)</span><span>[阶段闭环]</span></div>
+      <div class="ctx-txt"><strong>台前</strong> 10 分钟锁实证口径；<strong>台上</strong> 顺畅零打扰，卡壳/偏航 1–3s 给 2–6 字锚点即自动撤回；<strong>台后</strong> 经审批沉淀习惯。</div>
+    </div>
+    <div class="ctx-box" style="border-left:3px solid #246A4D;">
+      <div class="ctx-lbl"><span>SCOPE BOUNDARY</span><span>[工程诚实]</span></div>
+      <div class="ctx-txt"><strong>当前落地</strong>：<code>CueX Presentation</code>；<strong>路线图</strong> [Planned]：<code>Social / Teaching / Sales / Custom</code> 与 <code>Team</code> 版。</div>
+    </div>
+  </div>
+
+  <!-- 9 Canonical Blocks -->
+  <div class="bmc-wrap">
+    <div class="bmc-top">
+      <!-- 8. Key Partnerships -->
+      <div class="block" style="border-top:2.5px solid #555863;">
+        <div class="block-hdr">
+          <div class="block-title"><span class="bno">8</span> 关键伙伴</div>
+          <span class="btag">Key Partnerships</span>
+        </div>
+        <ul>
+          <li><strong>语音识别底层</strong>：商用流式云端 ASR（商业基准 <code>¥0.80/h</code>）、Colab GPU 验证通道（<code>SenseVoiceSmall</code>）及开源端侧 <code>sherpa-onnx</code> 降级引擎。</li>
+          <li><strong>双模型推理网关</strong>：支持 OpenAI Responses / Chat Completions 标准的轻/重分层推理供应商（System 1 快检 + System 2 依据检索）。</li>
+          <li><strong>支付清算渠道</strong>：微信支付（<code>0.6%</code>，保守情景另测 <code>1.0%</code> 虚拟类目风险）与支付宝（<code>0.6%</code>，<code>2026-11-16</code> 官网核验）。</li>
+          <li><strong>生态触达伙伴</strong>：怀客松 OPC 社区、早期创业孵化器与高校硕博答辩服务社群。</li>
+        </ul>
+      </div>
+
+      <!-- Col 2: 7. Key Activities + 6. Key Resources -->
+      <div class="bmc-col-split">
+        <div class="block" style="border-top:2.5px solid #7C3AED;">
+          <div class="block-hdr">
+            <div class="block-title"><span class="bno">7</span> 关键活动</div>
+            <span class="btag">Key Activities</span>
+          </div>
+          <ul>
+            <li><strong>白名单讲稿编译</strong>：<code>.pptx/.pdf/.md/.txt</code> 自动抽取章节与带编号 <code>Evidence[]</code> 锁定事实。</li>
+            <li><strong>门控与撤回编排</strong>：打磨 <code>L0–L3</code> 五重仲裁门控、7 类自动撤回状态机及单会话前缀缓存。</li>
+            <li><strong>配额降级治理</strong>：依托账本限额防算力滥用，超限平滑退回免费本地/浏览器通道。</li>
+          </ul>
+        </div>
+        <div class="block" style="border-top:2.5px solid #7C3AED;">
+          <div class="block-hdr">
+            <div class="block-title"><span class="bno">6</span> 核心资源</div>
+            <span class="btag">Key Resources</span>
+          </div>
+          <ul>
+            <li><strong>Universal Runtime 内核</strong>：与显示媒介解耦的 <code>InterventionController</code> 与认知状态机。</li>
+            <li><strong>Presentation 协议栈</strong>：<code>@cuex/protocol</code> 契约与不可篡改 <code>locked: true</code> 事实守门引擎。</li>
+            <li><strong>审批记忆图谱</strong>：仅沉淀 <code>userConfirmed === true</code> 的个人禁区词与高频卡点（非通用语料）。</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 2. Value Propositions -->
+      <div class="block block-focal" style="border-top:3px solid #FF7A2F;">
+        <div class="block-hdr">
+          <div class="block-title"><span class="bno" style="background:#FDF5EE; color:#B45309; border-color:rgba(232,122,36,0.4);">2</span> 价值主张</div>
+          <span class="btag">Value Propositions</span>
+        </div>
+        <div style="background:#FDF5EE; border:1px solid rgba(232,122,36,0.28); border-radius:5px; padding:4px 7px; margin-bottom:4px; font-size:9.3px; font-weight:700; color:#9A3412;">
+          「你的快思考外挂 — 在深度思考之外，接住当下」
+        </div>
+        <ul>
+          <li><strong>默认 <code>L0</code> 零字静默</strong>：演讲顺畅时绝不刷存在感，避免“提示工具本身制造认知过载”。</li>
+          <li><strong>精准最小干预（<code>L1–L3</code>）</strong>：仅在忘词停顿、遗漏核心论据或突发追问时，推送边缘微光 <code>L1</code>、<code>2–6</code> 字余光锚点 <code>L2</code> 或高风险纠偏 <code>L3</code>。</li>
+          <li><strong>开口接回瞬时自动撤回</strong>：讲者自行拉回正轨（<code>user_recovered</code>）或切页后 7 类原因自动退场，焦点还给人脑。</li>
+          <li><strong><code>Evidence[]</code> 绑定与诚实拒答</strong>：严禁现场捏造核心数字；超纲追问直接显示 <code>missingEvidenceNotice</code> 提示未准备。</li>
+          <li><strong>个人数据主权与效用评估</strong>：复盘量化 <code>V = H − 2I</code>（探索性指标），记忆须人工审批且支持 <code>/wipe</code> 一键彻底擦除。</li>
+        </ul>
+      </div>
+
+      <!-- Col 4: 4. Customer Relationships + 3. Channels -->
+      <div class="bmc-col-split">
+        <div class="block" style="border-top:2.5px solid #246A4D;">
+          <div class="block-hdr">
+            <div class="block-title"><span class="bno">4</span> 客户关系</div>
+            <span class="btag">Customer Relationships</span>
+          </div>
+          <ul>
+            <li><strong>透明可审的助手关系</strong>：<code>Inspector</code> 面板逐条披露依据、TTL 倒计时与实耗账单。</li>
+            <li><strong>绝对尊重人类主权</strong>：上台前人工锁事实，台上随时 <code>Dismiss</code>，台后逐条批记忆。</li>
+            <li><strong>公开合规定位</strong>：旗帜鲜明远离“隐藏作弊”灰区，服务真实公开路演与学术汇报。</li>
+          </ul>
+        </div>
+        <div class="block" style="border-top:2.5px solid #246A4D;">
+          <div class="block-hdr">
+            <div class="block-title"><span class="bno">3</span> 渠道通路</div>
+            <span class="btag">Channels [假设]</span>
+          </div>
+          <ul>
+            <li><strong>对比实录裂变</strong>：短视频对比“长文刷屏翻车 vs CueX 偏航撤回+缺据诚实拒答”。</li>
+            <li><strong>精准社群深耕</strong>：怀客松 OPC 训练营（P1 种子）+ 高校答辩季模板包（P2 爆发）。</li>
+            <li><strong>自助体验漏斗</strong>：Web <code>Free 2×10m</code> 零门槛彩排复盘，先体验低打扰再按需购买。</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 1. Customer Segments -->
+      <div class="block" style="border-top:2.5px solid #FF7A2F;">
+        <div class="block-hdr">
+          <div class="block-title"><span class="bno">1</span> 客户细分</div>
+          <span class="btag">Segments [假设]</span>
+        </div>
+        <ul>
+          <li><strong>P1 首攻：OPC 主理人 / 早期创始人</strong><br/>10–25 分钟投资路演、大客户汇报、竞赛答辩。决断极快、核心商业指标容错率为零、愿意为稳定交付付费。</li>
+          <li><strong>P2 扩展：高校硕博研究生</strong><br/>开题、中期与毕业答辩前 1–2 周高度焦虑，极需应付评委跨页追问且排斥长期订阅，天然匹配单场 <code>Event</code> 包。</li>
+          <li><strong>P3 留存：专业讲师 / 售前架构师</strong><br/>高频重复授课与解决方案宣讲，沉淀长期个人白名单与禁忌口径，构成 <code>Pro</code> / <code>Team</code> 核心基座。</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Bottom Row: 9. Cost Structure & 5. Revenue Streams -->
+    <div class="bmc-bottom">
+      <!-- 9. Cost Structure -->
+      <div class="block" style="border-left:3.5px solid #111318;">
+        <div class="block-hdr">
+          <div class="block-title"><span class="bno">9</span> 成本结构（10 项全可变模型）</div>
+          <span class="btag">[云端公开费率 + 模型估算 · 非公司总固定盈亏]</span>
+        </div>
+        <div style="display:grid; grid-template-columns:1.25fr 1fr; gap:8px; align-items:center;">
+          <ul>
+            <li><strong>Base 单场 25m 全变动成本 <code>¥0.612</code></strong>：流式云 ASR <code>¥0.333</code>（<strong><code>54.4%</code> 第一大成本</strong>）+ 基础设施 <code>¥0.180</code> + 纯 LLM <code>¥0.098</code>（<code>16.0%</code>，含单会话同前缀缓存节省 <code>-¥0.020</code>）+ 文档解析 <code>¥0.001</code>。</li>
+            <li><strong>Pro 月度总负担 <code>¥9.37</code></strong>：含 <code>12:1</code> 活跃免费用户云 ASR 补贴（<code>¥1.257/Pro</code>）、分渠道支付费率与 <code>2%</code> 退款损耗。<strong>公司固定研发与投放暂未纳入总盈亏平衡测算</strong>。</li>
+          </ul>
+          <div class="kpi-row" style="grid-template-columns:repeat(2,1fr); margin-top:0;">
+            <div class="kpi"><div class="kpi-k">Base 单场全成本</div><div class="kpi-v tabular">¥0.612</div></div>
+            <div class="kpi"><div class="kpi-k">单场纯 LLM 成本</div><div class="kpi-v tabular">¥0.098</div></div>
+            <div class="kpi"><div class="kpi-k">单场 ASR 占比</div><div class="kpi-v tabular" style="color:#C94A2A;">54.4%</div></div>
+            <div class="kpi"><div class="kpi-k">单 Pro 安全上限</div><div class="kpi-v tabular" style="color:#7C3AED;">85 场/月</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. Revenue Streams -->
+      <div class="block" style="border-left:3.5px solid #246A4D;">
+        <div class="block-hdr">
+          <div class="block-title"><span class="bno">5</span> 收入来源与定价假设</div>
+          <span class="btag">[商业假设 · 沙盒契约已就绪，未上线真实收单]</span>
+        </div>
+        <div style="display:grid; grid-template-columns:1.25fr 1fr; gap:8px; align-items:center;">
+          <ul>
+            <li><strong><code>Free ¥0</code></strong>：每月 <code>2 场 × 10m</code> 云端 ASR + <code>Inspector</code> + 本地/浏览器降级，降低体验阻力。</li>
+            <li><strong><code>Event ¥19–39</code>（锚点 <code>¥29</code>）</strong>：<code>14 天</code> 含 <code>120m</code> 云 ASR，切中一次性答辩需求（直接贡献率 <strong><code>87.3%</code></strong>）。</li>
+            <li><strong><code>Pro ¥59/月 · ¥499/年</code></strong>：<code>240m/月</code> + 长期审批记忆（直接贡献 <code>¥48.45</code> / <strong><code>83.8%</code></strong>；SaaS 毛利 <strong><code>92.2%</code></strong>）。<strong><code>Team ¥199/席/月</code></strong> <code>[Planned]</code>。</li>
+          </ul>
+          <div class="kpi-row" style="grid-template-columns:repeat(2,1fr); margin-top:0;">
+            <div class="kpi"><div class="kpi-k">Pro 直接贡献率</div><div class="kpi-v tabular" style="color:#246A4D;">83.8%</div></div>
+            <div class="kpi"><div class="kpi-k">Event 贡献率</div><div class="kpi-v tabular" style="color:#246A4D;">87.3%</div></div>
+            <div class="kpi"><div class="kpi-k">Pro SaaS 毛利</div><div class="kpi-v tabular">92.2%</div></div>
+            <div class="kpi"><div class="kpi-k">LTV / CAC 假设</div><div class="kpi-v tabular" style="color:#E87A24;">11.30x</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="ftr">
+    <span>CueX Presentation · 在深度思考之外，接住当下 · 暖纸基调 #F8F7F3</span>
+    <span style="font-family:'CueXMono',monospace;">Page 1 / 2 · Canonical 9-Block BMC · A4 Landscape (297×210mm)</span>
+  </footer>
+</section>
+
+<!-- ==================== PAGE 2: DIFFERENTIATION, EVIDENCE BOUNDARIES & 9->8 MAPPING ==================== -->
+<section class="page">
+  <div class="topbar"></div>
+
+  <header class="hdr">
+    <div style="display:flex; align-items:center; gap:9px;">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" style="width:24px; height:24px; flex-shrink:0;" fill="none">
+        <defs>
+          <linearGradient id="amber2" x1="22" y1="12" x2="139" y2="144" gradientUnits="userSpaceOnUse"><stop stop-color="#FFD6A1"/><stop offset=".22" stop-color="#FF9A4A"/><stop offset=".56" stop-color="#FF7A2F"/><stop offset="1" stop-color="#BF3F14"/></linearGradient>
+          <linearGradient id="violet2" x1="136" y1="14" x2="20" y2="146" gradientUnits="userSpaceOnUse"><stop stop-color="#E0DFFF"/><stop offset=".24" stop-color="#B5B3FF"/><stop offset=".6" stop-color="#8E8CFF"/><stop offset="1" stop-color="#5754BA"/></linearGradient>
+        </defs>
+        <path d="M27 21 142 143" stroke="#8D3817" stroke-width="17" stroke-linecap="round"/>
+        <path d="M20 13 135 135" stroke="url(#amber2)" stroke-width="17" stroke-linecap="round"/>
+        <path d="M142 21 27 143" stroke="#494687" stroke-width="17" stroke-linecap="round"/>
+        <path d="M135 13 20 135" stroke="url(#violet2)" stroke-width="17" stroke-linecap="round"/>
+      </svg>
+      <div>
+        <div style="font-family:'CueXMono',monospace; font-size:8.6px; font-weight:700; color:#7C3AED; letter-spacing:0.06em;">
+          COMMERCIAL LOGIC, FACT BOUNDARIES &amp; COMPETITION FORM ALIGNMENT
+        </div>
+        <h1 class="hdr-title">竞品差异化、证据分层与 Osterwalder 九要素 → 怀客松八要素映射</h1>
+      </div>
+    </div>
+    <span class="pill pill-violet">Phase 3 Telemetry Locked</span>
+  </header>
+
+  <div class="p2-top">
+    <!-- Left Card: Why CueX Differs + Monetization Flywheel -->
+    <div class="card">
+      <div class="card-title">
+        <span>一、为什么 CueX 不同 × 商业变现闭环逻辑</span>
+        <span class="pill pill-warm">Wedge Strategy</span>
+      </div>
+      <div style="font-size:9px; line-height:1.42; color:#1D2028;">
+        <p style="margin:0 0 4px 0;">
+          <strong>1. 竞品生态留出的结构性无人区（<code>2026-11-16</code> 核验）：</strong>
+          <strong>Poised AI</strong> 已于 2026-10 停服退场并删空历史库；<strong>PromptSmart</strong>（<code>$9.99/月</code>）遇 Q&amp;A 跳页卡死；<strong>Yoodli</strong>（<code>$0–28/月</code>）专注台前模拟而非场上护航；<strong>Cluely / Final Round</strong>（隐身/月付达 <code>$149.99–$150/月</code>）输出整段文字抢视线且背负作弊标签；<strong>Otter / Read / 通义听悟 / 飞书妙记</strong>专注“会后整理”。CueX 切入<strong>“合法公开舞台 + L0 平时静默 + 余光极简锚点 + 自动撤回 + Evidence[] 禁止瞎编”</strong>。
+        </p>
+        <p style="margin:0 0 4px 0;">
+          <strong>2. 我们放弃的“伪护城河” vs 真实工程防线：</strong>
+          绝不把“让模型只吐 5 个字”或“单会话内前缀缓存（<code>-¥0.020/场</code>）”包装成技术壁垒；真实防线是<strong>五重门控仲裁 + 7 类自动撤回 + 人工锁事实防幻觉 + 跨场审批记忆</strong>。
+        </p>
+        <p style="margin:0;">
+          <strong>3. 阶梯转化飞轮（<code>[商业假设]</code>）：</strong>
+          <code>Free ¥0 (2×10m)</code> 体验“只救场不刷屏” → <strong><code>Event ¥29 (14天)</code></strong> 消除一次性答辩人群对包月的抗拒，贡献现金流与口碑 → 高频路演/讲师顺势升档 <strong><code>Pro ¥59/月 · ¥499/年</code></strong> 沉淀长期白名单（<code>LTV ¥339.15 / CAC ¥30 = 11.30x</code>） → <code>Team ¥199/席/月 [Planned]</code>。
+        </p>
+      </div>
+    </div>
+
+    <!-- Right Card: Strict Fact/Hypothesis Separation + Phase 3 Slot -->
+    <div class="card">
+      <div class="card-title">
+        <span>二、四层严格口径隔离与 Phase 3 实机遥测锁定</span>
+        <span class="pill pill-sage">Anti-Fabrication Guard</span>
+      </div>
+      <div class="sep-grid">
+        <div class="sep-box">
+          <div style="font-weight:800; color:#246A4D; margin-bottom:2px;">A. 已锁定离线工程事实 [Cat 1 · 本地实测 Eval]</div>
+          <code>2026-11-15T23:53</code> 离线基准：<code>6/6</code> 用例全过，<code>System 1</code> 本地规则平均 <strong><code>0.88 ms</code></strong>（P50 <code>0.66 ms</code> / P95 <code>1.66 ms</code>），本地 <code>0</code> Token，探索性 <code>V = H − 2I = +3</code>；SQLite + <code>/wipe</code> + 沙盒账本已通。
+        </div>
+        <div class="sep-box sep-box-slot">
+          <div style="font-weight:800; color:#6D28D9; margin-bottom:2px;">B. Phase 3 实机遥测已锁定 [Cat 3 &amp; 4 · TTS+DSP 可控语料 · 静音测试]</div>
+          <code>colab-asr-report</code> + <code>cpa-llm-report.v2</code> + <code>real-e2e-validation.v2</code> 全量锁入：
+          <div style="font-family:'CueXMono',monospace; font-size:8.2px; margin-top:2px; color:#3B0764;">
+            • Colab GPU ASR (<code>SenseVoiceSmall</code>)：<span>14/14 批均 52.57ms / RTF 0.00327 / 数字 CER 0.0 / WSS 772.1ms</span><br/>
+            • CPA <code>gemini-4-hydrogen</code>：<span>S1 6/6 (100%) / 12步 15,399 Tok (7,126 推理) / 14/14 E2E PASS</span><br/>
+            • 敏感性 #12 校准成本：<span>46,357 Tok -> LLM ¥0.259 / 全变动 ¥0.772 / Pro 80.2% (66场/月)</span>
+          </div>
+        </div>
+        <div class="sep-box">
+          <div style="font-weight:800; color:#111318; margin-bottom:2px;">C. 云端公开费率 + 压力情景 [模型估算]</div>
+          Pro 贡献率区间：Conservative <strong><code>48.6%</code></strong> / Base <strong><code>83.8%</code></strong> / Optimistic <strong><code>94.4%</code></strong>；单户安全上限 <code>29 / 85 / 211 场/月</code>；公司固定成本总盈亏点 <strong><code>UNMODELED</code></strong>。
+        </div>
+        <div class="sep-box">
+          <div style="font-weight:800; color:#B45309; margin-bottom:2px;">D. 商业假设与路线图边界 [未验证 / Planned]</div>
+          <code>¥29 / ¥59 / ¥499</code> 定价、<code>12:1</code> 免费比、<code>2%</code> 退款与 <code>CAC ¥30</code> 均待 <code>20–30 → 30–50</code> 种子队列验证；<code>Social / Teaching / Sales / Custom</code> 与桌面浮窗/眼镜 HUD 属未来演进。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Explicit 9-Block to 8-Field Mapping Table -->
+  <div class="card" style="flex:1; display:flex; flex-direction:column; gap:6px; min-height:0;">
+    <div class="card-title" style="margin-bottom:0;">
+      <span>三、标准 Osterwalder 九宫格要素 ↔ 怀客松 OPC 赛道 8 要素竞赛表单显式映射表</span>
+      <span class="pill pill-neutral">9 Canonical Blocks → 8 HKS Form Fields</span>
+    </div>
+    <table style="flex:1; font-size:9.1px; line-height:1.38;">
+      <thead>
+        <tr>
+          <th style="width:19%; padding:5.5px 7px;">Osterwalder 标准九要素</th>
+          <th style="width:15%; padding:5.5px 7px;">怀客松 8 要素竞赛栏位</th>
+          <th style="width:46%; padding:5.5px 7px;">CueX 表单实质对应内容（商业与工程同源口径）</th>
+          <th style="width:20%; padding:5.5px 7px;">事实标签与同步状态</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>1. Customer Segments</strong><br/>客户细分</td>
+          <td><strong>① 目标客户</strong></td>
+          <td><code>P1</code> OPC 一人公司与路演创始人 → <code>P2</code> 硕博开题/毕业答辩研究生 → <code>P3</code> 专业讲师/售前架构师；种子队列 <code>20–30 → 30–50 人</code>。</td>
+          <td><code>[商业假设]</code> 待队列实测</td>
+        </tr>
+        <tr>
+          <td><em>前置客户诊断（JTBD）</em></td>
+          <td><strong>② 客户痛点</strong></td>
+          <td>逐字稿死背与提词器在评委 Q&amp;A 时失灵；AI Copilot 长文抢视线且瞎编关键数字；会后纪要不管当下 3 秒救场。</td>
+          <td><code>[市场观察 + 竞品核验]</code></td>
+        </tr>
+        <tr>
+          <td><strong>2. Value Propositions</strong><br/>价值主张</td>
+          <td><strong>③ 价值主张</strong></td>
+          <td>“在深度思考之外，接住当下”：默认 <code>L0</code> 静默 + <code>L1–L3</code> 余光微提示 + 7 类原因瞬时自动撤回 + <code>Evidence[]</code> 锁定防幻觉。</td>
+          <td><code>[已落地核心机制]</code></td>
+        </tr>
+        <tr>
+          <td><strong>6. Key Resources +<br/>7. Key Activities</strong> <span style="color:#555863;">（交付侧）</span></td>
+          <td><strong>④ 交付成果</strong></td>
+          <td><code>CueSheet</code> 场前编译包 + <code>Focus/Inspector</code> 双视图临场助手（AI 演讲临场引导师）+ <code>V = H − 2I</code> 复盘与审批记忆。</td>
+          <td><code>[Presentation 已实现]</code><br/><code>14/14 E2E</code> 已验证</td>
+        </tr>
+        <tr>
+          <td><strong>5. Revenue Streams</strong><br/>收入来源</td>
+          <td><strong>⑤ 定价假设</strong></td>
+          <td><code>Free ¥0</code> (2×10m) → <code>Event ¥19–39</code>（锚点 <code>¥29</code> / 14天120m）→ <code>Pro ¥59/月·¥499/年</code> (240m) → <code>Team ¥199/席/月 [Planned]</code>。</td>
+          <td><code>[商业假设]</code> 沙盒已通</td>
+        </tr>
+        <tr>
+          <td><strong>8. Key Partnerships +<br/>9. Cost Structure</strong></td>
+          <td><strong>⑥ 成本结构</strong></td>
+          <td>10 项全可变模型：Base 单场 25m <code>¥0.612</code>（ASR <code>54.4%</code> / LLM <code>¥0.098</code>）；微信/支付宝 <code>0.6%</code>；Pro 贡献率 <code>83.8%</code>（<code>#12</code> 校准 <code>80.2%</code>）。</td>
+          <td><code>[云端费率 + #12 校准]</code><br/><code>46,357 Tok</code> 验证通过</td>
+        </tr>
+        <tr>
+          <td><strong>3. Channels +<br/>4. Customer Relationships</strong></td>
+          <td><strong>⑦ 获客渠道</strong></td>
+          <td>“翻车 vs 克制救场”实录短视频裂变 + OPC 训练营 &amp; 高校毕业答辩社群 + Web <code>Free 2×10m</code> 自助体验漏斗与透明共治关系。</td>
+          <td><code>[商业假设]</code> 12 步漏斗</td>
+        </tr>
+        <tr>
+          <td><strong>6. Key Resources +<br/>7. Key Activities</strong> <span style="color:#555863;">（防线侧）</span></td>
+          <td><strong>⑧ 竞争壁垒</strong></td>
+          <td>不吹短字 Prompt 或跨槽共享缓存；真壁垒是五重仲裁门控、自动撤回状态机、本人锁事实拒瞎编、<code>userConfirmed</code> 个人记忆与多场景运行时复用。</td>
+          <td><code>[工程架构差异化]</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <footer class="ftr">
+    <span>注：本文档中所有定价与转化假设尚未形成真实商业营收；Phase 3 Colab GPU ASR 与 CPA 实机遥测均已锁定并通过 14/14 集成验证。</span>
+    <span style="font-family:'CueXMono',monospace;">Page 2 / 2 · Strictly A4 Landscape (297×210mm)</span>
+  </footer>
+</section>
+
+</body>
+</html>

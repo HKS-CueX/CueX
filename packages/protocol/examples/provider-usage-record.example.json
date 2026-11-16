@@ -1,0 +1,14 @@
+{
+  "inputTokens": 420,
+  "outputTokens": 115,
+  "cachedInputTokens": 256,
+  "reasoningTokens": 48,
+  "modelCalls": 1,
+  "retries": 0,
+  "usageSource": "provider_reported",
+  "degraded": false,
+  "costFen": 1,
+  "provider": "cpa-gateway",
+  "model": "gemini-4-hydrogen",
+  "correlationId": "corr_cpa_01j2k3"
+}

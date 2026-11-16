@@ -1,0 +1,2080 @@
+openapi: 3.2.1
+info:
+  title: CueX Gateway HTTP API
+  version: 2026-11
+  description: |
+    Stage C Synced Contract Spec matching `apps/server/src/gateway/GatewayServer.ts` and `@cuex/protocol` (`API_VERSION = '2026-11'`, v2.2.0 双系统协同黑板、脱敏模型归因与 Presenter Companion 多订阅扩展).
+    Monetary fields use integer minor units (`amountFen`, CNY Fen). Timestamps use UTC ISO-8601 (`UtcIso8601`).
+    Unified `PlanCatalog` pricing and quotas (`Free ¥0 / 2 sessions / 20m cloud ASR`, `Event ¥29 / 14d / 120m`, `Pro ¥59/mo · ¥499/yr / 240m`, `Team ¥199/seat/mo planned`, all marked `isCommercialHypothesis: true`) align with `docs/business/PRICING_AND_PACKAGING.md` and `ppt/scripts/cuex-final-metrics.json`.
+servers:
+  - url: http://127.0.0.1:8765
+    description: Local development gateway (`HOST=127.0.0.1`, `PORT=8765`)
+  - url: https://api.cuex.example.com
+    description: Staging / Production TLS reverse-proxy gateway
+
+security:
+  - BearerAuth: []
+
+tags:
+  - name: System
+  - name: Auth
+  - name: Scenarios
+  - name: Presentation
+  - name: Memory
+  - name: Sessions
+  - name: Billing & Usage
+  - name: Privacy
+  - name: Observability
+
+paths:
+  /health:
+    get:
+      tags: [System]
+      summary: Server, SQLite, ASR, System 1 & System 2 readiness health probe
+      security: []
+      responses:
+        '200':
+          description: Service healthy (returns 503 if SQLite ping fails)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatusResponse'
+        '503':
+          description: 'Database unavailable (`ok: false`)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatusResponse'
+
+  /api/scenarios:
+    get:
+      tags: [Scenarios]
+      summary: List scenario capability descriptors (`presentation=implemented`; others=`roadmap`)
+      security: []
+      responses:
+        '200':
+          description: Scenario capability registry
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [scenarios]
+                properties:
+                  scenarios:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ScenarioCapabilityDescriptor'
+
+  /api/plans:
+    get:
+      tags: [Billing & Usage]
+      summary: List commercial pricing plans and quotas from PlanCatalog (`isCommercialHypothesis=true`)
+      security: []
+      responses:
+        '200':
+          description: Plan catalog definitions
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [plans]
+                properties:
+                  plans:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PlanDefinition'
+
+  /api/auth/session:
+    post:
+      tags: [Auth]
+      summary: Issue a tenant-scoped bearer session token (`auth_tokens` SQLite table, SHA-256 hashed)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthSessionCreateInput'
+      responses:
+        '200':
+          description: Authenticated session, user record, active entitlements & usage summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthSessionResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimitedError'
+
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke current bearer session token if provided
+      security: []
+      responses:
+        '200':
+          description: Logout acknowledged
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [loggedOut]
+                properties:
+                  loggedOut:
+                    type: boolean
+                    example: true
+
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: Retrieve authenticated user identity, active entitlements & current billing-window usage summary
+      responses:
+        '200':
+          description: Authenticated account context
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthMeResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitedError'
+
+  /api/account/entitlements:
+    get:
+      tags: [Billing & Usage]
+      summary: Query user entitlements and current UTC billing window usage summary
+      responses:
+        '200':
+          description: User entitlements & usage summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntitlementsResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/account/usage:
+    get:
+      tags: [Billing & Usage]
+      summary: Query recent UsageRecords for the current period alongside summary and entitlements
+      responses:
+        '200':
+          description: Account usage ledger & summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountUsageResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/account/export:
+    get:
+      tags: [Privacy]
+      summary: Export all owned packs, reflections, opt-in memories, entitlements, usage records & billing audits
+      parameters:
+        - in: query
+          name: format
+          schema:
+            type: string
+            enum: [json, markdown]
+            default: json
+      responses:
+        '200':
+          description: Machine-readable JSON export bundle (`UserDataExportBundle`) or Markdown report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDataExportBundle'
+            text/markdown:
+              schema:
+                type: string
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/account/data:
+    delete:
+      tags: [Privacy]
+      summary: Permanently erase user packs, sessions, reflections, memories, telemetry, usage records & auth tokens (preserving statutory billing audits)
+      responses:
+        '200':
+          description: Data erasure receipt with deleted counts, preserved billing audits & third-party caveats
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataDeletionReceipt'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/billing/checkout-preview:
+    post:
+      tags: [Billing & Usage]
+      summary: Preview checkout pricing & Fen breakdown (sandbox only; records `checkout_preview` audit row)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentCheckoutPreviewRequest'
+      responses:
+        '200':
+          description: Sandbox checkout preview breakdown in CNY Fen
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentCheckoutPreviewResult'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/billing/webhook:
+    post:
+      tags: [Billing & Usage]
+      summary: Receive HMAC-SHA256 signed PaymentWebhookEvent (`x-cuex-signature` or `x-webhook-signature`)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentWebhookEvent'
+      responses:
+        '200':
+          description: 'Webhook verified and processed idempotently (`{ received: true, deduplicated, entitlement?, audit }`)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookProcessedResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitedError'
+        '501':
+          $ref: '#/components/responses/PaymentNotConfiguredError'
+
+  /api/billing/webhooks/{provider}:
+    parameters:
+      - in: path
+        name: provider
+        required: true
+        schema:
+          type: string
+          enum: [sandbox, wechat_pay, alipay]
+    post:
+      tags: [Billing & Usage]
+      summary: Provider-scoped HMAC-SHA256 webhook endpoint (path provider must match payload `provider`)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentWebhookEvent'
+      responses:
+        '200':
+          description: Webhook verified and processed idempotently
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookProcessedResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '501':
+          $ref: '#/components/responses/PaymentNotConfiguredError'
+
+  /api/presentation/extract:
+    post:
+      tags: [Presentation]
+      summary: Safely extract structured text & sections from `.pptx`, `.pdf`, `.md`, or `.txt`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PresentationExtractInput'
+      responses:
+        '200':
+          description: Extraction result (honestly flags unreadable scanned/encrypted PDFs and rejects unsafe archive entries)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PresentationExtractResult'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitedError'
+
+  /api/presentation/compile:
+    post:
+      tags: [Presentation]
+      summary: Compile extracted materials into a schema v2 PresentationContextPack (returns HTTP 201)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PresentationCompileInput'
+      responses:
+        '201':
+          description: Compiled ContextPack persisted to `presentation_packs`
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [pack]
+                properties:
+                  pack:
+                    $ref: '#/components/schemas/PresentationContextPack'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/RateLimitedError'
+
+  /api/presentation/packs:
+    get:
+      tags: [Presentation]
+      summary: List PresentationContextPack summaries accessible to the authenticated user (owned + built-in sample)
+      responses:
+        '200':
+          description: Pack summaries list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [packs]
+                properties:
+                  packs:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PresentationPackSummary'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/presentation/packs/{packId}:
+    parameters:
+      - in: path
+        name: packId
+        required: true
+        schema:
+          type: string
+    get:
+      tags: [Presentation]
+      summary: Retrieve an owned or built-in sample PresentationContextPack
+      responses:
+        '200':
+          description: Full pack payload
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [pack]
+                properties:
+                  pack:
+                    $ref: '#/components/schemas/PresentationContextPack'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    patch:
+      tags: [Presentation]
+      summary: Update goal, facts, Q&A cards, cueSheet, or forbiddenClaims on an owned pack
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PresentationPackPatchInput'
+      responses:
+        '200':
+          description: Updated pack payload
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [pack]
+                properties:
+                  pack:
+                    $ref: '#/components/schemas/PresentationContextPack'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/memory:
+    get:
+      tags: [Memory]
+      summary: List user-confirmed MemoryItems owned by the authenticated user
+      parameters:
+        - in: query
+          name: scenarioId
+          schema:
+            type: string
+        - in: query
+          name: sessionId
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Confirmed memory items
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MemoryItem'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+    post:
+      tags: [Memory]
+      summary: Persist a new MemoryItem (strictly requires `userConfirmed === true`)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemoryCreateInput'
+      responses:
+        '201':
+          description: Created MemoryItem
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [item]
+                properties:
+                  item:
+                    $ref: '#/components/schemas/MemoryItem'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/memory/{memoryId}:
+    parameters:
+      - in: path
+        name: memoryId
+        required: true
+        schema:
+          type: string
+    patch:
+      tags: [Memory]
+      summary: Update or revoke an owned MemoryItem
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemoryPatchInput'
+      responses:
+        '200':
+          description: 'Updated memory item (`{ item }`) or deleted status (`{ deleted: true }`)'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      tags: [Memory]
+      summary: Permanently delete an owned MemoryItem
+      responses:
+        '200':
+          description: 'Deletion confirmed (`{ deleted: boolean }`)'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/sessions:
+    get:
+      tags: [Sessions]
+      summary: List stored presentation sessions owned by the authenticated user
+      responses:
+        '200':
+          description: Session summary list (`SessionSummaryItem[]`)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sessions]
+                properties:
+                  sessions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SessionSummaryItem'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/sessions/{sessionId}:
+    parameters:
+      - in: path
+        name: sessionId
+        required: true
+        schema:
+          type: string
+    get:
+      tags: [Sessions]
+      summary: Retrieve an owned session record and optional reflection
+      responses:
+        '200':
+          description: Session record and reflection if generated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [session]
+                properties:
+                  session:
+                    $ref: '#/components/schemas/Session'
+                  reflection:
+                    type: object
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      tags: [Privacy, Sessions]
+      summary: Delete & wipe session data, events, reflection, telemetry & session-linked memories
+      responses:
+        '200':
+          description: Wipe completed with DataDeletionReceipt
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataDeletionReceipt'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/sessions/{sessionId}/reflection:
+    parameters:
+      - in: path
+        name: sessionId
+        required: true
+        schema:
+          type: string
+      - in: query
+        name: lambda
+        schema:
+          type: number
+          default: 2
+    get:
+      tags: [Sessions]
+      summary: Retrieve durable PresentationReflection (`V = H - λI`, timeline, weakSegments) for an owned session
+      responses:
+        '200':
+          description: Stored or computed reflection payload
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [reflection]
+                properties:
+                  reflection:
+                    type: object
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/sessions/{sessionId}/wipe:
+    parameters:
+      - in: path
+        name: sessionId
+        required: true
+        schema:
+          type: string
+    post:
+      tags: [Privacy, Sessions]
+      summary: Immediately erase session runtime data, events, reflection, telemetry & session-linked memories; returns DataDeletionReceipt
+      responses:
+        '200':
+          description: Wipe completed with explicit receipt and statutory retention disclosures
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DataDeletionReceipt'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /api/observability/summary:
+    get:
+      tags: [Observability]
+      summary: Retrieve runtime operational metrics snapshot & pipeline stage counters
+      responses:
+        '200':
+          description: Metrics & EventPipeline summary
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [metrics, pipeline]
+                properties:
+                  metrics:
+                    type: object
+                    additionalProperties: true
+                  pipeline:
+                    type: object
+                    additionalProperties: true
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: CueXSessionToken
+
+  responses:
+    ValidationError:
+      description: Input failed runtime schema or security validation (`400`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+    UnauthorizedError:
+      description: Missing, expired, or invalid bearer token or webhook HMAC signature (`401`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+    ForbiddenError:
+      description: Authenticated user does not own target resource or CORS origin rejected (`403`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+    NotFoundError:
+      description: Requested resource not found (`404`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+    RateLimitedError:
+      description: Sliding-window rate limit exceeded (`429`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+    QuotaExceededError:
+      description: Plan entitlement sessions or live minutes quota exhausted (`402`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+    PaymentNotConfiguredError:
+      description: Payment webhook secret (`CUEX_WEBHOOK_SECRET`) not configured (`501`)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiErrorResponse'
+
+  schemas:
+    UtcIso8601:
+      type: string
+      format: date-time
+      example: '2026-11-16T04:00:00.000Z'
+
+    MoneyAmount:
+      type: object
+      required: [amountFen, currency]
+      properties:
+        amountFen:
+          type: integer
+          minimum: 0
+          example: 5900
+        currency:
+          type: string
+          enum: [CNY]
+
+    ErrorCode:
+      type: string
+      enum:
+        - VALIDATION_ERROR
+        - UNAUTHORIZED
+        - FORBIDDEN
+        - NOT_FOUND
+        - RATE_LIMITED
+        - PROVIDER_TIMEOUT
+        - PROVIDER_UNAVAILABLE
+        - QUOTA_EXCEEDED
+        - SCHEMA_VERSION_UNSUPPORTED
+        - SESSION_EXPIRED
+        - ASR_UNAVAILABLE
+        - INSUFFICIENT_EVIDENCE
+        - COMPANION_READ_ONLY
+        - PRIMARY_MIC_CONFLICT
+        - PAYMENT_NOT_CONFIGURED
+        - INTERNAL_ERROR
+
+    ApiErrorResponse:
+      type: object
+      required: [ok, error]
+      properties:
+        ok:
+          type: boolean
+          enum: [false]
+        error:
+          type: object
+          required: [code, message, httpStatus, retryable, timestamp]
+          properties:
+            code:
+              $ref: '#/components/schemas/ErrorCode'
+            message:
+              type: string
+            httpStatus:
+              type: integer
+            retryable:
+              type: boolean
+            correlationId:
+              type: string
+            requestId:
+              type: string
+            timestamp:
+              $ref: '#/components/schemas/UtcIso8601'
+            details:
+              type: array
+              items:
+                type: object
+                additionalProperties: true
+
+    ColabAsrLifecycleState:
+      type: string
+      enum:
+        - not_configured
+        - starting
+        - ready
+        - degraded
+        - disconnected
+        - restarting
+        - unavailable
+
+    AsrBackendMode:
+      type: string
+      enum: [colab_gpu, local_sherpa, remote_sherpa, browser_webspeech, text_simulation]
+
+    AsrCapabilityStatus:
+      type: object
+      required: [backend, mode, available, streaming, detail]
+      properties:
+        backend:
+          type: string
+        mode:
+          $ref: '#/components/schemas/AsrBackendMode'
+        available:
+          type: boolean
+        streaming:
+          type: boolean
+        detail:
+          type: string
+        lifecycleState:
+          $ref: '#/components/schemas/ColabAsrLifecycleState'
+        gpuName:
+          type: string
+        modelId:
+          type: string
+        rtf:
+          type: number
+          minimum: 0
+        lastHealthCheckAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        fallbackActive:
+          type: boolean
+        fallbackReason:
+          type: string
+
+    System1PromptFormat:
+      type: string
+      enum: [jev-v1, jevstyle-v1, chat, rule_zero]
+
+    LlmReasoningEffort:
+      type: string
+      enum: [none, minimal, low, medium, high]
+
+    LlmSubsystemHealthStatus:
+      type: object
+      description: 脱敏后的模型子系统健康与归因状态（严格禁止包含密钥或裸机 Host URL）。
+      required: [backend, mode, healthy]
+      properties:
+        backend:
+          type: string
+        mode:
+          type: string
+          enum: [real, local_fallback]
+        healthy:
+          type: boolean
+        detail:
+          type: string
+        provider:
+          type: string
+        model:
+          type: string
+        degraded:
+          type: boolean
+        fallbackActive:
+          type: boolean
+        fallbackReason:
+          type: string
+        promptFormat:
+          $ref: '#/components/schemas/System1PromptFormat'
+        calibrated:
+          type: boolean
+        reasoningEffort:
+          $ref: '#/components/schemas/LlmReasoningEffort'
+        compilerModel:
+          type: string
+        reflectionModel:
+          type: string
+        lastHealthCheckAt:
+          $ref: '#/components/schemas/UtcIso8601'
+
+    System2Guidance:
+      type: object
+      required:
+        - guidanceId
+        - sessionId
+        - revision
+        - contextVersion
+        - basedOnTurnSeq
+        - issuedAtMs
+        - expiresAtMs
+        - focusDirective
+        - strategyHints
+        - evidenceAnchors
+        - grounded
+      properties:
+        guidanceId:
+          type: string
+        sessionId:
+          type: string
+        revision:
+          type: integer
+          minimum: 1
+        contextVersion:
+          type: integer
+          minimum: 0
+        basedOnTurnSeq:
+          type: integer
+          minimum: 0
+        staleAfterTurnSeq:
+          type: integer
+          minimum: 0
+        issuedAtMs:
+          type: number
+        expiresAtMs:
+          type: number
+        issuedAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        expiresAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        targetChapterId:
+          type: string
+        targetChapterTitle:
+          type: string
+        focusDirective:
+          type: string
+        strategyHints:
+          type: array
+          items:
+            type: string
+        recommendedBias:
+          type: string
+          enum: [stay_silent, prefer_l1, prefer_l2, prefer_l3, qa_grounding, recovery_hold]
+        preferredLevel:
+          type: string
+          enum: [L0, L1, L2, L3]
+        evidenceAnchors:
+          type: array
+          items:
+            type: string
+        grounded:
+          type: boolean
+        reasoningEffort:
+          $ref: '#/components/schemas/LlmReasoningEffort'
+        provider:
+          type: string
+        model:
+          type: string
+        correlationId:
+          type: string
+
+    S1ObservationSnapshot:
+      type: object
+      required:
+        - turnSeq
+        - observedAtMs
+        - decisionType
+        - selectedSlot
+        - label
+        - calibratedConfidence
+        - margin
+        - entropy
+        - escalatedToS2
+        - latencyMs
+        - degraded
+        - providerKind
+      properties:
+        turnSeq:
+          type: integer
+          minimum: 0
+        observedAtMs:
+          type: number
+        observedAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        decisionType:
+          type: string
+          enum: [noul, choice, score, unknown]
+        selectedSlot:
+          type: integer
+          minimum: -1
+        label:
+          type: string
+        calibratedConfidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        margin:
+          type: number
+          minimum: 0
+        entropy:
+          type: number
+          minimum: 0
+        escalationReason:
+          type: string
+        escalatedToS2:
+          type: boolean
+        latencyMs:
+          type: number
+          minimum: 0
+        degraded:
+          type: boolean
+        providerKind:
+          type: string
+          enum: [colab_jev, local_jev, local_rule_zero]
+        model:
+          type: string
+        promptFormat:
+          $ref: '#/components/schemas/System1PromptFormat'
+        calibrated:
+          type: boolean
+        guidanceAppliedRevision:
+          type: integer
+          minimum: 0
+
+    DualSystemCollaborationMetrics:
+      type: object
+      required:
+        - s1Evaluations
+        - s1Escalations
+        - s2AsyncDispatches
+        - s2Completed
+        - s2CancelledAsStale
+        - s2Coalesced
+        - guidanceRevisionsIssued
+        - guidanceAppliedCount
+        - guidanceExpiredOrOverridden
+      properties:
+        s1Evaluations:
+          type: integer
+          minimum: 0
+        s1Escalations:
+          type: integer
+          minimum: 0
+        s2AsyncDispatches:
+          type: integer
+          minimum: 0
+        s2Completed:
+          type: integer
+          minimum: 0
+        s2CancelledAsStale:
+          type: integer
+          minimum: 0
+        s2Coalesced:
+          type: integer
+          minimum: 0
+        guidanceRevisionsIssued:
+          type: integer
+          minimum: 0
+        guidanceAppliedCount:
+          type: integer
+          minimum: 0
+        guidanceExpiredOrOverridden:
+          type: integer
+          minimum: 0
+        s1LastLatencyMs:
+          type: number
+          minimum: 0
+        s1P50LatencyMs:
+          type: number
+          minimum: 0
+        s1P95LatencyMs:
+          type: number
+          minimum: 0
+        s2LastLatencyMs:
+          type: number
+          minimum: 0
+        s2P50LatencyMs:
+          type: number
+          minimum: 0
+        s2P95LatencyMs:
+          type: number
+          minimum: 0
+        updatedAt:
+          $ref: '#/components/schemas/UtcIso8601'
+
+    WsAttachRole:
+      type: string
+      enum: [primary, companion]
+
+    WsRolePolicy:
+      type: object
+      required: [role, canCaptureMic, canControlSession, canModifyContext, canViewInspector]
+      properties:
+        role:
+          $ref: '#/components/schemas/WsAttachRole'
+        canCaptureMic:
+          type: boolean
+        canControlSession:
+          type: boolean
+        canModifyContext:
+          type: boolean
+        canViewInspector:
+          type: boolean
+        canInteractWithCues:
+          type: boolean
+
+    WsAttachState:
+      type: object
+      required: [sessionId, lastSeenSeq, role, activePrimaryConnected, canCaptureMic, rolePolicy]
+      properties:
+        sessionId:
+          type: string
+        lastSeenSeq:
+          type: integer
+          minimum: 0
+        role:
+          $ref: '#/components/schemas/WsAttachRole'
+        activePrimaryConnected:
+          type: boolean
+        canCaptureMic:
+          type: boolean
+        companionCount:
+          type: integer
+          minimum: 0
+        rolePolicy:
+          $ref: '#/components/schemas/WsRolePolicy'
+
+    TelemetryUsageSource:
+      type: string
+      enum: [provider_reported, provider_unreported, local_rule_zero, estimated]
+
+    ProviderUsageRecord:
+      type: object
+      required: [inputTokens, outputTokens, cachedInputTokens, modelCalls, usageSource]
+      properties:
+        inputTokens:
+          type: integer
+          minimum: 0
+        outputTokens:
+          type: integer
+          minimum: 0
+        cachedInputTokens:
+          type: integer
+          minimum: 0
+        reasoningTokens:
+          type: integer
+          minimum: 0
+        modelCalls:
+          type: integer
+          minimum: 0
+        retries:
+          type: integer
+          minimum: 0
+        usageSource:
+          $ref: '#/components/schemas/TelemetryUsageSource'
+        degraded:
+          type: boolean
+        costFen:
+          type: integer
+          minimum: 0
+        provider:
+          type: string
+        model:
+          type: string
+        correlationId:
+          type: string
+
+    HealthStatusResponse:
+      type: object
+      required: [ok, service, version, apiVersion, wsProtocolVersion, timestamp, asr, system1, system2]
+      properties:
+        ok:
+          type: boolean
+        service:
+          type: string
+          example: cuex-server
+        version:
+          type: string
+          example: 2.2.0
+        apiVersion:
+          type: string
+          example: '2026-11'
+        wsProtocolVersion:
+          type: string
+          example: '2.0'
+        timestamp:
+          $ref: '#/components/schemas/UtcIso8601'
+        asr:
+          $ref: '#/components/schemas/AsrCapabilityStatus'
+        system1:
+          $ref: '#/components/schemas/LlmSubsystemHealthStatus'
+        system2:
+          $ref: '#/components/schemas/LlmSubsystemHealthStatus'
+        compiler:
+          $ref: '#/components/schemas/LlmSubsystemHealthStatus'
+        reflection:
+          $ref: '#/components/schemas/LlmSubsystemHealthStatus'
+        dualSystemMetrics:
+          $ref: '#/components/schemas/DualSystemCollaborationMetrics'
+
+    AuthSessionCreateInput:
+      type: object
+      properties:
+        displayName:
+          type: string
+        email:
+          type: string
+        tenantId:
+          type: string
+        inviteCode:
+          type: string
+
+    UserAccount:
+      type: object
+      required: [userId, tenantId, displayName, role, authMode, createdAt, updatedAt]
+      properties:
+        userId:
+          type: string
+        tenantId:
+          type: string
+        displayName:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [owner, member, admin]
+        authMode:
+          type: string
+          enum: [local_demo, session_token, invite_code]
+        createdAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        updatedAt:
+          $ref: '#/components/schemas/UtcIso8601'
+
+    AuthSessionResponse:
+      type: object
+      required: [authenticated, token, user, sessionTokenExpiresAt, entitlements, usageSummary]
+      properties:
+        authenticated:
+          type: boolean
+        token:
+          type: string
+        user:
+          $ref: '#/components/schemas/UserAccount'
+        sessionTokenExpiresAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        entitlements:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entitlement'
+        usageSummary:
+          $ref: '#/components/schemas/AccountUsageSummary'
+
+    AuthMeResponse:
+      type: object
+      required: [authenticated, user, entitlements, usageSummary]
+      properties:
+        authenticated:
+          type: boolean
+        user:
+          $ref: '#/components/schemas/UserAccount'
+        entitlements:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entitlement'
+        usageSummary:
+          $ref: '#/components/schemas/AccountUsageSummary'
+
+    EntitlementsResponse:
+      type: object
+      required: [entitlements, usageSummary]
+      properties:
+        entitlements:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entitlement'
+        usageSummary:
+          $ref: '#/components/schemas/AccountUsageSummary'
+
+    AccountUsageResponse:
+      type: object
+      required: [records, summary, entitlements]
+      properties:
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/UsageRecord'
+        summary:
+          $ref: '#/components/schemas/AccountUsageSummary'
+        entitlements:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entitlement'
+
+    ScenarioCapabilityDescriptor:
+      type: object
+      required: [id, name, displayName, tagline, description, status, supportedModes, supportedInterventionLevels, capabilities]
+      properties:
+        id:
+          type: string
+          enum: [presentation, social, teaching, sales, custom]
+        name:
+          type: string
+        displayName:
+          type: string
+        tagline:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [implemented, roadmap]
+        supportedModes:
+          type: array
+          items:
+            type: string
+        supportedInterventionLevels:
+          type: array
+          items:
+            type: string
+            enum: [L0, L1, L2, L3]
+        capabilities:
+          type: object
+          additionalProperties:
+            type: boolean
+        roadmapSummary:
+          type: string
+        limitations:
+          type: array
+          items:
+            type: string
+
+    PresentationExtractInput:
+      type: object
+      required: [filename]
+      properties:
+        filename:
+          type: string
+        mimeType:
+          type: string
+        contentBase64:
+          type: string
+        textContent:
+          type: string
+
+    PresentationExtractResult:
+      type: object
+      required: [filename, fileType, status, extractedText, sections, warnings, unreadable, characterCount]
+      properties:
+        filename:
+          type: string
+        fileType:
+          type: string
+          enum: [md, txt, pptx, pdf, unknown]
+        status:
+          type: string
+          enum: [parsed, unreadable, rejected]
+        sourceDocumentId:
+          type: string
+        contentHash:
+          type: string
+        extractedText:
+          type: string
+        sections:
+          type: array
+          items:
+            type: object
+            properties:
+              index:
+                type: integer
+              title:
+                type: string
+              content:
+                type: string
+              notes:
+                type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        unreadable:
+          type: boolean
+        characterCount:
+          type: integer
+
+    PresentationCompileInput:
+      type: object
+      required: [title, sceneType, goal, audience, targetDurationSec, rawMaterials]
+      properties:
+        packId:
+          type: string
+        title:
+          type: string
+        sceneType:
+          type: string
+          enum: [pitch, defense, academic, keynote, general]
+        mode:
+          type: string
+          enum: [rehearsal, live]
+        goal:
+          type: string
+        audience:
+          type: string
+        targetDurationSec:
+          type: number
+          exclusiveMinimum: 0
+        rawMaterials:
+          type: string
+        sourceFilenames:
+          type: array
+          items:
+            type: string
+        keyFactsInput:
+          type: array
+          items:
+            type: string
+        forbiddenClaims:
+          type: array
+          items:
+            type: string
+        useSamplePack:
+          type: boolean
+
+    PresentationPackPatchInput:
+      type: object
+      properties:
+        title:
+          type: string
+        goal:
+          type: string
+        audience:
+          type: string
+        targetDurationSec:
+          type: number
+          exclusiveMinimum: 0
+        cueSheet:
+          type: object
+          additionalProperties: true
+        facts:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        qaCards:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        forbiddenClaims:
+          type: array
+          items:
+            type: string
+
+    PresentationContextPack:
+      type: object
+      required: [packId, schemaVersion, scenarioId, title, sceneType, goal, audience, targetDurationSec, cueSheet, facts, qaCards, unpreparedGaps, progressNodes, evidence, forbiddenClaims, compiledBy, warnings, createdAt, updatedAt]
+      properties:
+        packId:
+          type: string
+        schemaVersion:
+          type: integer
+          example: 2
+        tenantId:
+          type: string
+        userId:
+          type: string
+        scenarioId:
+          type: string
+          enum: [presentation]
+        title:
+          type: string
+        sceneType:
+          type: string
+          enum: [pitch, defense, academic, keynote, general]
+        goal:
+          type: string
+        audience:
+          type: string
+        targetDurationSec:
+          type: number
+        cueSheet:
+          type: object
+          additionalProperties: true
+        facts:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        qaCards:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        unpreparedGaps:
+          type: array
+          items:
+            type: string
+        progressNodes:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/Evidence'
+        forbiddenClaims:
+          type: array
+          items:
+            type: string
+        compiledBy:
+          type: string
+          enum: [local_compiler, llm_compiler]
+        warnings:
+          type: array
+          items:
+            type: string
+        isSample:
+          type: boolean
+        createdAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        updatedAt:
+          $ref: '#/components/schemas/UtcIso8601'
+
+    PresentationPackSummary:
+      type: object
+      required: [packId, title, sceneType, targetDurationSec, factCount, qaCount, chapterCount, updatedAt]
+      properties:
+        packId:
+          type: string
+        schemaVersion:
+          type: integer
+        title:
+          type: string
+        sceneType:
+          type: string
+        targetDurationSec:
+          type: number
+        factCount:
+          type: integer
+        qaCount:
+          type: integer
+        chapterCount:
+          type: integer
+        isSample:
+          type: boolean
+        updatedAt:
+          $ref: '#/components/schemas/UtcIso8601'
+
+    Evidence:
+      type: object
+      required: [id, schemaVersion, text, source, confidence, scope, privacyLevel, timestamp, createdAt, updatedAt, verified, locked, userConfirmed, lifecycle]
+      properties:
+        id:
+          type: string
+        schemaVersion:
+          type: integer
+          example: 2
+        text:
+          type: string
+        source:
+          type: string
+        sourceType:
+          type: string
+        sourceDocumentId:
+          type: string
+        locationRef:
+          type: string
+        contentHash:
+          type: string
+        confidence:
+          type: number
+        scope:
+          type: string
+          enum: [global, scenario, session, document]
+        privacyLevel:
+          type: string
+          enum: [ephemeral, session, local_private, shared]
+        verified:
+          type: boolean
+        locked:
+          type: boolean
+        userConfirmed:
+          type: boolean
+        lifecycle:
+          type: string
+          enum: [draft, active, superseded, archived, revoked]
+        timestamp:
+          $ref: '#/components/schemas/UtcIso8601'
+        createdAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        updatedAt:
+          $ref: '#/components/schemas/UtcIso8601'
+
+    MemoryCreateInput:
+      type: object
+      required: [scenarioId, category, title, content, userConfirmed, privacyLevel, scope]
+      properties:
+        scenarioId:
+          type: string
+          enum: [presentation, social, teaching, sales, custom, universal]
+        category:
+          type: string
+          enum: [preference, terminology, fact, pacing_habit, qa_pattern, style]
+        title:
+          type: string
+        content:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        sourceSessionId:
+          type: string
+        userConfirmed:
+          type: boolean
+          enum: [true]
+        privacyLevel:
+          type: string
+          enum: [ephemeral, session, local_private, shared]
+        scope:
+          type: string
+          enum: [global, scenario, session, document]
+
+    MemoryPatchInput:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        category:
+          type: string
+          enum: [preference, terminology, fact, pacing_habit, qa_pattern, style]
+        tags:
+          type: array
+          items:
+            type: string
+        privacyLevel:
+          type: string
+          enum: [ephemeral, session, local_private, shared]
+        scope:
+          type: string
+          enum: [global, scenario, session, document]
+        userConfirmed:
+          type: boolean
+
+    MemoryItem:
+      type: object
+      required: [memoryId, schemaVersion, scenarioId, category, title, content, userConfirmed, privacyLevel, scope, createdAt, updatedAt]
+      properties:
+        memoryId:
+          type: string
+        schemaVersion:
+          type: integer
+          example: 2
+        tenantId:
+          type: string
+        userId:
+          type: string
+        scenarioId:
+          type: string
+        category:
+          type: string
+        title:
+          type: string
+        content:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        userConfirmed:
+          type: boolean
+        privacyLevel:
+          type: string
+        scope:
+          type: string
+        sourceSessionId:
+          type: string
+        createdAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        updatedAt:
+          $ref: '#/components/schemas/UtcIso8601'
+
+    Session:
+      type: object
+      required: [sessionId, scenarioId, status, mode, viewMode, startedAt, silentMode, maxInterventionLevel, privacyNoticeAccepted]
+      properties:
+        sessionId:
+          type: string
+        tenantId:
+          type: string
+        userId:
+          type: string
+        scenarioId:
+          type: string
+        status:
+          type: string
+          enum: [initializing, active, paused, ended]
+        mode:
+          type: string
+        viewMode:
+          type: string
+          enum: [focus, inspector]
+        startedAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        endedAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        contextPackId:
+          type: string
+        silentMode:
+          type: boolean
+        maxInterventionLevel:
+          type: string
+          enum: [L0, L1, L2, L3]
+        privacyNoticeAccepted:
+          type: boolean
+
+    SessionSummaryItem:
+      type: object
+      required: [sessionId, scenarioId, mode, status, startedAt]
+      properties:
+        sessionId:
+          type: string
+        userId:
+          type: string
+        tenantId:
+          type: string
+        packId:
+          type: string
+        title:
+          type: string
+        scenarioId:
+          type: string
+        mode:
+          type: string
+        status:
+          type: string
+        startedAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        endedAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        durationMs:
+          type: number
+        elapsedSec:
+          type: integer
+        utilityScore:
+          type: number
+        coverageRatio:
+          type: number
+
+    PlanDefinition:
+      type: object
+      required: [planId, name, displayName, status, billingCycle, price, quotas, features, isCommercialHypothesis]
+      properties:
+        planId:
+          type: string
+          enum: [free, event, pro, team]
+        name:
+          type: string
+        displayName:
+          type: string
+        status:
+          type: string
+          enum: [active, planned]
+        billingCycle:
+          type: string
+          enum: [monthly, annual, one_time_14d]
+        price:
+          $ref: '#/components/schemas/MoneyAmount'
+        annualPrice:
+          $ref: '#/components/schemas/MoneyAmount'
+        quotas:
+          type: object
+          properties:
+            monthlySessionsLimit:
+              type: integer
+              nullable: true
+            liveMinutesLimit:
+              type: integer
+              nullable: true
+            maxFactsPerPack:
+              type: integer
+              nullable: true
+            maxUploadBytes:
+              type: integer
+            reflectionEnabled:
+              type: boolean
+            singlePointRehearsalEnabled:
+              type: boolean
+            persistentMemoryEnabled:
+              type: boolean
+            cloudAsrMinutesIncluded:
+              type: integer
+        features:
+          type: array
+          items:
+            type: string
+        isCommercialHypothesis:
+          type: boolean
+
+    Entitlement:
+      type: object
+      required: [entitlementId, userId, tenantId, planId, status, grantedAt, source]
+      properties:
+        entitlementId:
+          type: string
+        userId:
+          type: string
+        tenantId:
+          type: string
+        planId:
+          type: string
+          enum: [free, event, pro, team]
+        status:
+          type: string
+          enum: [active, expired, revoked, exhausted]
+        grantedAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        expiresAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        remainingSessions:
+          type: integer
+          nullable: true
+        remainingLiveMinutes:
+          type: integer
+          nullable: true
+        source:
+          type: string
+          enum: [default_free, sandbox_grant, webhook, admin]
+
+    UsageRecord:
+      type: object
+      required: [id, userId, usageType, quantity, unit, occurredAt, idempotencyKey, source]
+      properties:
+        id:
+          type: string
+        userId:
+          type: string
+        tenantId:
+          type: string
+        sessionId:
+          type: string
+        entitlementId:
+          type: string
+        usageType:
+          type: string
+          enum:
+            - session_started
+            - live_audio_ms
+            - document_extract
+            - context_compile
+            - system1_eval
+            - system2_synthesis
+            - reflection_generated
+            - memory_write
+        quantity:
+          type: number
+        unit:
+          type: string
+          enum: [count, ms, tokens, bytes]
+        occurredAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        idempotencyKey:
+          type: string
+        source:
+          type: string
+        costFen:
+          type: integer
+        metadata:
+          type: object
+          additionalProperties: true
+
+    AccountUsageSummary:
+      type: object
+      required: [userId, tenantId, periodStart, periodEnd, activePlanId, sessionsUsed, sessionsLimit, liveMinutesUsed, liveMinutesLimit, totalTokensUsed, totalCostFen, totalCost, updatedAt]
+      properties:
+        userId:
+          type: string
+        tenantId:
+          type: string
+        periodStart:
+          $ref: '#/components/schemas/UtcIso8601'
+        periodEnd:
+          $ref: '#/components/schemas/UtcIso8601'
+        activePlanId:
+          type: string
+          enum: [free, event, pro, team]
+        sessionsUsed:
+          type: integer
+        sessionsLimit:
+          type: integer
+          nullable: true
+        liveMinutesUsed:
+          type: number
+        liveMinutesLimit:
+          type: integer
+          nullable: true
+        totalTokensUsed:
+          type: integer
+        totalCostFen:
+          type: integer
+        totalCost:
+          $ref: '#/components/schemas/MoneyAmount'
+        updatedAt:
+          $ref: '#/components/schemas/UtcIso8601'
+
+    PaymentCheckoutPreviewRequest:
+      type: object
+      required: [planId, billingCycle, paymentChannel]
+      properties:
+        planId:
+          type: string
+          enum: [free, event, pro, team]
+        billingCycle:
+          type: string
+          enum: [one_time_14d, monthly, annual]
+        paymentChannel:
+          type: string
+          enum: [sandbox, wechat_pay, alipay]
+        couponCode:
+          type: string
+
+    PaymentCheckoutPreviewResult:
+      type: object
+      required: [previewId, planId, planStatus, billingCycle, paymentChannel, mode, subtotal, discount, total, liveCheckoutAvailable, notice, createdAt]
+      properties:
+        previewId:
+          type: string
+        planId:
+          type: string
+        planStatus:
+          type: string
+        billingCycle:
+          type: string
+        paymentChannel:
+          type: string
+        mode:
+          type: string
+          enum: [sandbox_only, not_configured]
+        subtotal:
+          $ref: '#/components/schemas/MoneyAmount'
+        discount:
+          $ref: '#/components/schemas/MoneyAmount'
+        total:
+          $ref: '#/components/schemas/MoneyAmount'
+        liveCheckoutAvailable:
+          type: boolean
+        notice:
+          type: string
+        createdAt:
+          $ref: '#/components/schemas/UtcIso8601'
+
+    PaymentWebhookEvent:
+      type: object
+      required: [eventId, provider, eventType, userId, planId, amount, idempotencyKey, occurredAt]
+      properties:
+        eventId:
+          type: string
+        provider:
+          type: string
+          enum: [sandbox, wechat_pay, alipay]
+        eventType:
+          type: string
+          enum: [payment.succeeded, payment.refunded, subscription.cancelled]
+        userId:
+          type: string
+        tenantId:
+          type: string
+        planId:
+          type: string
+          enum: [free, event, pro, team]
+        amount:
+          $ref: '#/components/schemas/MoneyAmount'
+        idempotencyKey:
+          type: string
+        occurredAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        signature:
+          type: string
+
+    BillingAuditRecord:
+      type: object
+      required: [auditId, userId, tenantId, eventType, provider, occurredAt, retentionNote]
+      properties:
+        auditId:
+          type: string
+        userId:
+          type: string
+        tenantId:
+          type: string
+        eventType:
+          type: string
+          enum: [checkout_preview, entitlement_granted, refund_recorded, entitlement_revoked, account_wiped]
+        planId:
+          type: string
+        amount:
+          $ref: '#/components/schemas/MoneyAmount'
+        provider:
+          type: string
+        externalTransactionId:
+          type: string
+        occurredAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        retentionNote:
+          type: string
+
+    WebhookProcessedResponse:
+      type: object
+      required: [received, deduplicated, audit]
+      properties:
+        received:
+          type: boolean
+        deduplicated:
+          type: boolean
+        entitlement:
+          $ref: '#/components/schemas/Entitlement'
+        audit:
+          $ref: '#/components/schemas/BillingAuditRecord'
+
+    UserDataExportBundle:
+      type: object
+      required: [exportId, exportedAt, schemaVersion, user, entitlements, usageSummary, usageRecords, billingAuditRecords, packs, memories, reflections]
+      properties:
+        exportId:
+          type: string
+        exportedAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        schemaVersion:
+          type: integer
+          example: 2
+        user:
+          $ref: '#/components/schemas/UserAccount'
+        entitlements:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entitlement'
+        usageSummary:
+          $ref: '#/components/schemas/AccountUsageSummary'
+        usageRecords:
+          type: array
+          items:
+            $ref: '#/components/schemas/UsageRecord'
+        billingAuditRecords:
+          type: array
+          items:
+            $ref: '#/components/schemas/BillingAuditRecord'
+        packs:
+          type: array
+          items:
+            $ref: '#/components/schemas/PresentationContextPack'
+        memories:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemoryItem'
+        reflections:
+          type: array
+          items:
+            type: object
+
+    DataDeletionReceipt:
+      type: object
+      required: [receiptId, userId, tenantId, requestedAt, completedAt, deletedScopes, preservedRecords, thirdPartyCaveats]
+      properties:
+        receiptId:
+          type: string
+        userId:
+          type: string
+        tenantId:
+          type: string
+        requestedAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        completedAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        deletedScopes:
+          type: array
+          items:
+            type: object
+            required: [scope, deletedCount]
+            properties:
+              scope:
+                type: string
+                enum: [sessions, packs, memories, reflections, telemetry, usage_records, auth_tokens]
+              deletedCount:
+                type: integer
+        preservedRecords:
+          type: array
+          items:
+            type: object
+            required: [category, count, reason, retentionPolicy]
+            properties:
+              category:
+                type: string
+              count:
+                type: integer
+              reason:
+                type: string
+              retentionPolicy:
+                type: string
+        thirdPartyCaveats:
+          type: array
+          items:
+            type: string

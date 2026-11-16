@@ -1,0 +1,1255 @@
+asyncapi: 3.1.0
+info:
+  title: CueX Cognitive Runtime WebSocket Protocol
+  version: '2.0'
+  description: |
+    Stage C Synced WebSocket Contract matching `apps/server/src/gateway/GatewayServer.ts` (`/ws`) and `@cuex/protocol` (`WS_PROTOCOL_VERSION = '2.0'`, v2.2.0 双系统协同黑板与 Presenter Companion 多订阅伴随窗扩展).
+    Transport path is `/ws` authenticated by `?token=<bearer>` (or HTTP `Authorization: Bearer <token>` header).
+    Reconnect state recovery and companion multi-subscriber attach happen during WebSocket upgrade via `?token=<bearer>&sessionId=<id>&lastSeenSeq=<int>&role=<primary|companion>` (defaults to `role=primary`), calling `reconcileBeforeReconnect()` and replaying missed `ws_server` frames strictly once while omitting already-withdrawn `intervention.shown` cards. Companion connections default to read-only mirror (`canCaptureMic: false`, `canControlSession: false`) and receive `COMPANION_READ_ONLY` / `PRIMARY_MIC_CONFLICT` if issuing restricted control or audio frames.
+    Carries real-time audio/speech inputs, `L0–L3` intervention delivery, 7 automatic withdrawal transitions, `EventEnvelopeMeta`, monotonic `serverSeq`, and client `idempotencyKey` deduplication.
+
+servers:
+  local:
+    host: 127.0.0.1:8765
+    pathname: /ws
+    protocol: ws
+    description: Localhost gateway WebSocket (`/ws?token=...&sessionId=...&lastSeenSeq=...`)
+  production:
+    host: api.cuex.example.com
+    pathname: /ws
+    protocol: wss
+    description: Production TLS WebSocket behind Nginx reverse proxy (`/ws?token=...`)
+
+channels:
+  liveSession:
+    address: /ws
+    messages:
+      ping:
+        $ref: '#/components/messages/ClientPing'
+      sessionStart:
+        $ref: '#/components/messages/ClientSessionStart'
+      sessionPause:
+        $ref: '#/components/messages/ClientSessionPause'
+      sessionResume:
+        $ref: '#/components/messages/ClientSessionResume'
+      sessionSilent:
+        $ref: '#/components/messages/ClientSessionSilent'
+      sessionStop:
+        $ref: '#/components/messages/ClientSessionStop'
+      sessionEnd:
+        $ref: '#/components/messages/ClientSessionEnd'
+      sessionWipe:
+        $ref: '#/components/messages/ClientSessionWipe'
+      rehearsalStart:
+        $ref: '#/components/messages/ClientRehearsalStart'
+      audioChunk:
+        $ref: '#/components/messages/ClientAudioChunk'
+      speechDelta:
+        $ref: '#/components/messages/ClientSpeechDelta'
+      chapterSet:
+        $ref: '#/components/messages/ClientChapterSet'
+      viewMode:
+        $ref: '#/components/messages/ClientViewMode'
+      sessionAttach:
+        $ref: '#/components/messages/ClientSessionAttach'
+      interventionSetCeiling:
+        $ref: '#/components/messages/ClientSetCeiling'
+      interventionRequestHelp:
+        $ref: '#/components/messages/ClientRequestHelp'
+      interventionDismiss:
+        $ref: '#/components/messages/ClientDismiss'
+      interventionFeedback:
+        $ref: '#/components/messages/ClientFeedback'
+      pong:
+        $ref: '#/components/messages/ServerPong'
+      sessionReady:
+        $ref: '#/components/messages/ServerSessionReady'
+      sessionState:
+        $ref: '#/components/messages/ServerSessionState'
+      sessionEnded:
+        $ref: '#/components/messages/ServerSessionEnded'
+      sessionWiped:
+        $ref: '#/components/messages/ServerSessionWiped'
+      sessionAttachState:
+        $ref: '#/components/messages/ServerSessionAttachState'
+      rehearsalReady:
+        $ref: '#/components/messages/ServerRehearsalReady'
+      asrStatus:
+        $ref: '#/components/messages/ServerAsrStatus'
+      asrTranscript:
+        $ref: '#/components/messages/ServerAsrTranscript'
+      cognitiveEvent:
+        $ref: '#/components/messages/ServerCognitiveEvent'
+      cognitiveState:
+        $ref: '#/components/messages/ServerCognitiveState'
+      system1Verdict:
+        $ref: '#/components/messages/ServerSystem1Verdict'
+      system2Candidate:
+        $ref: '#/components/messages/ServerSystem2Candidate'
+      system2Guidance:
+        $ref: '#/components/messages/ServerSystem2Guidance'
+      controllerDecision:
+        $ref: '#/components/messages/ServerControllerDecision'
+      interventionShown:
+        $ref: '#/components/messages/ServerInterventionShown'
+      interventionWithdrawn:
+        $ref: '#/components/messages/ServerInterventionWithdrawn'
+      presentationProgress:
+        $ref: '#/components/messages/ServerPresentationProgress'
+      telemetryUpdated:
+        $ref: '#/components/messages/ServerTelemetryUpdated'
+      sessionError:
+        $ref: '#/components/messages/ServerSessionError'
+
+operations:
+  sendClientControl:
+    action: send
+    channel:
+      $ref: '#/channels/liveSession'
+    summary: Client emits audio/speech, pause/resume/silent toggles, view mode switches, manual help, or lifecycle commands (carrying optional `idempotencyKey`, `correlationId`, `clientSeq`, `envelope`)
+  receiveServerCognitiveEvents:
+    action: receive
+    channel:
+      $ref: '#/channels/liveSession'
+    summary: Server emits sequenced (`serverSeq`) cognitive state, controller decisions, L1–L3 cues, auto-withdrawals, telemetry, and structured errors (`session.error`)
+
+components:
+  schemas:
+    UtcIso8601:
+      type: string
+      format: date-time
+      example: '2026-11-16T04:00:00.000Z'
+
+    EventEnvelopeMeta:
+      type: object
+      required: [specVersion, eventId, eventType, eventVersion, occurredAt, correlationId, producer, privacyClass]
+      properties:
+        specVersion:
+          type: string
+          enum: ['1.0']
+        eventId:
+          type: string
+        eventType:
+          type: string
+        eventVersion:
+          type: integer
+          example: 1
+        occurredAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        sessionId:
+          type: string
+        tenantId:
+          type: string
+        userId:
+          type: string
+        correlationId:
+          type: string
+        causationId:
+          type: string
+        producer:
+          type: string
+        traceId:
+          type: string
+        privacyClass:
+          type: string
+          enum: [public, session, user_private, restricted, billing_audit]
+        idempotencyKey:
+          type: string
+
+    InterventionLevel:
+      type: string
+      enum: [L0, L1, L2, L3]
+
+    WithdrawalReason:
+      type: string
+      enum:
+        - user_recovered
+        - topic_changed
+        - chapter_changed
+        - context_invalidated
+        - candidate_expired
+        - user_dismissed
+        - superseded
+
+    BaseClientMeta:
+      type: object
+      properties:
+        envelope:
+          $ref: '#/components/schemas/EventEnvelopeMeta'
+        idempotencyKey:
+          type: string
+        correlationId:
+          type: string
+        clientSeq:
+          type: integer
+          minimum: 0
+
+    BaseServerMeta:
+      type: object
+      properties:
+        serverSeq:
+          type: integer
+          minimum: 1
+        correlationId:
+          type: string
+        envelope:
+          $ref: '#/components/schemas/EventEnvelopeMeta'
+
+    ColabAsrLifecycleState:
+      type: string
+      enum:
+        - not_configured
+        - starting
+        - ready
+        - degraded
+        - disconnected
+        - restarting
+        - unavailable
+
+    AsrBackendMode:
+      type: string
+      enum: [colab_gpu, local_sherpa, remote_sherpa, browser_webspeech, text_simulation]
+
+    AsrCapabilityStatus:
+      type: object
+      required: [backend, mode, available, streaming, detail]
+      properties:
+        backend:
+          type: string
+        mode:
+          $ref: '#/components/schemas/AsrBackendMode'
+        available:
+          type: boolean
+        streaming:
+          type: boolean
+        detail:
+          type: string
+        lifecycleState:
+          $ref: '#/components/schemas/ColabAsrLifecycleState'
+        gpuName:
+          type: string
+        modelId:
+          type: string
+        rtf:
+          type: number
+          minimum: 0
+        lastHealthCheckAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        fallbackActive:
+          type: boolean
+        fallbackReason:
+          type: string
+
+    TelemetryUsageSource:
+      type: string
+      enum: [provider_reported, provider_unreported, local_rule_zero, estimated]
+
+    TelemetryUsage:
+      type: object
+      required:
+        - sessionId
+        - updatedAt
+        - usageSource
+        - inputTokens
+        - outputTokens
+        - cachedInputTokens
+        - totalTokens
+        - modelCalls
+        - retries
+        - localRuleEvaluations
+        - latencyMs
+        - latencyStats
+        - degraded
+        - usingLocalFallback
+        - asrProvider
+        - asrDurationMs
+        - costFen
+        - cost
+        - estimation
+      properties:
+        sessionId:
+          type: string
+        updatedAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        usageSource:
+          $ref: '#/components/schemas/TelemetryUsageSource'
+        inputTokens:
+          type: integer
+          minimum: 0
+        outputTokens:
+          type: integer
+          minimum: 0
+        cachedInputTokens:
+          type: integer
+          minimum: 0
+        reasoningTokens:
+          type: integer
+          minimum: 0
+        totalTokens:
+          type: integer
+          minimum: 0
+        modelCalls:
+          type: integer
+          minimum: 0
+        retries:
+          type: integer
+          minimum: 0
+        localRuleEvaluations:
+          type: integer
+          minimum: 0
+        latencyMs:
+          type: number
+          minimum: 0
+        latencyStats:
+          type: object
+          additionalProperties: true
+        degraded:
+          type: boolean
+        usingLocalFallback:
+          type: boolean
+        asrProvider:
+          type: string
+        asrDurationMs:
+          type: number
+          minimum: 0
+        costFen:
+          type: integer
+          minimum: 0
+        cost:
+          type: object
+          additionalProperties: true
+        estimation:
+          type: object
+          additionalProperties: true
+        byTier:
+          type: object
+          additionalProperties: true
+        dualSystem:
+          $ref: '#/components/schemas/DualSystemCollaborationMetrics'
+
+    WsAttachRole:
+      type: string
+      enum: [primary, companion]
+
+    WsRolePolicy:
+      type: object
+      required: [role, canCaptureMic, canControlSession, canModifyContext, canViewInspector]
+      properties:
+        role:
+          $ref: '#/components/schemas/WsAttachRole'
+        canCaptureMic:
+          type: boolean
+        canControlSession:
+          type: boolean
+        canModifyContext:
+          type: boolean
+        canViewInspector:
+          type: boolean
+        canInteractWithCues:
+          type: boolean
+
+    WsAttachState:
+      type: object
+      required: [sessionId, lastSeenSeq, role, activePrimaryConnected, canCaptureMic, rolePolicy]
+      properties:
+        sessionId:
+          type: string
+        lastSeenSeq:
+          type: integer
+          minimum: 0
+        role:
+          $ref: '#/components/schemas/WsAttachRole'
+        activePrimaryConnected:
+          type: boolean
+        canCaptureMic:
+          type: boolean
+        companionCount:
+          type: integer
+          minimum: 0
+        rolePolicy:
+          $ref: '#/components/schemas/WsRolePolicy'
+
+    System2Guidance:
+      type: object
+      required:
+        - guidanceId
+        - sessionId
+        - revision
+        - contextVersion
+        - basedOnTurnSeq
+        - issuedAtMs
+        - expiresAtMs
+        - focusDirective
+        - strategyHints
+        - evidenceAnchors
+        - grounded
+      properties:
+        guidanceId:
+          type: string
+        sessionId:
+          type: string
+        revision:
+          type: integer
+          minimum: 1
+        contextVersion:
+          type: integer
+          minimum: 0
+        basedOnTurnSeq:
+          type: integer
+          minimum: 0
+        staleAfterTurnSeq:
+          type: integer
+          minimum: 0
+        issuedAtMs:
+          type: number
+        expiresAtMs:
+          type: number
+        issuedAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        expiresAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        targetChapterId:
+          type: string
+        targetChapterTitle:
+          type: string
+        focusDirective:
+          type: string
+        strategyHints:
+          type: array
+          items:
+            type: string
+        recommendedBias:
+          type: string
+          enum: [stay_silent, prefer_l1, prefer_l2, prefer_l3, qa_grounding, recovery_hold]
+        preferredLevel:
+          $ref: '#/components/schemas/InterventionLevel'
+        evidenceAnchors:
+          type: array
+          items:
+            type: string
+        grounded:
+          type: boolean
+        reasoningEffort:
+          type: string
+          enum: [none, minimal, low, medium, high]
+        provider:
+          type: string
+        model:
+          type: string
+        correlationId:
+          type: string
+
+    DualSystemCollaborationMetrics:
+      type: object
+      required:
+        - s1Evaluations
+        - s1Escalations
+        - s2AsyncDispatches
+        - s2Completed
+        - s2CancelledAsStale
+        - s2Coalesced
+        - guidanceRevisionsIssued
+        - guidanceAppliedCount
+        - guidanceExpiredOrOverridden
+      properties:
+        s1Evaluations:
+          type: integer
+          minimum: 0
+        s1Escalations:
+          type: integer
+          minimum: 0
+        s2AsyncDispatches:
+          type: integer
+          minimum: 0
+        s2Completed:
+          type: integer
+          minimum: 0
+        s2CancelledAsStale:
+          type: integer
+          minimum: 0
+        s2Coalesced:
+          type: integer
+          minimum: 0
+        guidanceRevisionsIssued:
+          type: integer
+          minimum: 0
+        guidanceAppliedCount:
+          type: integer
+          minimum: 0
+        guidanceExpiredOrOverridden:
+          type: integer
+          minimum: 0
+        s1LastLatencyMs:
+          type: number
+          minimum: 0
+        s1P50LatencyMs:
+          type: number
+          minimum: 0
+        s1P95LatencyMs:
+          type: number
+          minimum: 0
+        s2LastLatencyMs:
+          type: number
+          minimum: 0
+        s2P50LatencyMs:
+          type: number
+          minimum: 0
+        s2P95LatencyMs:
+          type: number
+          minimum: 0
+        updatedAt:
+          $ref: '#/components/schemas/UtcIso8601'
+
+  messages:
+    ClientPing:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseClientMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: ping
+              payload:
+                type: object
+                required: [t]
+                properties:
+                  t:
+                    type: number
+
+    ClientSessionStart:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseClientMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: session.start
+              payload:
+                type: object
+                required: [scenarioId, mode, privacyNoticeAccepted]
+                properties:
+                  scenarioId:
+                    type: string
+                    enum: [presentation, social, teaching, sales, custom]
+                  packId:
+                    type: string
+                  contextPack:
+                    type: object
+                    additionalProperties: true
+                  mode:
+                    type: string
+                    enum: [rehearsal, live]
+                  viewMode:
+                    type: string
+                    enum: [focus, inspector]
+                  maxInterventionLevel:
+                    $ref: '#/components/schemas/InterventionLevel'
+                  silentMode:
+                    type: boolean
+                  privacyNoticeAccepted:
+                    type: boolean
+                  rehearsalTarget:
+                    type: object
+                    required: [weakSegmentId, chapterId]
+                    properties:
+                      weakSegmentId:
+                        type: string
+                      chapterId:
+                        type: string
+                      promptText:
+                        type: string
+                      targetPointLabels:
+                        type: array
+                        items:
+                          type: string
+
+    ClientSessionPause:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseClientMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: session.pause
+              payload:
+                type: object
+                required: [sessionId]
+                properties:
+                  sessionId:
+                    type: string
+
+    ClientSessionResume:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseClientMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: session.resume
+              payload:
+                type: object
+                required: [sessionId]
+                properties:
+                  sessionId:
+                    type: string
+
+    ClientSessionSilent:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseClientMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: session.silent
+              payload:
+                type: object
+                required: [sessionId, silentMode]
+                properties:
+                  sessionId:
+                    type: string
+                  silentMode:
+                    type: boolean
+
+    ClientSessionStop:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseClientMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: session.stop
+              payload:
+                type: object
+                required: [sessionId]
+                properties:
+                  sessionId:
+                    type: string
+                  reason:
+                    type: string
+
+    ClientSessionEnd:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseClientMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: session.end
+              payload:
+                type: object
+                required: [sessionId]
+                properties:
+                  sessionId:
+                    type: string
+                  reason:
+                    type: string
+                    enum: [completed, user_requested, aborted]
+
+    ClientSessionWipe:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseClientMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: session.wipe
+              payload:
+                type: object
+                required: [sessionId]
+                properties:
+                  sessionId:
+                    type: string
+
+    ClientRehearsalStart:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseClientMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: rehearsal.start
+              payload:
+                type: object
+                required: [sourceSessionId, packId, weakSegmentId, chapterId]
+                properties:
+                  sessionId:
+                    type: string
+                  sourceSessionId:
+                    type: string
+                  packId:
+                    type: string
+                  weakSegmentId:
+                    type: string
+                  chapterId:
+                    type: string
+
+    ClientAudioChunk:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseClientMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: audio.chunk
+              payload:
+                type: object
+                required: [format, sampleRate, channels, data, timestamp]
+                properties:
+                  sessionId:
+                    type: string
+                  format:
+                    type: string
+                    enum: [pcm16, opus]
+                  sampleRate:
+                    type: number
+                    example: 16000
+                  channels:
+                    type: integer
+                    minimum: 1
+                    example: 1
+                  data:
+                    type: string
+                    description: Base64-encoded PCM16/Opus audio chunk
+                  timestamp:
+                    type: number
+                  speaker:
+                    type: string
+                    enum: [presenter, audience, interlocutor, unknown]
+
+    ClientSpeechDelta:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseClientMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: speech.delta
+              payload:
+                type: object
+                required: [text, isFinal]
+                properties:
+                  sessionId:
+                    type: string
+                  speaker:
+                    type: string
+                    enum: [presenter, audience, interlocutor, unknown]
+                  text:
+                    type: string
+                  isFinal:
+                    type: boolean
+                  confidence:
+                    type: number
+                  startMs:
+                    type: number
+                  endMs:
+                    type: number
+                  source:
+                    type: string
+                    enum: [browser_webspeech, text_simulation, external_asr]
+
+    ClientChapterSet:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseClientMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: chapter.set
+              payload:
+                type: object
+                required: [sessionId, chapterId]
+                properties:
+                  sessionId:
+                    type: string
+                  chapterId:
+                    type: string
+
+    ClientViewMode:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseClientMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: view.mode
+              payload:
+                type: object
+                required: [sessionId, viewMode]
+                properties:
+                  sessionId:
+                    type: string
+                  viewMode:
+                    type: string
+                    enum: [focus, inspector]
+
+    ClientSessionAttach:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseClientMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: session.attach
+              payload:
+                type: object
+                required: [sessionId]
+                properties:
+                  sessionId:
+                    type: string
+                  lastSeenSeq:
+                    type: integer
+                    minimum: 0
+                  role:
+                    $ref: '#/components/schemas/WsAttachRole'
+
+    ClientSetCeiling:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseClientMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: intervention.set_ceiling
+              payload:
+                type: object
+                required: [sessionId, maxLevel]
+                properties:
+                  sessionId:
+                    type: string
+                  maxLevel:
+                    $ref: '#/components/schemas/InterventionLevel'
+
+    ClientRequestHelp:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseClientMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: intervention.request_help
+              payload:
+                type: object
+                required: [sessionId]
+                properties:
+                  sessionId:
+                    type: string
+                  preferredLevel:
+                    $ref: '#/components/schemas/InterventionLevel'
+                  question:
+                    type: string
+
+    ClientDismiss:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseClientMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: intervention.dismiss
+              payload:
+                type: object
+                required: [sessionId]
+                properties:
+                  sessionId:
+                    type: string
+                  interventionId:
+                    type: string
+                  candidateId:
+                    type: string
+                  reason:
+                    type: string
+
+    ClientFeedback:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseClientMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: intervention.feedback
+              payload:
+                type: object
+                required: [sessionId, interventionId, feedback]
+                properties:
+                  sessionId:
+                    type: string
+                  interventionId:
+                    type: string
+                  feedback:
+                    type: string
+                    enum: [helpful, distracting]
+                  note:
+                    type: string
+
+    ServerPong:
+      payload:
+        type: object
+        required: [type, payload]
+        properties:
+          type:
+            const: pong
+          correlationId:
+            type: string
+          payload:
+            type: object
+            required: [t, serverTime]
+            properties:
+              t:
+                type: number
+              serverTime:
+                $ref: '#/components/schemas/UtcIso8601'
+
+    ServerSessionReady:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseServerMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: session.ready
+              payload:
+                type: object
+                required: [session, serverTime, scenario, asrStatus, initialState]
+                properties:
+                  session:
+                    type: object
+                    additionalProperties: true
+                  serverTime:
+                    $ref: '#/components/schemas/UtcIso8601'
+                  scenario:
+                    type: object
+                    additionalProperties: true
+                  asrStatus:
+                    $ref: '#/components/schemas/AsrCapabilityStatus'
+                  initialState:
+                    type: object
+                    additionalProperties: true
+                  presentationState:
+                    type: object
+                    additionalProperties: true
+                  attachState:
+                    $ref: '#/components/schemas/WsAttachState'
+
+    ServerSessionState:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseServerMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: session.state
+              payload:
+                type: object
+                required: [session, serverTime]
+                properties:
+                  session:
+                    type: object
+                    additionalProperties: true
+                  serverTime:
+                    $ref: '#/components/schemas/UtcIso8601'
+
+    ServerRehearsalReady:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseServerMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: rehearsal.ready
+              payload:
+                type: object
+                required: [sessionId, weakSegment, promptText, supportingEvidence]
+                properties:
+                  sessionId:
+                    type: string
+                  weakSegment:
+                    type: object
+                    additionalProperties: true
+                  promptText:
+                    type: string
+                  supportingEvidence:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+
+    ServerAsrStatus:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseServerMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: asr.status
+              payload:
+                $ref: '#/components/schemas/AsrCapabilityStatus'
+
+    ServerAsrTranscript:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseServerMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: asr.transcript
+              payload:
+                type: object
+                required: [segment]
+                properties:
+                  segment:
+                    type: object
+                    additionalProperties: true
+                  asrStatus:
+                    $ref: '#/components/schemas/AsrCapabilityStatus'
+
+    ServerCognitiveEvent:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseServerMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: cognitive.event
+              payload:
+                type: object
+                additionalProperties: true
+
+    ServerCognitiveState:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseServerMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: cognitive.state
+              payload:
+                type: object
+                additionalProperties: true
+
+    ServerSystem1Verdict:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseServerMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: system1.verdict
+              payload:
+                type: object
+                additionalProperties: true
+
+    ServerSystem2Candidate:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseServerMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: system2.candidate
+              payload:
+                type: object
+                additionalProperties: true
+
+    ServerSystem2Guidance:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseServerMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: system2.guidance
+              payload:
+                $ref: '#/components/schemas/System2Guidance'
+
+    ServerSessionAttachState:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseServerMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: session.attach_state
+              payload:
+                $ref: '#/components/schemas/WsAttachState'
+
+    ServerPresentationProgress:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseServerMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: presentation.progress
+              payload:
+                type: object
+                additionalProperties: true
+
+    ServerControllerDecision:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseServerMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: controller.decision
+              payload:
+                type: object
+                additionalProperties: true
+
+    ServerInterventionShown:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseServerMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: intervention.shown
+              payload:
+                type: object
+                required: [sessionId, intervention, decision]
+                properties:
+                  sessionId:
+                    type: string
+                  intervention:
+                    type: object
+                    additionalProperties: true
+                  decision:
+                    type: object
+                    additionalProperties: true
+
+    ServerInterventionWithdrawn:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseServerMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: intervention.withdrawn
+              payload:
+                type: object
+                required: [sessionId, interventionId, reason, decision, withdrawnAt]
+                properties:
+                  sessionId:
+                    type: string
+                  interventionId:
+                    type: string
+                  candidateId:
+                    type: string
+                  reason:
+                    $ref: '#/components/schemas/WithdrawalReason'
+                  decision:
+                    type: object
+                    additionalProperties: true
+                  withdrawnAt:
+                    $ref: '#/components/schemas/UtcIso8601'
+
+    ServerTelemetryUpdated:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseServerMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: telemetry.updated
+              payload:
+                $ref: '#/components/schemas/TelemetryUsage'
+
+    ServerSessionEnded:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseServerMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: session.ended
+              payload:
+                type: object
+                required: [sessionId, endedAt, durationMs, outcome]
+                properties:
+                  sessionId:
+                    type: string
+                  endedAt:
+                    $ref: '#/components/schemas/UtcIso8601'
+                  durationMs:
+                    type: number
+                  outcome:
+                    type: object
+                    additionalProperties: true
+                  reflection:
+                    type: object
+                    additionalProperties: true
+
+    ServerSessionWiped:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseServerMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: session.wiped
+              payload:
+                type: object
+                required: [sessionId, wipedAt]
+                properties:
+                  sessionId:
+                    type: string
+                  wipedAt:
+                    $ref: '#/components/schemas/UtcIso8601'
+
+    ServerSessionError:
+      payload:
+        allOf:
+          - $ref: '#/components/schemas/BaseServerMeta'
+          - type: object
+            required: [type, payload]
+            properties:
+              type:
+                const: session.error
+              payload:
+                type: object
+                required: [code, message]
+                properties:
+                  code:
+                    type: string
+                  message:
+                    type: string
+                  sessionId:
+                    type: string
+                  retryable:
+                    type: boolean

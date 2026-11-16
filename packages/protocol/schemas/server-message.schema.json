@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuex.ai/schemas/server-message.v2.schema.json",
+  "title": "ServerMessage",
+  "description": "Server-to-client WebSocket event frame with optional EventEnvelopeMeta, correlationId, and monotonic serverSeq.",
+  "type": "object",
+  "required": ["type", "payload"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": [
+        "session.ready",
+        "session.state",
+        "session.ended",
+        "session.wiped",
+        "session.attach_state",
+        "asr.status",
+        "asr.transcript",
+        "cognitive.event",
+        "cognitive.state",
+        "system1.verdict",
+        "system2.candidate",
+        "system2.guidance",
+        "controller.decision",
+        "intervention.shown",
+        "intervention.withdrawn",
+        "presentation.progress",
+        "rehearsal.ready",
+        "telemetry.updated",
+        "pong",
+        "session.error"
+      ]
+    },
+    "payload": { "type": "object" },
+    "envelope": { "type": "object" },
+    "correlationId": { "type": "string" },
+    "serverSeq": { "type": "integer", "minimum": 0 }
+  }
+}

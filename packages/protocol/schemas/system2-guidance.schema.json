@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuex.ai/schemas/system2-guidance.v2.schema.json",
+  "title": "System2Guidance",
+  "description": "Asynchronous System 2 deep planning directive written onto the SharedCognitiveState blackboard.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "guidanceId",
+    "sessionId",
+    "revision",
+    "contextVersion",
+    "basedOnTurnSeq",
+    "issuedAtMs",
+    "expiresAtMs",
+    "focusDirective",
+    "strategyHints",
+    "evidenceAnchors",
+    "grounded"
+  ],
+  "properties": {
+    "guidanceId": { "type": "string", "minLength": 1 },
+    "sessionId": { "type": "string", "minLength": 1 },
+    "revision": { "type": "integer", "minimum": 1 },
+    "contextVersion": { "type": "integer", "minimum": 0 },
+    "basedOnTurnSeq": { "type": "integer", "minimum": 0 },
+    "staleAfterTurnSeq": { "type": "integer", "minimum": 0 },
+    "issuedAtMs": { "type": "number", "minimum": 0 },
+    "expiresAtMs": { "type": "number", "minimum": 0 },
+    "issuedAt": { "type": "string", "format": "date-time" },
+    "expiresAt": { "type": "string", "format": "date-time" },
+    "targetChapterId": { "type": "string" },
+    "targetChapterTitle": { "type": "string" },
+    "focusDirective": { "type": "string", "minLength": 1 },
+    "strategyHints": { "type": "array", "items": { "type": "string" } },
+    "recommendedBias": {
+      "type": "string",
+      "enum": ["stay_silent", "prefer_l1", "prefer_l2", "prefer_l3", "qa_grounding", "recovery_hold"]
+    },
+    "preferredLevel": { "type": "string", "enum": ["L0", "L1", "L2", "L3"] },
+    "evidenceAnchors": { "type": "array", "items": { "type": "string" } },
+    "grounded": { "type": "boolean" },
+    "reasoningEffort": { "type": "string", "enum": ["none", "minimal", "low", "medium", "high"] },
+    "provider": { "type": "string" },
+    "model": { "type": "string" },
+    "correlationId": { "type": "string" }
+  }
+}

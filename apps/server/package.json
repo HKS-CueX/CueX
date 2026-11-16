@@ -9,15 +9,14 @@
     "typecheck": "tsc --noEmit",
     "start": "tsx src/index.ts",
     "test": "tsx --test test/*.test.ts",
-    "test:controller": "tsx --test test/controller-gateway.test.ts"
+    "test:controller": "tsx --test test/runtime-controller.test.ts",
+    "eval": "tsx scripts/eval-presentation.ts"
   },
   "dependencies": {
     "@cuex/protocol": "workspace:*",
     "@earendil-works/pi-agent-core": "1.4.0",
     "@earendil-works/pi-ai": "1.4.0",
     "diff": "8.0.2",
-    "msedge-tts": "2.1.1",
-    "music-metadata": "11.12.1",
     "sherpa-onnx-node": "2.0.1",
     "ws": "^8.18.0"
   },

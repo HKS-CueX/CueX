@@ -1,0 +1,48 @@
+{
+  "packId": "pack_universal_001",
+  "schemaVersion": 2,
+  "tenantId": "tenant_local_default",
+  "userId": "usr_local_owner",
+  "scenarioId": "presentation",
+  "title": "CueX 产品核心架构汇报",
+  "description": "面向技术评委的 5 分钟结构化核心架构阐释",
+  "goal": "清晰传达最小必要干预架构与零幻觉依据门控",
+  "audience": "技术评审与早期投资人",
+  "targetDurationSec": 300,
+  "constraints": ["不得虚构未确认的商业收入或线下实测性能数据"],
+  "forbiddenClaims": ["不得宣称跨模型实例共享静态 KV Cache"],
+  "chapters": [
+    {
+      "id": "ch_1",
+      "title": "问题定义与实时认知冲突",
+      "order": 1,
+      "targetDurationSec": 90,
+      "keyPoints": [
+        { "id": "kp_1", "label": "System 2 交互打断心流", "required": true }
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "id": "ev_fact_01",
+      "schemaVersion": 2,
+      "text": "本地离线 6 例确定性评测通过率为 6/6，平均控制器决策延迟 0.69ms。",
+      "source": "CueX 演示资料包 · 第 3 页",
+      "sourceType": "compiler_extracted",
+      "sourceDocumentId": "doc_cuex_pitch_v1",
+      "locationRef": "slide:3#bullet-2",
+      "timestamp": "2026-11-16T04:00:00.000Z",
+      "createdAt": "2026-11-16T04:00:00.000Z",
+      "updatedAt": "2026-11-16T04:00:00.000Z",
+      "confidence": 0.98,
+      "scope": "document",
+      "privacyLevel": "session",
+      "userConfirmed": true,
+      "verified": true,
+      "locked": true,
+      "lifecycle": "active"
+    }
+  ],
+  "createdAt": "2026-11-16T04:00:00.000Z",
+  "updatedAt": "2026-11-16T04:00:00.000Z"
+}

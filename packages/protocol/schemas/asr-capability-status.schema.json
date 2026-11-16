@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuex.ai/schemas/asr-capability-status.v2.schema.json",
+  "title": "AsrCapabilityStatus",
+  "description": "Honest ASR backend readiness, streaming mode, and 7-state Colab GPU lifecycle status.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["backend", "mode", "available", "streaming", "detail"],
+  "properties": {
+    "backend": { "type": "string", "minLength": 1 },
+    "mode": {
+      "type": "string",
+      "enum": ["colab_gpu", "local_sherpa", "remote_sherpa", "browser_webspeech", "text_simulation"]
+    },
+    "available": { "type": "boolean" },
+    "streaming": { "type": "boolean" },
+    "detail": { "type": "string" },
+    "lifecycleState": {
+      "type": "string",
+      "enum": [
+        "not_configured",
+        "starting",
+        "ready",
+        "degraded",
+        "disconnected",
+        "restarting",
+        "unavailable"
+      ]
+    },
+    "gpuName": { "type": "string" },
+    "modelId": { "type": "string" },
+    "rtf": { "type": "number", "minimum": 0 },
+    "lastHealthCheckAt": { "type": "string", "format": "date-time" },
+    "fallbackActive": { "type": "boolean" },
+    "fallbackReason": { "type": "string" }
+  }
+}

@@ -1,0 +1,590 @@
+{
+  "dataStatus": "EVAL_LOCKED",
+  "generatedAt": "2026-11-15T23:53:22.971Z",
+  "team": {
+    "name": "记性好了一点",
+    "members": "路皓然、任逸康",
+    "track": "OPC 模式创新赛道",
+    "brand": "CueX",
+    "tagline": "你的快思考外挂 · 在深度思考之外，接住当下。",
+    "wedge": "CueX Presentation（演讲与答辩临场引导师）"
+  },
+  "eval": {
+    "sourceLabel": "[本地实测 Eval (local_rule_zero) + 云端公开费率建模]",
+    "datasetCases": 6,
+    "passedCases": 6,
+    "precision": "100.0%",
+    "falseInterventionRate": "0.0%",
+    "withdrawalAccuracy": "100.0%",
+    "avgLatencyMs": 0.88,
+    "p95LatencyMs": 1.66,
+    "lambda": 2,
+    "utilityV": "+3 (V=H-2I, 探索指标)",
+    "tokensPerSession": 0,
+    "cachedTokensPerSession": 0,
+    "modeledCloudTokensPerSession": 43748,
+    "s1EvaluationsPerSession": 13,
+    "s1ModelCallsPerSession": 0,
+    "s2WakeupsPerSession": 4,
+    "localSuppressCount": 9,
+    "localRuleCoveragePct": "100% (13/13)",
+    "measurementSource": "local_rule_zero",
+    "notes": "Offline deterministic evaluation used local heuristic & grounded rules (0 LLM tokens consumed)."
+  },
+  "pricing": {
+    "free": {
+      "name": "CueX Free",
+      "price": "¥0",
+      "tag": "体验配额",
+      "quota": "每月限 2 场 × 10m 云端 ASR + 完整 Inspector"
+    },
+    "event": {
+      "name": "CueX Event",
+      "price": "¥19–39 / 场",
+      "anchor": 29,
+      "tag": "答辩/路演单场包",
+      "quota": "14 天有效期 · 含 120m 云端 ASR 演练 + 正式临场 + 复盘"
+    },
+    "pro": {
+      "name": "CueX Pro",
+      "price": "¥59 / 月",
+      "annual": "¥499 / 年",
+      "anchor": 59,
+      "tag": "高频订阅主力",
+      "quota": "月含 240m 云端 ASR · 长期审批记忆 · 无限材料编译"
+    },
+    "team": {
+      "name": "CueX Team",
+      "price": "¥199 / 席位 / 月",
+      "tag": "规划中 Planned",
+      "quota": "共享口径库 + 团队管理审计 + 多场景适配器包"
+    }
+  },
+  "scenarios": {
+    "conservative": {
+      "label": "保守情景 (Conservative)",
+      "sessionsPerMo": 8,
+      "durationMin": 30,
+      "asrRatePerHr": 1.5,
+      "cloudAsrShare": 1,
+      "cacheHitRate": 0.2,
+      "blendedPaymentRatePct": 0.9,
+      "wechatFeeRatePct": 1,
+      "alipayFeeRatePct": 0.8,
+      "refundRatePct": 5,
+      "netRevenuePro": 56.05,
+      "netRevenueEvent": 27.55,
+      "modeledCloudTokensPerSession": 69488,
+      "llmCostPerSession": 0.233,
+      "fullVarCostPerSession": 1.283,
+      "proMonthlySaasCogs": 11.89,
+      "proMonthlyVarCost": 28.82,
+      "proDirectContrib": 27.23,
+      "proDirectMarginPct": 48.6,
+      "proSaasMarginPct": 78.8,
+      "eventFullCost": 10.47,
+      "eventDirectContrib": 17.08,
+      "eventMarginPct": 62,
+      "ltv": 136.13,
+      "cac": 45,
+      "ltvCac": 3.03,
+      "maxAffordableSessionsPerProMonth": 29
+    },
+    "base": {
+      "label": "基准情景 (Base)",
+      "sessionsPerMo": 6,
+      "durationMin": 25,
+      "asrRatePerHr": 0.8,
+      "cloudAsrShare": 1,
+      "cacheHitRate": 0.4,
+      "blendedPaymentRatePct": 0.6,
+      "wechatFeeRatePct": 0.6,
+      "alipayFeeRatePct": 0.6,
+      "refundRatePct": 2,
+      "netRevenuePro": 57.82,
+      "netRevenueEvent": 28.42,
+      "modeledCloudTokensPerSession": 43748,
+      "llmCostPerSession": 0.098,
+      "fullVarCostPerSession": 0.612,
+      "proMonthlySaasCogs": 4.5,
+      "proMonthlyVarCost": 9.37,
+      "proDirectContrib": 48.45,
+      "proDirectMarginPct": 83.8,
+      "proSaasMarginPct": 92.2,
+      "eventFullCost": 3.6,
+      "eventDirectContrib": 24.82,
+      "eventMarginPct": 87.3,
+      "ltv": 339.15,
+      "cac": 30,
+      "ltvCac": 11.3,
+      "maxAffordableSessionsPerProMonth": 85
+    },
+    "optimistic": {
+      "label": "乐观情景 (Optimistic)",
+      "sessionsPerMo": 5,
+      "durationMin": 20,
+      "asrRatePerHr": 0.45,
+      "cloudAsrShare": 0.7,
+      "cacheHitRate": 0.6,
+      "blendedPaymentRatePct": 0.575,
+      "wechatFeeRatePct": 0.6,
+      "alipayFeeRatePct": 0.55,
+      "refundRatePct": 1,
+      "netRevenuePro": 58.41,
+      "netRevenueEvent": 28.71,
+      "modeledCloudTokensPerSession": 28566,
+      "llmCostPerSession": 0.042,
+      "fullVarCostPerSession": 0.267,
+      "proMonthlySaasCogs": 1.93,
+      "proMonthlyVarCost": 3.26,
+      "proDirectContrib": 55.15,
+      "proDirectMarginPct": 94.4,
+      "proSaasMarginPct": 96.7,
+      "eventFullCost": 1.27,
+      "eventDirectContrib": 27.44,
+      "eventMarginPct": 95.6,
+      "ltv": 551.51,
+      "cac": 18,
+      "ltvCac": 30.64,
+      "maxAffordableSessionsPerProMonth": 211
+    }
+  },
+  "costComponents10": [
+    {
+      "id": 1,
+      "name": "1. 文档解析 (Doc Extract)",
+      "baseSession": 0.02,
+      "shareNote": "PDF/PPTX 抽取与章节结构化摊销 [模型估算]",
+      "category": "LLM & Compute"
+    },
+    {
+      "id": 2,
+      "name": "2. 流式语音识别 (ASR)",
+      "baseSession": 0.333,
+      "shareNote": "25m × ¥0.80/h (云端流式变动大头) [云端公开费率]",
+      "category": "Voice Infra"
+    },
+    {
+      "id": 3,
+      "name": "3. System 1 快决策",
+      "baseSession": 0.008,
+      "shareNote": "本地规则拦截零费 + 28% 云端快模型补判 [云端公开费率]",
+      "category": "LLM & Compute"
+    },
+    {
+      "id": 4,
+      "name": "4. System 2 深度推理",
+      "baseSession": 0.058,
+      "shareNote": "高门槛触发锚点与 Evidence 推理 [云端公开费率]",
+      "category": "LLM & Compute"
+    },
+    {
+      "id": 5,
+      "name": "5. 前缀缓存节流 (Cache)",
+      "baseSession": -0.02,
+      "shareNote": "单会话同前缀 40% 命中净节省 (非跨槽共享) [模型估算]",
+      "category": "Optimization"
+    },
+    {
+      "id": 6,
+      "name": "6. 证据检索 (Retrieval)",
+      "baseSession": 0.012,
+      "shareNote": "Evidence[] 与审批记忆切片召回 [模型估算]",
+      "category": "LLM & Compute"
+    },
+    {
+      "id": 7,
+      "name": "7. 赛后复盘 (Reflection)",
+      "baseSession": 0.02,
+      "shareNote": "V = H − λI 探索算子与候选记忆摘要 [云端公开费率]",
+      "category": "LLM & Compute"
+    },
+    {
+      "id": 8,
+      "name": "8. 基础设施 (Web/WS/DB)",
+      "baseSession": 0.18,
+      "shareNote": "WS 并发长连接、状态存储与监控摊销 [模型估算]",
+      "category": "Infrastructure"
+    },
+    {
+      "id": 9,
+      "name": "9. 支付通道费 (分渠道)",
+      "baseMonthly": 0.35,
+      "shareNote": "微信 0.6% / 支付宝 0.6% (退款原路退回；虚拟类目或达 1%) [云端公开费率]",
+      "category": "Commercial"
+    },
+    {
+      "id": 10,
+      "name": "10. 免费补贴与支持",
+      "baseMonthly": 5.32,
+      "shareNote": "12:1 算力活跃免费补贴 ¥4.87 + 客服 ¥0.45 [商业假设]",
+      "category": "Subsidy & Ops"
+    }
+  ],
+  "sensitivities": [
+    {
+      "id": 1,
+      "factor": "1. 三情景全局组合（保守 vs 基准 vs 乐观）",
+      "focus": "scenario_envelope",
+      "proFullVarCost": 28.82,
+      "proDirectContrib": 27.23,
+      "proDirectMarginPct": 48.6,
+      "deltaMarginPct": -35.2,
+      "eventFullCost": 10.47,
+      "eventMarginPct": 62,
+      "deltaEventMarginPct": -25.3,
+      "maxAffordableSessionsPerProMonth": 29,
+      "optimisticMarginPct": 94.4
+    },
+    {
+      "id": 2,
+      "factor": "2. 云端 ASR 单价升至 ¥3.50/h (高阶商业实时语音)",
+      "focus": "pro",
+      "proFullVarCost": 23.75,
+      "proDirectContrib": 34.07,
+      "proDirectMarginPct": 58.9,
+      "deltaMarginPct": -24.9,
+      "eventFullCost": 9.09,
+      "eventMarginPct": 68,
+      "deltaEventMarginPct": -19.3,
+      "maxAffordableSessionsPerProMonth": 25
+    },
+    {
+      "id": 3,
+      "factor": "3. Pro 月活跃频次翻倍至 12 场 (+100%)",
+      "focus": "pro",
+      "proFullVarCost": 13.08,
+      "proDirectContrib": 44.74,
+      "proDirectMarginPct": 77.4,
+      "deltaMarginPct": -6.4,
+      "eventFullCost": 3.6,
+      "eventMarginPct": 87.3,
+      "deltaEventMarginPct": 0,
+      "maxAffordableSessionsPerProMonth": 85
+    },
+    {
+      "id": 4,
+      "factor": "4. 单场平均时长增至 45 分钟 (+80%)",
+      "focus": "pro",
+      "proFullVarCost": 10.74,
+      "proDirectContrib": 47.08,
+      "proDirectMarginPct": 81.4,
+      "deltaMarginPct": -2.4,
+      "eventFullCost": 4.19,
+      "eventMarginPct": 85.3,
+      "deltaEventMarginPct": -2.1,
+      "maxAffordableSessionsPerProMonth": 59
+    },
+    {
+      "id": 5,
+      "factor": "5. 算力活跃免费/付费比恶化至 25:1 (+108%)",
+      "focus": "pro",
+      "proFullVarCost": 14.64,
+      "proDirectContrib": 43.18,
+      "proDirectMarginPct": 74.7,
+      "deltaMarginPct": -9.1,
+      "eventFullCost": 5.44,
+      "eventMarginPct": 80.8,
+      "deltaEventMarginPct": -6.5,
+      "maxAffordableSessionsPerProMonth": 76
+    },
+    {
+      "id": 6,
+      "factor": "6. 会话内前缀缓存命中降至 0% (完全无缓存)",
+      "focus": "pro",
+      "proFullVarCost": 9.63,
+      "proDirectContrib": 48.19,
+      "proDirectMarginPct": 83.3,
+      "deltaMarginPct": -0.5,
+      "eventFullCost": 3.7,
+      "eventMarginPct": 87,
+      "deltaEventMarginPct": -0.4,
+      "maxAffordableSessionsPerProMonth": 82
+    },
+    {
+      "id": 7,
+      "factor": "7. LLM 全链路厂商报价涨价 2.5 倍",
+      "focus": "pro",
+      "proFullVarCost": 10.64,
+      "proDirectContrib": 47.18,
+      "proDirectMarginPct": 81.6,
+      "deltaMarginPct": -2.2,
+      "eventFullCost": 4.08,
+      "eventMarginPct": 85.6,
+      "deltaEventMarginPct": -1.7,
+      "maxAffordableSessionsPerProMonth": 72
+    },
+    {
+      "id": 8,
+      "factor": "8. Event ¥29 彩排次数翻倍至 5.0 场/包 (含1场正式)",
+      "focus": "event",
+      "proFullVarCost": 9.37,
+      "proDirectContrib": 48.45,
+      "proDirectMarginPct": 83.8,
+      "deltaMarginPct": 0,
+      "eventFullCost": 5.14,
+      "eventMarginPct": 81.9,
+      "deltaEventMarginPct": -5.4,
+      "maxAffordableSessionsPerProMonth": 85
+    },
+    {
+      "id": 9,
+      "factor": "9. 支付通道被归入 1.0% 虚拟商品费率 (双渠道均值 1.0%)",
+      "focus": "pro",
+      "proFullVarCost": 9.6,
+      "proDirectContrib": 48.22,
+      "proDirectMarginPct": 83.4,
+      "deltaMarginPct": -0.4,
+      "eventFullCost": 3.71,
+      "eventMarginPct": 86.9,
+      "deltaEventMarginPct": -0.4,
+      "maxAffordableSessionsPerProMonth": 84
+    },
+    {
+      "id": 10,
+      "factor": "10. 商业退款率升至 10% (且不退通道费+半程算力损耗)",
+      "focus": "pro",
+      "proFullVarCost": 9.54,
+      "proDirectContrib": 43.56,
+      "proDirectMarginPct": 82,
+      "deltaMarginPct": -1.8,
+      "eventFullCost": 3.67,
+      "eventMarginPct": 85.9,
+      "deltaEventMarginPct": -1.4,
+      "maxAffordableSessionsPerProMonth": 77
+    },
+    {
+      "id": 11,
+      "factor": "11. 人工客服与交付支持升至 ¥3.00/付费用户/月",
+      "focus": "pro",
+      "proFullVarCost": 11.92,
+      "proDirectContrib": 45.9,
+      "proDirectMarginPct": 79.4,
+      "deltaMarginPct": -4.4,
+      "eventFullCost": 4.62,
+      "eventMarginPct": 83.7,
+      "deltaEventMarginPct": -3.6,
+      "maxAffordableSessionsPerProMonth": 81
+    },
+    {
+      "id": 12,
+      "factor": "12. 实测 CPA gemini-4-hydrogen 思维链校准 (S1/S2全按S2推理单价)",
+      "focus": "pro",
+      "proFullVarCost": 11.43,
+      "proDirectContrib": 46.39,
+      "proDirectMarginPct": 80.2,
+      "deltaMarginPct": -3.6,
+      "eventFullCost": 4.38,
+      "eventMarginPct": 84.6,
+      "deltaEventMarginPct": -2.8,
+      "maxAffordableSessionsPerProMonth": 66,
+      "calibratedTokensPerSession": 46357,
+      "calibratedLlmCostPerSession": 0.259,
+      "calibratedFullVarCostPerSession": 0.772
+    }
+  ],
+  "seedCohort": {
+    "round1": "20–30 名首批目标种子用户（完成 ≥3 轮彩排与真实上台闭环）",
+    "round2": "30–50 人扩展验证队列（覆盖 OPC 创业路演与高校毕业答辩多批次样本）",
+    "shortLabel": "第1轮 20–30人 → 第2轮 30–50人"
+  },
+  "phase2Boundaries": {
+    "meteringAndBilling": "服务端已设计 UsageLedger / Entitlement / PaymentProviderAdapter 沙盒契约，尚未开通真实商业商户收单；无真实付费营收。",
+    "utilityMetricNote": "V = H − λI（默认 λ = 2）为探索性干预效用量化指标，有待种子实测数据校准。",
+    "cacheTruthNote": "仅包含单会话同前缀缓存命中估算（NO cross-slot / cross-model / cross-scenario KV cache sharing）。"
+  },
+  "paymentChannels": {
+    "wechatPay": {
+      "name": "微信支付 (WeChat Pay)",
+      "standardRate": 0.006,
+      "virtualGoodsRateRange": "0.60% - 1.00% (小程序虚拟支付/特殊类目以签约准)",
+      "settlementCycle": "T+1 (常规结算周期)",
+      "refundFeeRule": "全额/部分退款按等比原路退还手续费 (交易365天内，单笔最多50次部分退)",
+      "officialUrl": "https://pay.weixin.qq.com",
+      "queryDate": "2026-11-16"
+    },
+    "alipay": {
+      "name": "支付宝 (Alipay)",
+      "standardRate": 0.006,
+      "preferentialRate": 0.0055,
+      "specialDigitalRateRange": "0.55% - 1.20% (小微/活动可0.55%，特定数字虚拟类目上浮)",
+      "settlementCycle": "T+1 / 实时余额账期 (按签约产品)",
+      "refundFeeRule": "交易12个月内主流标准收单产品退款时同步退回对应手续费 (特殊老协议除外)",
+      "officialUrl": "https://b.alipay.com",
+      "queryDate": "2026-11-16"
+    }
+  },
+  "asrModes": [
+    {
+      "mode": "local_sherpa",
+      "label": "本地 Sherpa ONNX / Rust WS",
+      "cloudFeePerHourRmb": 0,
+      "sourceLabel": "[模型估算 / 端侧算力]",
+      "notes": "语音流不经过商业云厂商 API，云端账单为 ¥0，依赖本地模型权重与终端 CPU/RAM。"
+    },
+    {
+      "mode": "remote_sherpa",
+      "label": "自建/私有 Sherpa 流式服务",
+      "cloudFeePerHourRmb": 0.22,
+      "sourceLabel": "[模型估算]",
+      "notes": "按私有云轻量实例与 WS 带宽摊销估算 ¥0.12–¥0.30/小时，无第三方按分钟抽成。"
+    },
+    {
+      "mode": "cloud_streaming_asr",
+      "label": "商业云端流式 ASR（默认建模基准）",
+      "cloudFeePerHourRmb": 0.8,
+      "sourceLabel": "[云端公开费率]",
+      "notes": "火山引擎豆包流式 ~¥0.45–1.00/h、阿里云 Fun-ASR ~¥0.79/h（标准实时最高 ~¥3.50/h）。"
+    },
+    {
+      "mode": "browser_webspeech",
+      "label": "浏览器原生 Web Speech API",
+      "cloudFeePerHourRmb": 0,
+      "sourceLabel": "[免费浏览器能力]",
+      "notes": "无直付云厂商 API 费，但强依赖浏览器内核厂商识别服务与网络连通，不承诺高精度商业 SLA。"
+    },
+    {
+      "mode": "text_simulation",
+      "label": "离线规则与文本仿真注入",
+      "cloudFeePerHourRmb": 0,
+      "sourceLabel": "[本地实测 Eval]",
+      "notes": "跳过声学流，仅供自动化评测、回归测试与弱网彩排脚本使用；UI 显式标明非真实收音。"
+    },
+    {
+      "mode": "colab_gpu",
+      "label": "Google Colab G4 实时 GPU ASR（Phase 3 验证通道）",
+      "ratePerHrRmb": 0,
+      "rateTag": "[Phase 3 开发/黑客松验证 GPU · 非商用 SLA 零成本假设]",
+      "pros": "NVIDIA RTX PRO 6000 Blackwell 运行 SenseVoiceSmall + fsmn-vad，实测 52.57 ms 均耗时 / 0.00327 RTF (~306x RT) / 数字 clip CER 0.0",
+      "cons": "依赖外挂隧道与实验节点在线状态；商业单位经济测算仍严格按 cloud_streaming_asr ¥0.80/h 保守入账"
+    }
+  ],
+  "funnelAudienceDefinitions": {
+    "registeredUsers": {
+      "term": "累计注册用户 (Registered Users)",
+      "role": "历史账号池统计（不作为免费补贴成本分母）"
+    },
+    "freeMau": {
+      "term": "月活免费用户 (Free MAU)",
+      "role": "当月登录/查看/编辑过材料包的免费用户（含零语音消耗者）"
+    },
+    "activeFreeUsers": {
+      "term": "月度算力活跃免费用户 (Active Compute Free Users)",
+      "role": "当月真实触发云端 ASR / LLM 彩排的免费用户——第10项补贴成本按 activeFreeUsers / paidUsers (基准 12:1) 严苛计提，绝不用注册总人数稀释。"
+    },
+    "paidUsers": {
+      "term": "当月净付费活跃用户 (Net Paid Users)",
+      "role": "当月持有有效 Event 或 Pro 权益且未全额退款的付费用户总数。"
+    }
+  },
+  "companyBreakeven": {
+    "status": "UNMODELED",
+    "statement": "公司盈亏平衡点尚未测算（未纳入固定研发人力、市场费用与基础底座开销）",
+    "formula": "breakevenPaidUsers = fixedMonthlyCost / weightedMonthlyDirectContribution",
+    "caveat": "本模型仅在单付费用户层提供直接贡献率与单用户月可承受场次上限 (maxAffordableSessionsPerProMonth)。"
+  },
+  "ltvCaveats": [
+    "简化公式 LTV = 月直接贡献 × 平均留存月数（暂未扣减年卡 ¥499/年 ≈ ¥41.58/月 约 29.5% 折让对混合 ARPU 的稀释）",
+    "已于净营收口径扣减 1%–5% 商业假设退款率（基准 2%），但真实初期 M1–M3 流失分布需种子期后观测",
+    "12:1 算力活跃免费补贴按同期付费用户即期分摊，尚未考虑冷启动早期免费增长领先于付费转化产生的营运资金错配",
+    "CAC (¥18–¥45) 仅反映直接获客投放/物料边际支出，未摊销创始人人工时间与固定运营经费"
+  ],
+  "phase3RealValidation": {
+    "status": "REAL_E2E_LOCKED",
+    "silentValidationOnly": true,
+    "asr": {
+      "reportTimestamp": "2026-11-15T22:08:28.644Z",
+      "gpuName": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+      "modelId": "FunAudioLLM/SenseVoiceSmall",
+      "sampleCount": 14,
+      "totalAudioSec": 225.344,
+      "avgInferLatencyMs": 52.57,
+      "p95InferLatencyMs": 89.59,
+      "avgE2eRoundTripMs": 420.24,
+      "overallRtf": 0.00327,
+      "meanClipCer": 0.0867,
+      "numericClipCer": 0,
+      "wssFirstPartialMs": 772.1,
+      "securityAuthEnforced401": true,
+      "reconnectRecoveryPassed": true,
+      "corpusTransparencyNote": "14 段 16kHz 单声道 WAV 由离线神经网络语音合成+声学退化生成，明确区分于线下真实多麦真人会议室录音"
+    },
+    "cpa": {
+      "schemaVersion": "cpa-llm-report.v2",
+      "validatedAt": "2026-11-15T23:29:37.171Z",
+      "primaryModel": "gemini-4-hydrogen",
+      "reasoningEffortS1": "low",
+      "requestCount": 21,
+      "successCount": 18,
+      "errorCount": 3,
+      "p50LatencyMs": 2040,
+      "p95LatencyMs": 8203,
+      "totalTokensAllCalls": 19311,
+      "reasoningTokensAllCalls": 7126,
+      "s1Benchmark": {
+        "gemini4Hydrogen": {
+          "passed": 6,
+          "total": 6,
+          "accuracy": 1,
+          "avgLatencyMs": 3741,
+          "p95LatencyMs": 5309,
+          "inputTokens": 3236,
+          "outputTokens": 1584,
+          "reasoningTokens": 1110
+        },
+        "gemini35FlashLite": {
+          "passed": 4,
+          "total": 6,
+          "accuracy": 0.6667,
+          "avgLatencyMs": 1521,
+          "p95LatencyMs": 1638,
+          "inputTokens": 3130,
+          "outputTokens": 782,
+          "reasoningTokens": 0
+        }
+      },
+      "mainPipeline": {
+        "modelCalls": 12,
+        "retries": 0,
+        "inputTokens": 5904,
+        "outputTokens": 9495,
+        "reasoningTokens": 7126,
+        "totalTokens": 15399,
+        "usageSource": "provider_reported"
+      },
+      "mockContractChecksPassed": 6
+    },
+    "e2e": {
+      "schemaVersion": "real-e2e-validation.v2",
+      "validatedAt": "2026-11-15T23:27:42.641Z",
+      "scenariosPassed": 14,
+      "scenariosTotal": 14,
+      "factsCompiled": 21,
+      "qaCardsCompiled": 6,
+      "streamingClipsPassed": 14,
+      "longSessionClip14": {
+        "modelCalls": 3,
+        "inputTokens": 1677,
+        "outputTokens": 2674,
+        "reasoningTokens": 2417,
+        "totalTokens": 4351,
+        "asrDurationMs": 33670,
+        "usageSource": "provider_reported",
+        "costFenReported": 0
+      }
+    },
+    "calibrated25mVsCommercialBase": {
+      "measuredProfileTokensPer25mSession": 46357,
+      "modeledBaseTokensPer25mSession": 43748,
+      "calibratedLlmCostAtS2RateRmb": 0.259,
+      "baseModeledLlmCostRmb": 0.098,
+      "calibratedFullVarCostRmb": 0.772,
+      "baseFullVarCostRmb": 0.612,
+      "calibratedProDirectMarginPct": 80.2,
+      "baseProDirectMarginPct": 83.8,
+      "calibratedEventMarginPct": 84.6,
+      "baseEventMarginPct": 87.3,
+      "calibratedMaxProSessionsMo": 66
+    }
+  }
+}

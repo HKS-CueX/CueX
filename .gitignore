@@ -39,13 +39,14 @@ docs/怀客松*.pdf
 .env
 .env.*
 !.env.example
+*.pem
 
 # TypeScript incremental build info
 *.tsbuildinfo
 __pycache__/
 *.py[cod]
-deliverables/
+deliverables/*
+!deliverables/cuex-final/
 .cuex-runtime/
-
-# Generated scenario doctor memories (default legacy doctor directory)
-apps/server/agents/doctors/dr-synth-*/
+*.zip
+!/CueX-Universal-Presentation-Final.zip

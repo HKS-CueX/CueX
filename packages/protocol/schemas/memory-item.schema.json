@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuex.ai/schemas/memory-item.v2.schema.json",
+  "title": "MemoryItem",
+  "description": "Opt-in user memory item; must only be persisted when userConfirmed is true.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "memoryId",
+    "schemaVersion",
+    "scenarioId",
+    "category",
+    "title",
+    "content",
+    "userConfirmed",
+    "privacyLevel",
+    "scope",
+    "createdAt",
+    "updatedAt"
+  ],
+  "properties": {
+    "memoryId": { "type": "string", "minLength": 1 },
+    "schemaVersion": { "type": "integer", "const": 2 },
+    "tenantId": { "type": "string" },
+    "userId": { "type": "string" },
+    "scenarioId": {
+      "type": "string",
+      "enum": ["presentation", "social", "teaching", "sales", "custom", "universal"]
+    },
+    "category": {
+      "type": "string",
+      "enum": ["preference", "terminology", "fact", "pacing_habit", "qa_pattern", "style"]
+    },
+    "title": { "type": "string", "minLength": 1 },
+    "content": { "type": "string", "minLength": 1 },
+    "tags": { "type": "array", "items": { "type": "string" } },
+    "sourceSessionId": { "type": "string" },
+    "userConfirmed": { "type": "boolean" },
+    "privacyLevel": { "type": "string", "enum": ["ephemeral", "session", "local_private", "shared"] },
+    "scope": { "type": "string", "enum": ["global", "scenario", "session", "document"] },
+    "createdAt": { "type": "string", "format": "date-time" },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  }
+}

@@ -1,0 +1,501 @@
+{
+  "reportVersion": "1.0.0",
+  "generatedAt": "2026-11-15T22:08:28.644Z",
+  "environment": {
+    "deploymentTarget": "Google Colab G4 via FRP TLS/SSH Tunnel",
+    "endpointRedacted": "https://<redacted-frp-host>:10086",
+    "wsEndpointRedacted": "wss://<redacted-frp-host>:10086/v1/asr/stream",
+    "tlsVerification": "self-signed SAN certificate pinned locally in .cuex-runtime/colab-asr-cert.pem",
+    "authScheme": "Authorization: Bearer <COLAB_ASR_API_KEY>",
+    "gpu": {
+      "available": true,
+      "name": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+      "cudaVersion": "13.0",
+      "vramAllocatedMiB": 972.3,
+      "vramReservedMiB": 1030,
+      "vramUsedMiB": 2425.6,
+      "vramTotalMiB": 97250.1
+    },
+    "activeModel": "FunAudioLLM/SenseVoiceSmall",
+    "loadTimeSec": 4.584,
+    "warmupLatencyMs": 56.23,
+    "zeroSpeakerOutputConfirmed": true,
+    "zeroRawAudioDiskRetentionConfirmed": true
+  },
+  "securityChecks": {
+    "httpMissingBearerStatus": 401,
+    "httpBadBearerStatus": 401,
+    "httpTranscribeMissingBearerStatus": 401,
+    "wssMissingBearerStatus": 401,
+    "wssBadBearerStatus": 401,
+    "tlsPinnedVerified": true,
+    "passed": true
+  },
+  "batchEvaluation": {
+    "sampleCount": 14,
+    "totalAudioDurationSec": 225.344,
+    "avgServerInferLatencyMs": 52.57,
+    "p95ServerInferLatencyMs": 89.59,
+    "avgE2eRoundTripMs": 420.24,
+    "overallRtf": 0.00327,
+    "meanClipCer": 0.0867,
+    "samples": [
+      {
+        "id": "clip_01_intro_natural",
+        "file": "01_intro_natural_tingting.wav",
+        "category": "natural_speed",
+        "uploadMode": "multipart/form-data",
+        "durationSec": 16.265,
+        "serverInferLatencyMs": 54.14,
+        "e2eRoundTripMs": 785.2,
+        "rtf": 0.00333,
+        "cer": 0.1045,
+        "hypothesis": "各位评委好，我们是进行好了一点团队，带来的产品叫gueXQX是在深度思考之外，接触当下的快思考外挂，帮助演讲者在台上保持眼神交流与核心表达。",
+        "groundTruth": "各位评委好，我们是记性好了一点团队，带来的产品叫CueX。CueX是在深度思考之外接住当下的快思考外挂，帮助演讲者在台上保持眼神交流与核心表达。"
+      },
+      {
+        "id": "clip_02_pain_point_fast",
+        "file": "02_pain_point_fast_tingting.wav",
+        "category": "fast_speed",
+        "uploadMode": "audio/wav",
+        "durationSec": 13.248,
+        "serverInferLatencyMs": 47.18,
+        "e2eRoundTripMs": 430.07,
+        "rtf": 0.00356,
+        "cer": 0.058,
+        "hypothesis": "传统滚动题词器一遇到评委临场打断或跳讲就彻底失灵，而市面上常规副驾驶只要检测到开口就往屏幕里灌满整段回答人在紧张时分，心独自，反而丢掉眼神和雨流。",
+        "groundTruth": "传统滚动提词器一遇到评委临场打断或跳讲就彻底失灵，而市面上常规副驾驶只要检测到开口就往屏幕里灌满整段回答，人在紧张时分心读字反而丢掉眼神和语流。"
+      },
+      {
+        "id": "clip_03_pauses_fillers",
+        "file": "03_pauses_fillers_meijia.wav",
+        "category": "pauses_and_fillers",
+        "uploadMode": "audio/pcm",
+        "durationSec": 17.988,
+        "serverInferLatencyMs": 56.82,
+        "e2eRoundTripMs": 437.14,
+        "rtf": 0.00316,
+        "cer": 0.0541,
+        "hypothesis": "就是说我们首先打透的第一个商业场景是那个QX presentation演讲与答辩临场引导师。上台前只要一分钟导入讲稿，就能编译成带原文溯源的证据卡片。",
+        "groundTruth": "就是说，我们首先打透的第一个商业场景是，嗯那个，CueX Presentation演讲与答辩临场引导师。上台前只要一分钟导入讲稿，就能编译成带原文溯源的证据卡片。"
+      },
+      {
+        "id": "clip_04_numbers_proper_nouns",
+        "file": "04_numbers_proper_nouns_tingting.wav",
+        "category": "numbers_and_proper_nouns",
+        "uploadMode": "multipart/form-data",
+        "durationSec": 18.307,
+        "serverInferLatencyMs": 56.75,
+        "e2eRoundTripMs": 568.66,
+        "rtf": 0.0031,
+        "cer": 0,
+        "hypothesis": "在单位经济模型里，pro版本定价59元，每月或499元，每年含240分钟云端语音配额event单场29元，含120分钟，基准直接贡献毛利率达到83.8%。",
+        "groundTruth": "在单位经济模型里，Pro版本定价59元每月或499元每年，含240分钟云端语音配额，Event单场29元含120分钟，基准直接贡献毛利率达到83.8%。"
+      },
+      {
+        "id": "clip_05_architecture_bilingual",
+        "file": "05_architecture_bilingual_meijia.wav",
+        "category": "bilingual_mixed",
+        "uploadMode": "audio/wav",
+        "durationSec": 18.412,
+        "serverInferLatencyMs": 57.53,
+        "e2eRoundTripMs": 433.08,
+        "rtf": 0.00312,
+        "cer": 0.2397,
+        "hypothesis": "底层不是写死的演讲提示词，而是univeveralc room time通用认知运行时，由context cell维护版本号event bus驱动sstem一和stem2异步协同，再由interventioncont独立门控。",
+        "groundTruth": "底层不是写死的演讲提示词，而是Universal Cognitive Runtime通用认知运行时，由ContextStore维护版本号，EventBus驱动System 1和System 2异步协同，再由InterventionController独立门控。"
+      },
+      {
+        "id": "clip_06_quiet_mic_gain",
+        "file": "06_quiet_mic_gain.wav",
+        "category": "quiet_mic_gain",
+        "uploadMode": "audio/pcm",
+        "durationSec": 15.249,
+        "serverInferLatencyMs": 51.44,
+        "e2eRoundTripMs": 421.21,
+        "rtf": 0.00337,
+        "cer": 0.0172,
+        "hypothesis": "当演讲偏离关键锚点或卡壳停顿时，系统先给出L一边缘轻提示，必要时升级到L2关键词锚点。一旦讲者自己接回正轨，提示立即自动撤回。",
+        "groundTruth": "当演讲偏离关键锚点或卡壳停顿时，系统先给出L1边缘轻提示，必要时升级到L2关键词锚点，一旦讲者自己接回正轨，提示立即自动撤回。"
+      },
+      {
+        "id": "clip_07_loud_mic_gain",
+        "file": "07_loud_mic_gain_softclip.wav",
+        "category": "loud_mic_gain",
+        "uploadMode": "multipart/form-data",
+        "durationSec": 10.236,
+        "serverInferLatencyMs": 40.17,
+        "e2eRoundTripMs": 318.63,
+        "rtf": 0.00392,
+        "cer": 0.0217,
+        "hypothesis": "我们用探索性指标V等于H减去2倍I来衡量每次干预是否真的有效，避免把屏幕变成喋喋不休的聊天窗口。",
+        "groundTruth": "我们用探索性指标V等于H减去二倍I来衡量每次干预是否真的有效，避免把屏幕变成喋喋不休的聊天窗口。"
+      },
+      {
+        "id": "clip_08_moderate_room_noise",
+        "file": "08_moderate_room_noise.wav",
+        "category": "moderate_background_noise",
+        "uploadMode": "audio/wav",
+        "durationSec": 13.099,
+        "serverInferLatencyMs": 45.05,
+        "e2eRoundTripMs": 328.69,
+        "rtf": 0.00344,
+        "cer": 0.0377,
+        "hypothesis": "散场之后，系统自动生成结构化复盘报告，覆盖章节号时遗漏重点语未回答问题，个人偏好记忆必须经过人工逐条确认才能保存。",
+        "groundTruth": "散场之后系统自动生成结构化复盘报告，覆盖章节耗时、遗漏重点与未回答问题，个人偏好记忆必须经过人工逐条确认才能保存。"
+      },
+      {
+        "id": "clip_09_speaker_interruption_qa",
+        "file": "09_speaker_interruption_qa.wav",
+        "category": "speaker_interruption_qa",
+        "uploadMode": "audio/pcm",
+        "durationSec": 12.382,
+        "serverInferLatencyMs": 43.73,
+        "e2eRoundTripMs": 326.02,
+        "rtf": 0.00353,
+        "cer": 0.0508,
+        "hypothesis": "目前，我们的并发长连接成本和流式语音识别已经做了完整核算。打断一下，如果用户用29元加场版本无线彩排，把语音识别额度刷到怎么办？",
+        "groundTruth": "目前我们的并发长连接成本和流式语音识别已经做了完整核算。打断一下，如果用户用29元单场版本无限彩排把语音识别额度刷爆怎么办？"
+      },
+      {
+        "id": "clip_10_deliberate_omission_demo",
+        "file": "10_deliberate_omission_demo.wav",
+        "category": "deliberate_omission",
+        "uploadMode": "multipart/form-data",
+        "durationSec": 14.966,
+        "serverInferLatencyMs": 49.47,
+        "e2eRoundTripMs": 337.47,
+        "rtf": 0.00331,
+        "cer": 0.1471,
+        "hypothesis": "刚才介绍了QX的双系统架构和暗场付费模式。接下来我们直接跳到未来90天市场推广计划，通过社群和校园答辩场景获取第一批30到50名种子用户。",
+        "groundTruth": "刚才介绍了CueX的双系统架构和按场付费模式，接下来我们直接跳到未来九十天市场推广计划，通过社群和校园答辩场景获取第一批三十到五十名种子用户。"
+      },
+      {
+        "id": "clip_11_topic_drift_demo",
+        "file": "11_topic_drift_demo.wav",
+        "category": "topic_drift",
+        "uploadMode": "audio/wav",
+        "durationSec": 12.873,
+        "serverInferLatencyMs": 44.97,
+        "e2eRoundTripMs": 329.22,
+        "rtf": 0.00349,
+        "cer": 0.0196,
+        "hypothesis": "其实说到硬件发展，我前几年买过很多智能手环，和降噪耳机，天天研究蓝牙协议，焊电池续航，周末还喜欢去公园跑步拍风景。",
+        "groundTruth": "其实说到硬件发展，我前几年买过很多智能手环和降噪耳机，天天研究蓝牙协议和电池续航，周末还喜欢去公园跑步拍风景。"
+      },
+      {
+        "id": "clip_12_qa_defense_bilingual",
+        "file": "12_qa_defense_bilingual.wav",
+        "category": "qa_bilingual_defense",
+        "uploadMode": "audio/pcm",
+        "durationSec": 15.609,
+        "serverInferLatencyMs": 50.54,
+        "e2eRoundTripMs": 367.42,
+        "rtf": 0.00324,
+        "cer": 0.2687,
+        "hypothesis": "我们不把单个大模型ATI包装成护城盒QX的壁垒在于L临静默克制门控TTT原文墙绑定房幻觉，以及用户可控的复盘记忆闭环。",
+        "groundTruth": "我们不把单个大模型API包装成护城河，CueX的壁垒在于L0静默克制门控、PPT原文Evidence强绑定防幻觉，以及用户可控的复盘记忆闭环。"
+      },
+      {
+        "id": "clip_13_privacy_sovereignty",
+        "file": "13_privacy_sovereignty_tingting.wav",
+        "category": "privacy_and_formats",
+        "uploadMode": "multipart/form-data",
+        "durationSec": 14.54,
+        "serverInferLatencyMs": 48.57,
+        "e2eRoundTripMs": 332.83,
+        "rtf": 0.00334,
+        "cer": 0.0806,
+        "hypothesis": "用户可以随时一键导出JSON或markdown格式的个人复盘与记忆包，也可以执行绘画及或账号及擦除，至依法保留最小化计费审计流水。",
+        "groundTruth": "用户可以随时一键导出JSON或Markdown格式的个人复盘与记忆包，也可以执行会话级或账号级擦除，只依法保留最小化计费审计流水。"
+      },
+      {
+        "id": "clip_14_long_multiturn_continuous",
+        "file": "14_long_multiturn_continuous.wav",
+        "category": "long_multiturn_streaming",
+        "uploadMode": "audio/wav",
+        "durationSec": 32.17,
+        "serverInferLatencyMs": 89.59,
+        "e2eRoundTripMs": 467.73,
+        "rtf": 0.00278,
+        "cer": 0.1145,
+        "hypothesis": "各位评委QX不是另一个生成2000字报告的慢思考工具。在路演硕博答辩汉产品发布的关键1分钟里，讲者真正需要的视频时，L0保持静默卡壳时给出2到6个字的L2关键锚点接回话头后自动撤回的刻制外挂。结合实时GTU语音识别与结构化证据库，我们实现了毫秒级门控决策与可审计的成本模型。",
+        "groundTruth": "各位评委，CueX不是另一个生成两千字报告的慢思考工具。在路演、硕博答辩和产品发布的关键十分钟里，讲者真正需要的是平时L0保持静默、卡壳时给出两到六个字的L2关键锚点、接回话头后自动撤回的克制外挂。结合实时GPU语音识别与结构化证据库，我们实现了毫秒级门控决策与可审计的成本模型。"
+      }
+    ]
+  },
+  "streamingEvaluation": {
+    "continuousMultiturn14": {
+      "droppedMidStream": false,
+      "closedCleanly": true,
+      "pongReceived": true,
+      "firstPartialFromAudioStartMs": 772.1,
+      "firstFinalFromAudioStartMs": 6659.9,
+      "partialCount": 19,
+      "finalCount": 2,
+      "combinedFinalText": "各位评委QX不是另一个生成2000字报告的慢思考工具。在路演硕博答辩汉产品发布的关键1分钟里，讲者真正需要的视频时，L0保持静默，卡壳时给出2到6个字的L2关键锚点接回话头后自动。撤回的刻制外挂结合实时GTU语音识别与结构化证据库，我们实现了毫秒级门控决策与可审计的成本模型。",
+      "partials": [
+        {
+          "segment": 0,
+          "text": "各位评委QX。",
+          "latencyMs": 26.66
+        },
+        {
+          "segment": 0,
+          "text": "各位评委QX不是另一个生成。",
+          "latencyMs": 30.37
+        },
+        {
+          "segment": 0,
+          "text": "各位评委QX不是另一个生成2000字报告的。",
+          "latencyMs": 30.6
+        },
+        {
+          "segment": 0,
+          "text": "各位评委QX不是另一个生成2000字报告的慢思考工具。",
+          "latencyMs": 35.19
+        },
+        {
+          "segment": 0,
+          "text": "各位评委QX不是另一个生成2000字报告的慢思考工具。在路演硕伯达。",
+          "latencyMs": 38.5
+        },
+        {
+          "segment": 0,
+          "text": "各位评委QX不是另一个生成2000字报告的慢思考工具。在路演硕博答辩产品发布的。",
+          "latencyMs": 41.22
+        },
+        {
+          "segment": 0,
+          "text": "各位评委QX不是另一个生成2000字报告的慢思考工具，在路演硕博答辩焊产品发布的关键1分钟里，讲。",
+          "latencyMs": 43.32
+        },
+        {
+          "segment": 0,
+          "text": "各位评委QX不是另一个生成2000字报告的慢思考工具，在路演硕博答辩汉产品发布的关键1分钟里，讲者真正需要的视频是。",
+          "latencyMs": 46.91
+        },
+        {
+          "segment": 0,
+          "text": "各位评委QX不是另一个生成2000字报告的慢思考工具。在路演硕博答辩汉产品发布的关键1分钟里，讲者真正需要的视频时，L0保持静。",
+          "latencyMs": 48.1
+        },
+        {
+          "segment": 0,
+          "text": "各位评委QX不是另一个生成2000字报告的慢思考工具。在路演硕博答辩汉产品发布的关键1分钟里，讲者真正需要的视频时，L0保持静默，卡壳时给出两。",
+          "latencyMs": 53.97
+        },
+        {
+          "segment": 0,
+          "text": "各位评委QX不是另一个生成2000字报告的慢思考工具。在路演硕博答辩汉产品发布的关键1分钟里，讲者真正需要的视频时，L0保持静默，卡壳时给出2到6个字的L2。",
+          "latencyMs": 55.11
+        },
+        {
+          "segment": 0,
+          "text": "各位评委QX不是另一个生成2000字报告的慢思考工具。在路演硕博答辩汉产品发布的关键1分钟里，讲者真正需要的视频时，L0保持静默，卡壳时给出2到6个字的L2关键锚点接回。",
+          "latencyMs": 61.59
+        },
+        {
+          "segment": 1,
+          "text": "撤回的克制外挂。",
+          "latencyMs": 28.87
+        },
+        {
+          "segment": 1,
+          "text": "撤回的克制外挂结合实时。",
+          "latencyMs": 31.01
+        },
+        {
+          "segment": 1,
+          "text": "撤回的克制外挂结合实时GTU。",
+          "latencyMs": 33.06
+        },
+        {
+          "segment": 1,
+          "text": "撤回的刻制外挂结合实时GTU语音识别与结构化。",
+          "latencyMs": 36
+        },
+        {
+          "segment": 1,
+          "text": "撤回的刻制外挂结合实时GTU语音识别与结构化证据库。我们实。",
+          "latencyMs": 39.58
+        },
+        {
+          "segment": 1,
+          "text": "撤回的刻制外挂结合实时GTU语音识别与结构化证据库，我们实现了毫秒级门控。",
+          "latencyMs": 41.8
+        },
+        {
+          "segment": 1,
+          "text": "撤回的刻制外挂结合实时GTU语音识别与结构化证据库，我们实现了毫秒级门控决策与可审计的成。",
+          "latencyMs": 45.01
+        }
+      ],
+      "finals": [
+        {
+          "segment": 0,
+          "text": "各位评委QX不是另一个生成2000字报告的慢思考工具。在路演硕博答辩汉产品发布的关键1分钟里，讲者真正需要的视频时，L0保持静默，卡壳时给出2到6个字的L2关键锚点接回话头后自动。",
+          "latencyMs": 63.45,
+          "rtf": 0.00317,
+          "reason": "max_utterance"
+        },
+        {
+          "segment": 1,
+          "text": "撤回的刻制外挂结合实时GTU语音识别与结构化证据库，我们实现了毫秒级门控决策与可审计的成本模型。",
+          "latencyMs": 43.21,
+          "rtf": 0.00355,
+          "reason": "stream_end"
+        }
+      ],
+      "cer": 0.1145
+    },
+    "speakerInterruption09": {
+      "droppedMidStream": false,
+      "closedCleanly": true,
+      "pongReceived": true,
+      "firstPartialFromAudioStartMs": 752.63,
+      "firstFinalFromAudioStartMs": 3637.59,
+      "partialCount": 6,
+      "finalCount": 1,
+      "combinedFinalText": "目前，我们的并发长连接成本和流式语音识别已经做了完整核算。打断一下，如果用户用29元加场版本无线彩排，把语音识别额度刷到怎么办？",
+      "partials": [
+        {
+          "segment": 0,
+          "text": "目前，我们的并发常连。",
+          "latencyMs": 27.65
+        },
+        {
+          "segment": 0,
+          "text": "目前，我们的并发长连接成本和流式语音识。",
+          "latencyMs": 30.11
+        },
+        {
+          "segment": 0,
+          "text": "目前，我们的并发长连接成本和流式语音识别已经做了完整核算。",
+          "latencyMs": 31.87
+        },
+        {
+          "segment": 0,
+          "text": "目前，我们的并发长连接成本和流式语音识别已经做了完整核算。打断一下，如果用户。",
+          "latencyMs": 36.32
+        },
+        {
+          "segment": 0,
+          "text": "目前，我们的并发长连接成本和流式语音识别已经做了完整核算。打断一下，如果用户用29元单场版本无。",
+          "latencyMs": 40.4
+        },
+        {
+          "segment": 0,
+          "text": "目前，我们的并发长连接成本和流式语音识别已经做了完整核算。打断一下，如果用户用29元加上版本无线彩排，把语音识别额用。",
+          "latencyMs": 43.22
+        }
+      ],
+      "finals": [
+        {
+          "segment": 0,
+          "text": "目前，我们的并发长连接成本和流式语音识别已经做了完整核算。打断一下，如果用户用29元加场版本无线彩排，把语音识别额度刷到怎么办？",
+          "latencyMs": 44.75,
+          "rtf": 0.00361,
+          "reason": "stream_end"
+        }
+      ],
+      "cer": 0.0508
+    }
+  },
+  "reconnectRecoveryTest": {
+    "midStreamDrop": {
+      "droppedAfterChunks": 35,
+      "droppedMidStream": true,
+      "partialsBeforeDrop": 1
+    },
+    "immediateReconnect": {
+      "droppedMidStream": false,
+      "closedCleanly": true,
+      "pongReceived": true,
+      "firstPartialFromAudioStartMs": 762.71,
+      "firstFinalFromAudioStartMs": 4536.74,
+      "partialCount": 8,
+      "finalCount": 1,
+      "combinedFinalText": "我们不把单个大模型ATI包装成护城盒QX的壁垒在于L临静默克制门控TTT原文墙绑定房幻觉，以及用户可控的复盘记忆闭环。",
+      "partials": [
+        {
+          "segment": 0,
+          "text": "我们不把单个大模型。",
+          "latencyMs": 26.79
+        },
+        {
+          "segment": 0,
+          "text": "我们不把单个大模型ATI包装。",
+          "latencyMs": 30.74
+        },
+        {
+          "segment": 0,
+          "text": "我们不把单个大模型ATI包装成护城河QX的。",
+          "latencyMs": 34.17
+        },
+        {
+          "segment": 0,
+          "text": "我们不把单个大模型ATI包装成护城河QX的壁垒在于L临近末。",
+          "latencyMs": 35.94
+        },
+        {
+          "segment": 0,
+          "text": "我们不把单个大模型ATI包装成护城河QX的壁垒在于L临近默克制门孔TT。",
+          "latencyMs": 38.53
+        },
+        {
+          "segment": 0,
+          "text": "我们不把单个大模型ATI包装成护城河QX的壁垒在于L临近默克制门孔TTT原文强。",
+          "latencyMs": 42.91
+        },
+        {
+          "segment": 0,
+          "text": "我们不把单个大模型ATI包装成护城河QX的壁垒在于L临静默克制门孔TTT原文墙绑定房幻觉以及。",
+          "latencyMs": 47.34
+        },
+        {
+          "segment": 0,
+          "text": "我们不把单个大模型ATI包装成护城河QX的壁垒在于L临静默克制门控TTT原文墙绑定房幻觉以及用户可控的复盘记忆。",
+          "latencyMs": 51.49
+        }
+      ],
+      "finals": [
+        {
+          "segment": 0,
+          "text": "我们不把单个大模型ATI包装成护城盒QX的壁垒在于L临静默克制门控TTT原文墙绑定房幻觉，以及用户可控的复盘记忆闭环。",
+          "latencyMs": 50.26,
+          "rtf": 0.00322,
+          "reason": "stream_end"
+        }
+      ],
+      "cer": 0.2687
+    },
+    "passed": true
+  },
+  "postTestHealth": {
+    "status": "ok",
+    "ready": true,
+    "lifecycleState": "ready",
+    "backend": "colab-gpu-asr",
+    "model": "FunAudioLLM/SenseVoiceSmall",
+    "gpu": {
+      "available": true,
+      "name": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+      "cudaVersion": "13.0",
+      "vramAllocatedMiB": 972.3,
+      "vramReservedMiB": 1030,
+      "vramUsedMiB": 2425.6,
+      "vramTotalMiB": 97250.1
+    },
+    "loadTimeSec": 4.584,
+    "warmupLatencyMs": 56.23,
+    "uptimeSec": 136.16,
+    "metrics": {
+      "totalRequests": 104,
+      "totalStreamSessions": 8,
+      "totalAudioSec": 1119.412,
+      "avgRtf": 0.00414
+    },
+    "timestamp": "2026-11-15T22:08:28.507676Z"
+  }
+}

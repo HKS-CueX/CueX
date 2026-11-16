@@ -1,0 +1,29 @@
+# CueX Data Retention, Deletion & Wipe Policy
+
+> Governance Reference: [ADR-003](../engineering/DECISIONS/ADR-003-multi-tenant-auth-and-usage-ledger.md) & [PRIVACY_DATA_MAP.md](./PRIVACY_DATA_MAP.md)  
+> Honesty Rule: CueX commits to **100% immediate erasure of local operational runtime data on wipe**, while **explicitly disclosing** the 3 scopes outside instant wipe reach (`billing_audit_log`, offline SQLite backups until rotation, and prior 3rd-party external API calls).
+
+---
+
+## 1. Mandatory 8-Row Data Category, Retention & Deletion Matrix
+
+| # | Data Category | Storage Location & Scope | Default Retention Config / Policy | Trigger & Effect of Wipe / Account Deletion | Non-Erasure Carve-Out / Honest Caveat |
+| --- | --- | --- | --- | --- | --- |
+| **1** | **Raw Uploaded Source Files (`.pptx` / `.pdf` / `.md` / `.txt` base64 buffer)** | Transient RAM buffer inside `GatewayServer` / `DocumentExtractor` | **Immediate discard (`< 1 min`, request lifecycle)**; only extracted `sections[]` & `contentHash` enter Pack | Not retained on disk after `POST /api/presentation/extract` response returns | None (raw upload binary is ephemeral in RAM). |
+| **2** | **Compiled Context Packs, Fact Whitelist & Evidence (`PresentationContextPack`, `Evidence`)** | SQLite `presentation_packs` (`user_id` scoped) | Until user deletes Account (default config `CUEX_RETENTION_DAYS=90` archival policy horizon) | `DELETE /api/account/data` deletes all user-owned rows in `presentation_packs` immediately; built-in `pack_cuex_demo_01` resets clean | Pre-deletion SQLite encrypted backups retain snapshot until rotation expiry (`<= 30 days`). |
+| **3** | **Live 16 kHz PCM/Opus Audio Chunks (`audio.chunk`)** | Node process RAM -> ASR stream buffer | **Ephemeral (`0 ms` disk retention)** | Nothing stored locally on disk; ASR stream closed immediately on `session.wipe` / `DELETE` / WS close | If configured with `RemoteSherpaAsr` or `browser_webspeech`, external/browser ASR audio follows vendor processing policy. |
+| **4** | **Live Transcript Segments & Sequenced Events (`TranscriptSegment`, `CognitiveEvent`)** | Session RAM + SQLite `sessions` / `session_events` (`session_id`, `user_id`) | Active + replay retention (`CUEX_RETENTION_DAYS=90` max configurable horizon; user-wipeable anytime) | **WS `session.wipe`, `POST /api/sessions/:id/wipe`, or `DELETE /api/sessions/:id` deletes immediately (`DELETE` in SQLite transaction)** | Compact spoken context already transmitted to external cloud LLM APIs (`CUEX_SYSTEM2=real`) cannot be recalled from 3rd-party provider servers. |
+| **5** | **Interventions & Post-Stage Reflections (`Intervention`, `PresentationReflection`)** | SQLite `session_reflections` & `sessions.data_json` (`session_id`, `user_id`) | Retained while session exists so post-restart review & weak-segment rehearsal work (user-deletable anytime) | **Session wipe & `DELETE /api/account/data` immediately delete `sessions`, `session_events`, `session_reflections`, and `telemetry_records`** (`DataDeletionReceipt` count verified) | Covered by offline SQLite backup rotation window (`<= 30 days`) until overwritten. |
+| **6** | **Opt-In User Memory Items (`MemoryItem`)** | SQLite `memories` (`user_id`, requires `user_confirmed = 1`) | Until user edits/deletes via `DELETE /api/memory/:id`, revokes via `PATCH /api/memory/:id`, or runs wipe | Session wipe deletes `memories` with `source_session_id = sessionId`; `DELETE /api/account/data` purges all user `memories` | Pending unconfirmed `MemoryProposal`s are never persisted to `memories`. |
+| **7** | **Auth Tokens, Entitlements, UsageLedger & Billing Audit (`auth_tokens`, `entitlements`, `usage_ledger`, `billing_audit_log`)** | SQLite `auth_tokens`, `entitlements`, `usage_ledger`, `billing_audit_log` | `auth_tokens`: `CUEX_AUTH_TOKEN_TTL_HOURS=24`; **`billing_audit_log`: statutory retention** | Single-session wipe unlinks `usage_ledger.session_id = NULL` (quota integrity); **`DELETE /api/account/data` deletes `auth_tokens` + `usage_ledger`, revokes `entitlements`, and PRESERVES `billing_audit_log`** (`category: 'billing_audit_logs'`) | **Explicit Carve-Out**: `billing_audit_log` rows (amountFen, provider, eventType, timestamps, account wipe marker) CANNOT be deleted due to statutory tax, accounting, and anti-fraud audit rules (`ADR-003`). |
+| **8** | **Operational Logs & Encrypted DB Backups** | Host log stream (`StructuredLogger`) & verified snapshots (`scripts/db-backup-restore.mjs`) | App logs redact keys/transcripts; encrypted SQLite snapshots follow `7–30 days` rolling rotation | PII-free logs expire on host rotation; historical encrypted backups are NOT surgically edited per single-user wipe | **Explicit Carve-Out**: `DataDeletionReceipt.thirdPartyCaveats` explicitly discloses backup rotation lag and third-party API non-recallability; restores replay deletion tombstones ([BACKUP_AND_RECOVERY.md](../operations/BACKUP_AND_RECOVERY.md)). |
+
+---
+
+## 2. Deletion Verification & Audit Receipt (`DataDeletionReceipt`)
+
+Every user-triggered deletion (`DELETE /api/account/data`, `DELETE /api/sessions/:id`, `POST /api/sessions/:id/wipe`) commits atomically inside SQLite and returns a structured **`DataDeletionReceipt`**:
+- `receiptId`, `userId`, `tenantId`, `requestedAt`, `completedAt` (`UtcIso8601`).
+- `deletedScopes`: array of `{ scope, deletedCount }` covering `sessions`, `reflections`, `memories`, `telemetry` (and `packs`, `usage_records`, `auth_tokens` on account wipe).
+- `preservedRecords`: array of `{ category: 'billing_audit_logs', count, reason, retentionPolicy }` explaining statutory preservation without document/audio/memory contents.
+- `thirdPartyCaveats`: explicit disclosures covering third-party LLM/ASR provider transmissions and prior encrypted backup snapshots (`THIRD_PARTY_WIPE_CAVEATS`).

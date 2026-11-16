@@ -1,0 +1,95 @@
+name: CueX CI
+
+on:
+  push:
+    branches:
+      - main
+      - 'refactor/**'
+  pull_request:
+    branches:
+      - main
+      - 'refactor/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Build, Test, Eval, E2E & Supply-Chain Gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - name: Setup Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+
+      - name: Install locked workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck all packages
+        run: pnpm typecheck
+
+      - name: Run protocol unit tests
+        run: pnpm --filter @cuex/protocol test
+
+      - name: Run server unit & integration tests (offline)
+        env:
+          CUEX_TEST_OFFLINE: '1'
+        run: pnpm --filter @cuex/server test
+
+      - name: Run web unit tests
+        run: pnpm --filter @cuex/web exec vitest run
+
+      - name: Build all packages
+        run: pnpm build
+
+      - name: Run offline presentation runtime evaluation
+        env:
+          CUEX_SYSTEM1: fake
+          CUEX_SYSTEM2: fake
+          CUEX_ASR: fake
+        run: pnpm --filter @cuex/server eval
+
+      - name: Install Playwright Chromium for E2E
+        run: pnpm exec playwright install chromium --with-deps
+
+      - name: Run Playwright end-to-end tests
+        run: node --test apps/web/test/presentation-e2e.test.mjs
+
+      - name: Check public data & PII/path hygiene
+        run: node scripts/check-public-data.mjs
+
+      - name: Check legacy domain & retired TTS guard
+        run: node scripts/check-legacy-domain.mjs
+
+      - name: Audit workspace dependencies (high severity and above)
+        run: pnpm audit --audit-level=high
+
+      - name: Generate SBOM and artifact SHA-256 checksums
+        run: node scripts/generate-sbom.mjs --output .cuex-runtime/sbom-and-checksums.json
+
+      - name: Upload evaluation reports and SBOM artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cuex-ci-artifacts
+          path: |
+            .cuex-runtime/*.json
+            .cuex-runtime/*.md
+          if-no-files-found: warn
+          retention-days: 30

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuex.ai/schemas/provider-usage-record.v2.schema.json",
+  "title": "ProviderUsageRecord",
+  "description": "Per-call LLM/provider usage accounting supporting reasoning tokens, correlationId, and honest provider_unreported attribution.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["inputTokens", "outputTokens", "cachedInputTokens", "modelCalls", "usageSource"],
+  "properties": {
+    "inputTokens": { "type": "integer", "minimum": 0 },
+    "outputTokens": { "type": "integer", "minimum": 0 },
+    "cachedInputTokens": { "type": "integer", "minimum": 0 },
+    "reasoningTokens": { "type": "integer", "minimum": 0 },
+    "modelCalls": { "type": "integer", "minimum": 0 },
+    "retries": { "type": "integer", "minimum": 0 },
+    "usageSource": {
+      "type": "string",
+      "enum": ["provider_reported", "provider_unreported", "local_rule_zero", "estimated"]
+    },
+    "degraded": { "type": "boolean" },
+    "costFen": { "type": "integer", "minimum": 0 },
+    "provider": { "type": "string" },
+    "model": { "type": "string" },
+    "correlationId": { "type": "string", "minLength": 1 }
+  }
+}

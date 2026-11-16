@@ -1,0 +1,18 @@
+{
+  "s1Evaluations": 18,
+  "s1Escalations": 4,
+  "s2AsyncDispatches": 4,
+  "s2Completed": 3,
+  "s2CancelledAsStale": 1,
+  "s2Coalesced": 2,
+  "guidanceRevisionsIssued": 3,
+  "guidanceAppliedCount": 11,
+  "guidanceExpiredOrOverridden": 1,
+  "s1LastLatencyMs": 38.4,
+  "s1P50LatencyMs": 34.2,
+  "s1P95LatencyMs": 52.0,
+  "s2LastLatencyMs": 1420,
+  "s2P50LatencyMs": 1280,
+  "s2P95LatencyMs": 1850,
+  "updatedAt": "2026-11-16T04:00:00.000Z"
+}
