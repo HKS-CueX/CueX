@@ -1,7 +1,6 @@
 import React from 'react';
 import type { AuthSessionResponse, HealthStatusResponse } from '@cuex/protocol';
-import { Activity, Database, UserCircle2 } from 'lucide-react';
-import { COLAB_ASR_LIFECYCLE_LABELS } from '@/lib/format';
+import { SlidersHorizontal, UserCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export type ViewKey = 'home' | 'compiler' | 'stage' | 'reflection';
@@ -16,63 +15,33 @@ interface NavbarProps {
   sessionActive?: boolean;
 }
 
+const PLAN_BADGE_LABELS: Record<string, string> = {
+  free: '免费版',
+  event: '单场包',
+  pro: '专业版',
+  team: '团队版',
+};
+
 export const Navbar: React.FC<NavbarProps> = ({
   currentView,
   onSelectView,
-  health,
   authSession = null,
   onOpenMemory,
   onOpenAccount,
   sessionActive = false,
 }) => {
   const navItems: { key: ViewKey; label: string }[] = [
-    { key: 'home', label: '首页概览' },
-    { key: 'compiler', label: '场前编译' },
-    { key: 'stage', label: '场中协同' },
-    { key: 'reflection', label: '场后复盘' },
+    { key: 'home', label: '首页' },
+    { key: 'compiler', label: '准备讲稿' },
+    { key: 'stage', label: '上台演讲' },
+    { key: 'reflection', label: '复盘提升' },
   ];
 
-  const s1Real = Boolean(
-    health &&
-      health.system1.mode === 'real' &&
-      health.system1.healthy &&
-      !health.system1.fallbackActive &&
-      !health.system1.degraded
-  );
-  const s2Real = Boolean(
-    health &&
-      health.system2.mode === 'real' &&
-      health.system2.healthy &&
-      !health.system2.fallbackActive &&
-      !health.system2.degraded
-  );
-  const colabLifecycle = health?.asr.lifecycleState;
-
-  // 如实区分三路通道（Colab ASR / S1 快思考 / S2 慢思考），绝不把 S1 回退伪装为实时模型
-  const llmSummaryLabel = !health
-    ? ''
-    : s1Real && s2Real
-      ? '双系统实时'
-      : !s1Real && s2Real
-        ? 'S1回退·S2实时'
-        : s1Real && !s2Real
-          ? 'S1实时·S2回退'
-          : '规则兜底';
-
-  const runtimeLabel = !health
-    ? '后端检测中'
-    : health.asr.mode === 'colab_gpu' && colabLifecycle
-      ? `${llmSummaryLabel} · ${COLAB_ASR_LIFECYCLE_LABELS[colabLifecycle]}`
-      : s1Real || s2Real
-        ? llmSummaryLabel
-        : '本地规则引擎';
-
-  const runtimeTitle = health
-    ? `ASR: ${health.asr.modelId ?? health.asr.backend} (${health.asr.lifecycleState ?? health.asr.mode}) | S1: ${health.system1.model ?? health.system1.backend}${health.system1.fallbackActive ? ' [已降级]' : ''} | S2: ${health.system2.model ?? health.system2.backend}${health.system2.fallbackActive ? ' [已降级]' : ''}`
-    : '等待健康检查';
-
-  const accountLabel = authSession?.user.displayName || '账户';
-  const activePlan = authSession?.usageSummary?.activePlanId?.toUpperCase() || 'FREE';
+  const rawName = authSession?.user.displayName;
+  const accountLabel =
+    !rawName || rawName === 'CueX 演示演讲者' ? '我的账户' : rawName;
+  const planId = authSession?.usageSummary?.activePlanId ?? 'free';
+  const activePlanLabel = PLAN_BADGE_LABELS[planId] ?? planId.toUpperCase();
 
   return (
     <header className="w-full border-b border-line bg-surface sticky top-0 z-40">
@@ -96,11 +65,11 @@ export const Navbar: React.FC<NavbarProps> = ({
           </button>
           <span className="hidden xl:inline-block h-4 w-px bg-line shrink-0" aria-hidden="true" />
           <span className="hidden xl:inline text-xs text-ink-3 whitespace-nowrap">
-            你的快思考外挂 · CueX Presentation
+            你的临场演讲搭档
           </span>
         </div>
 
-        {/* Center: Unified Primary Navigation (1 single DOM nav, zero duplicate testids) */}
+        {/* Center: Unified Primary Navigation */}
         <nav
           className="order-3 md:order-2 w-full md:w-auto grid grid-cols-4 md:flex items-center justify-center gap-1 border-t border-line md:border-t-0 py-1 md:py-0"
           aria-label="主导航"
@@ -114,7 +83,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 data-testid={`nav-${item.key}`}
                 onClick={() => onSelectView(item.key)}
                 className={cn(
-                  'transition-transform duration-100 relative inline-flex items-center justify-center gap-1 md:gap-1.5 min-h-[44px] md:min-h-0 px-1 md:px-2.5 lg:px-3.5 md:h-8 rounded text-xs lg:text-sm whitespace-nowrap active:scale-[0.97]',
+                  'transition-transform duration-100 relative inline-flex items-center justify-center gap-1 md:gap-1.5 min-h-[44px] md:min-h-0 px-1 md:px-3 lg:px-4 md:h-8 rounded text-xs lg:text-sm whitespace-nowrap active:scale-[0.97]',
                   isActive
                     ? 'bg-ink text-ground font-medium'
                     : 'text-ink-2 hover:bg-ground-2 hover:text-ink'
@@ -125,7 +94,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 {item.key === 'stage' && sessionActive && (
                   <span
                     className="w-1.5 h-1.5 rounded-full bg-amber shrink-0"
-                    title="场中会话进行中"
+                    title="演讲进行中"
                   />
                 )}
               </button>
@@ -133,52 +102,31 @@ export const Navbar: React.FC<NavbarProps> = ({
           })}
         </nav>
 
-        {/* Right: Health Readout + Account & Memory Utilities */}
+        {/* Right: Preferences & Personal Center */}
         <div className="order-2 md:order-3 h-12 md:h-auto flex items-center gap-1.5 sm:gap-2 shrink-0">
-          <div
-            className="hidden lg:inline-flex items-center gap-1.5 px-2.5 h-8 rounded border border-line bg-ground text-xs text-ink-2 whitespace-nowrap max-w-[260px]"
-            title={runtimeTitle}
-            data-testid="nav-health-badge"
-          >
-            <Activity
-              className={cn(
-                'w-3.5 h-3.5 shrink-0',
-                (colabLifecycle === 'ready' || (!colabLifecycle && health?.ok)) && s1Real && s2Real
-                  ? 'text-resolved'
-                  : colabLifecycle === 'disconnected' || colabLifecycle === 'unavailable'
-                    ? 'text-alert'
-                    : health?.ok
-                      ? 'text-amber'
-                      : 'text-ink-3'
-              )}
-            />
-            <span className="truncate">{runtimeLabel}</span>
-          </div>
-
-          <button
-            type="button"
-            onClick={onOpenAccount}
-            data-testid="open-account-drawer"
-            className="cuex-btn inline-flex items-center gap-1.5 px-2.5 min-h-[40px] sm:min-h-0 sm:h-8 rounded border border-line-strong bg-surface hover:bg-ground-2 text-xs text-ink-2 hover:text-ink active:scale-[0.97] max-w-[132px] sm:max-w-[176px]"
-            title="账户隔离、套餐用量、会话历史与数据主权"
-          >
-            <UserCircle2 className="w-3.5 h-3.5 text-amber shrink-0" />
-            <span className="truncate">{accountLabel}</span>
-            <span className="hidden sm:inline px-1.5 py-0.5 rounded-sm bg-ground-2 text-xs font-mono text-ink-3 shrink-0 num leading-none">
-              {activePlan}
-            </span>
-          </button>
-
           <button
             type="button"
             onClick={onOpenMemory}
             data-testid="open-memory-drawer"
             className="cuex-btn inline-flex items-center gap-1.5 px-2.5 min-h-[40px] sm:min-h-0 sm:h-8 rounded border border-line-strong bg-surface hover:bg-ground-2 text-xs text-ink-2 hover:text-ink whitespace-nowrap active:scale-[0.97]"
-            title="个人记忆治理"
+            title="演讲偏好"
           >
-            <Database className="w-3.5 h-3.5 text-violet shrink-0" />
-            <span className="hidden xl:inline">个人记忆治理</span>
-            <span className="hidden sm:inline xl:hidden">记忆治理</span>
+            <SlidersHorizontal className="w-3.5 h-3.5 text-violet shrink-0" />
+            <span className="hidden sm:inline">演讲偏好</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onOpenAccount}
+            data-testid="open-account-drawer"
+            className="cuex-btn inline-flex items-center gap-1.5 px-2.5 min-h-[40px] sm:min-h-0 sm:h-8 rounded border border-line-strong bg-surface hover:bg-ground-2 text-xs text-ink-2 hover:text-ink active:scale-[0.97] max-w-[148px] sm:max-w-[192px]"
+            title="个人中心与会员方案"
+          >
+            <UserCircle2 className="w-3.5 h-3.5 text-amber shrink-0" />
+            <span className="truncate">{accountLabel}</span>
+            <span className="hidden sm:inline px-1.5 py-0.5 rounded-sm bg-ground-2 text-xs text-ink-3 shrink-0 leading-none">
+              {activePlanLabel}
+            </span>
           </button>
         </div>
       </div>

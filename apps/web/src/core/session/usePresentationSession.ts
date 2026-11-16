@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import type {
+  AsrCapabilityStatus,
   InterventionFeedback,
   InterventionLevel,
   PresentationContextPack,
@@ -28,6 +29,17 @@ export interface StartPresentationSessionOptions {
   silentMode?: boolean;
   privacyNoticeAccepted: boolean;
   rehearsalTarget?: SessionStartRehearsalTarget;
+  /** 进入正式演讲时自动尝试开启最优可用麦克风；若浏览器无设备或未授权则静默回退。 */
+  autoStartMic?: boolean;
+}
+
+function serverSupportsStreamingPcm(asr?: AsrCapabilityStatus | null): boolean {
+  if (!asr || !asr.available) return false;
+  return (
+    asr.mode === 'colab_gpu' ||
+    asr.mode === 'local_sherpa' ||
+    asr.mode === 'remote_sherpa'
+  );
 }
 
 export function usePresentationSession() {
@@ -45,6 +57,7 @@ export function usePresentationSession() {
   const speechRecRef = useRef<BrowserSpeechRecognizer>(new BrowserSpeechRecognizer());
   const simTimerRef = useRef<number | undefined>();
   const withdrawTimerRef = useRef<number | undefined>();
+  const pendingAutoMicRef = useRef(false);
 
   const stopAllAudio = useCallback(() => {
     captureRef.current.stop();
@@ -64,7 +77,7 @@ export function usePresentationSession() {
     window.clearTimeout(withdrawTimerRef.current);
     withdrawTimerRef.current = window.setTimeout(() => {
       dispatch({ type: 'clear_withdrawn' });
-    }, 4500);
+    }, 1800);
     return () => window.clearTimeout(withdrawTimerRef.current);
   }, [state.lastWithdrawn]);
 
@@ -77,15 +90,87 @@ export function usePresentationSession() {
     };
   }, [stopSimulation, stopAllAudio]);
 
+  const startPcmMicForSession = useCallback(
+    async (sessionId: string, silentOnError = false) => {
+      stopAllAudio();
+      if (!silentOnError) setMicError(undefined);
+      const ok = await captureRef.current.start({
+        onAudioChunk: (data, timestamp) => {
+          clientRef.current?.send({
+            type: 'audio.chunk',
+            payload: {
+              sessionId,
+              format: 'pcm16',
+              sampleRate: 16000,
+              channels: 1,
+              data,
+              timestamp,
+              speaker: 'presenter',
+            },
+          });
+        },
+        onVolumeChange: (rms) => setMicVolume(rms),
+        onError: (err) => {
+          if (!silentOnError) {
+            setMicError(
+              err.name === 'NotAllowedError'
+                ? '请在浏览器地址栏允许麦克风权限后再试，或使用彩排模拟输入。'
+                : '未能开启麦克风设备，请检查系统音频输入设置。'
+            );
+          }
+          setMicMode('off');
+        },
+      });
+      if (ok) {
+        setMicMode('pcm_mic');
+      }
+      return ok;
+    },
+    [stopAllAudio]
+  );
+
+  const startWebSpeechForSession = useCallback(
+    (sessionId: string, silentOnError = false) => {
+      stopAllAudio();
+      if (!silentOnError) setMicError(undefined);
+      const ok = speechRecRef.current.start({
+        onResult: (text, isFinal, confidence) => {
+          clientRef.current?.send({
+            type: 'speech.delta',
+            payload: {
+              sessionId,
+              speaker: 'presenter',
+              text,
+              isFinal,
+              confidence,
+              source: 'browser_webspeech',
+            },
+          });
+        },
+        onError: (msg) => {
+          if (!silentOnError) {
+            setMicError(msg);
+          }
+          setMicMode('off');
+        },
+        onEnd: () => {
+          setMicMode('off');
+        },
+      });
+      if (ok) {
+        setMicMode('browser_webspeech');
+      }
+      return ok;
+    },
+    [stopAllAudio]
+  );
+
   const startSession = useCallback(
     (options: StartPresentationSessionOptions) => {
-      if (!options.privacyNoticeAccepted) {
-        dispatch({ type: 'error', message: '请先阅读并确认麦克风与隐私告知后再进入会话。' });
-        return;
-      }
       stopSimulation();
       stopAllAudio();
       setMicError(undefined);
+      pendingAutoMicRef.current = Boolean(options.autoStartMic);
       dispatch({ type: 'reset' });
 
       clientRef.current?.disconnect();
@@ -99,7 +184,18 @@ export function usePresentationSession() {
         },
         onMessage: (message) => {
           dispatch({ type: 'server_message', message });
+          if (message.type === 'session.ready' && pendingAutoMicRef.current) {
+            pendingAutoMicRef.current = false;
+            const readySid = message.payload.session.sessionId;
+            const readyAsr = message.payload.asrStatus;
+            if (serverSupportsStreamingPcm(readyAsr)) {
+              void startPcmMicForSession(readySid, true);
+            } else if (BrowserSpeechRecognizer.isSupported()) {
+              startWebSpeechForSession(readySid, true);
+            }
+          }
           if (message.type === 'session.ended' || message.type === 'session.wiped') {
+            pendingAutoMicRef.current = false;
             stopAllAudio();
             stopSimulation();
           }
@@ -123,7 +219,7 @@ export function usePresentationSession() {
             viewMode: options.viewMode ?? 'focus',
             maxInterventionLevel: options.maxInterventionLevel ?? 'L3',
             silentMode: options.silentMode ?? false,
-            privacyNoticeAccepted: options.privacyNoticeAccepted,
+            privacyNoticeAccepted: options.privacyNoticeAccepted ?? true,
             rehearsalTarget: options.rehearsalTarget,
           },
         });
@@ -138,77 +234,44 @@ export function usePresentationSession() {
           .catch(() => connectAndStart(getStoredAuthToken()));
       }
     },
-    [stopAllAudio, stopSimulation]
+    [startPcmMicForSession, startWebSpeechForSession, stopAllAudio, stopSimulation]
   );
 
   const startPcmMic = useCallback(async () => {
     const sessionId = state.session?.sessionId;
     if (!sessionId || state.session?.status !== 'active') return false;
-    stopAllAudio();
-    setMicError(undefined);
-    const ok = await captureRef.current.start({
-      onAudioChunk: (data, timestamp) => {
-        clientRef.current?.send({
-          type: 'audio.chunk',
-          payload: {
-            sessionId,
-            format: 'pcm16',
-            sampleRate: 16000,
-            channels: 1,
-            data,
-            timestamp,
-            speaker: 'presenter',
-          },
-        });
-      },
-      onVolumeChange: (rms) => setMicVolume(rms),
-      onError: (err) => {
-        setMicError(
-          err.name === 'NotAllowedError'
-            ? '麦克风权限被拒绝，请在浏览器中授权或使用文本仿真测试。'
-            : err.message
-        );
-        setMicMode('off');
-      },
-    });
-    if (ok) {
-      setMicMode('pcm_mic');
-    }
-    return ok;
-  }, [state.session?.sessionId, state.session?.status, stopAllAudio]);
+    return startPcmMicForSession(sessionId, false);
+  }, [startPcmMicForSession, state.session?.sessionId, state.session?.status]);
 
   const startWebSpeech = useCallback(() => {
     const sessionId = state.session?.sessionId;
     if (!sessionId || state.session?.status !== 'active') return false;
-    stopAllAudio();
-    setMicError(undefined);
-    const ok = speechRecRef.current.start({
-      onResult: (text, isFinal, confidence) => {
-        clientRef.current?.send({
-          type: 'speech.delta',
-          payload: {
-            sessionId,
-            speaker: 'presenter',
-            text,
-            isFinal,
-            confidence,
-            source: 'browser_webspeech',
-          },
-        });
-      },
-      onError: (msg) => {
-        setMicError(msg);
-        setMicMode('off');
-      },
-      onEnd: () => {
-        setMicMode('off');
-      },
-    });
-    if (ok) {
-      setMicMode('browser_webspeech');
+    return startWebSpeechForSession(sessionId, false);
+  }, [startWebSpeechForSession, state.session?.sessionId, state.session?.status]);
+
+  const toggleBestMic = useCallback(async () => {
+    if (micMode !== 'off') {
+      stopAllAudio();
+      return false;
     }
-    return ok;
-  }, [state.session?.sessionId, state.session?.status, stopAllAudio]);
+    const sessionId = state.session?.sessionId;
+    if (!sessionId || state.session?.status !== 'active') return false;
+    if (serverSupportsStreamingPcm(state.asrStatus)) {
+      return startPcmMicForSession(sessionId, false);
+    }
+    if (BrowserSpeechRecognizer.isSupported()) {
+      return startWebSpeechForSession(sessionId, false);
+    }
+    return startPcmMicForSession(sessionId, false);
+  }, [
+    micMode,
+    startPcmMicForSession,
+    startWebSpeechForSession,
+    state.asrStatus,
+    state.session?.sessionId,
+    state.session?.status,
+    stopAllAudio,
+  ]);
 
   const sendSimulatedSpeech = useCallback(
     (text: string, speaker: TranscriptSpeaker = 'presenter', progressive = false) => {
@@ -412,6 +475,7 @@ export function usePresentationSession() {
     startSession,
     startPcmMic,
     startWebSpeech,
+    toggleBestMic,
     stopAllAudio,
     sendSimulatedSpeech,
     stopSimulation,

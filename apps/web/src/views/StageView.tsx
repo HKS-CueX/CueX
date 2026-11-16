@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   ArrowRight,
   CheckCircle2,
+  ChevronDown,
   Columns2,
   Cpu,
   ExternalLink,
@@ -48,6 +49,7 @@ import {
   ATTENTION_SIGNAL_LABELS,
   COLAB_ASR_LIFECYCLE_LABELS,
   CONTROLLER_ACTION_LABELS,
+  extractGlanceableCue,
   formatDateTime,
   formatDuration,
   formatMoneyFen,
@@ -89,7 +91,6 @@ interface StageViewProps {
   onPackChange: (pack: PresentationContextPack) => void;
   privacyAccepted: boolean;
   onPrivacyChange: (accepted: boolean) => void;
-  /** 鉴权初始化完成标识，避免深链接直接进入舞台时触发未授权列表拉取。 */
   authReady?: boolean;
   health?: HealthStatusResponse | null;
   runtime: PresentationHookReturn;
@@ -113,14 +114,14 @@ export const StageView: React.FC<StageViewProps> = ({
   const { state } = runtime;
   const [viewMode, setViewModeLocal] = useState<ViewMode>('focus');
   const [layoutMode, setLayoutMode] = useState<StageLayoutMode>('standard');
-  const [launchMode, setLaunchMode] = useState<PresentationMode>('rehearsal');
+  const [launchMode, setLaunchMode] = useState<PresentationMode>('live');
   const [savedPacks, setSavedPacks] = useState<PresentationPackSummary[]>([]);
   const [loadingPack, setLoadingPack] = useState(false);
 
   const [simText, setSimText] = useState('');
   const [simSpeaker, setSimSpeaker] = useState<TranscriptSpeaker>('presenter');
   const [progressiveSim, setProgressiveSim] = useState(false);
-  const [showInputDrawer, setShowInputDrawer] = useState(true);
+  const [showInputDrawer, setShowInputDrawer] = useState(false);
   const [autoNavigateOnEnd, setAutoNavigateOnEnd] = useState(false);
   const [companionLaunchNote, setCompanionLaunchNote] = useState<string | null>(null);
 
@@ -145,7 +146,7 @@ export const StageView: React.FC<StageViewProps> = ({
     }
   }, [autoNavigateOnEnd, state.session?.status, state.session?.sessionId, state.reflection, onGoToReflection]);
 
-  // Ergonomic speaker keyboard shortcuts (ignored inside editable fields)
+  // 演讲者键盘快捷键（输入框聚焦时忽略）
   useEffect(() => {
     if (!state.session || state.session.status === 'ended') return;
 
@@ -183,11 +184,7 @@ export const StageView: React.FC<StageViewProps> = ({
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [
-    state.session,
-    state.activeIntervention,
-    runtime,
-  ]);
+  }, [state.session, state.activeIntervention, runtime]);
 
   const handleToggleViewMode = (mode: ViewMode) => {
     setViewModeLocal(mode);
@@ -217,10 +214,11 @@ export const StageView: React.FC<StageViewProps> = ({
       packId: packToUse.packId,
       contextPack: packToUse,
       mode: launchMode,
-      viewMode,
+      viewMode: 'focus',
       maxInterventionLevel: 'L3',
       silentMode: false,
       privacyNoticeAccepted: privacyAccepted,
+      autoStartMic: launchMode === 'live',
     });
   };
 
@@ -240,7 +238,6 @@ export const StageView: React.FC<StageViewProps> = ({
     runtime.endSession('completed');
   };
 
-  // 构建同会话伴随窗 URL（?view=companion&sessionId=...）
   const buildCompanionUrl = (sid: string): string => {
     const url = new URL(window.location.href);
     url.searchParams.set('view', 'companion');
@@ -248,7 +245,6 @@ export const StageView: React.FC<StageViewProps> = ({
     return url.toString();
   };
 
-  // 渐进打开演讲伴随窗：优先尝试 Document PiP，不支持或被拒时无缝降级至 window.open
   const handleOpenCompanionWindow = async (sid: string) => {
     const companionUrl = buildCompanionUrl(sid);
     type DocPipWindowApi = {
@@ -260,25 +256,25 @@ export const StageView: React.FC<StageViewProps> = ({
     if (pipApi?.requestWindow) {
       try {
         const pipWin = await pipApi.requestWindow({ width: 440, height: 680 });
-        pipWin.document.title = 'CueX 演讲伴随窗';
+        pipWin.document.title = 'CueX 提词小窗';
         pipWin.document.documentElement.style.height = '100%';
         pipWin.document.body.style.height = '100%';
         pipWin.document.body.style.margin = '0';
         pipWin.document.body.style.background = '#F8F7F3';
         const frame = pipWin.document.createElement('iframe');
         frame.src = companionUrl;
-        frame.title = 'CueX 演讲伴随窗';
+        frame.title = 'CueX 提词小窗';
         frame.style.display = 'block';
         frame.style.width = '100%';
         frame.style.height = '100%';
         frame.style.border = '0';
         pipWin.document.body.appendChild(frame);
         setCompanionLaunchNote(
-          '已以 Document PiP 打开伴随窗（注：浏览器无法保证系统级置顶覆盖全屏 PPT/Keynote）。'
+          '已打开独立提词小窗。全屏播放幻灯片时，建议开启 PPT / Keynote「演讲者视图」或移至副屏。'
         );
         return;
       } catch {
-        // 无头环境或安全限制拒绝 Document PiP 时继续走 window.open 降级
+        // 浏览器环境不支持 Document PiP 时无缝使用独立弹窗
       }
     }
 
@@ -289,10 +285,10 @@ export const StageView: React.FC<StageViewProps> = ({
     );
     if (popup) {
       setCompanionLaunchNote(
-        '已在新独立窗口打开伴随窗（注：浏览器弹窗无法保证系统级置顶覆盖全屏 PPT/Keynote）。'
+        '已打开独立提词小窗。全屏播放幻灯片时，建议开启 PPT / Keynote「演讲者视图」或移至副屏。'
       );
     } else {
-      setCompanionLaunchNote('弹窗可能被浏览器拦截，请点击右侧「伴随窗直达链接」手动打开。');
+      setCompanionLaunchNote('浏览器拦截了新窗口弹出，可点击右侧链接手动打开提词小窗。');
     }
   };
 
@@ -303,10 +299,10 @@ export const StageView: React.FC<StageViewProps> = ({
         <div className="max-w-3xl mx-auto border border-line bg-surface rounded-md p-6 sm:p-8 space-y-6">
           <div className="space-y-1.5 border-b border-line pb-4">
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink">
-              进入场中实时协同
+              准备上台
             </h1>
             <p className="text-sm text-ink-2 leading-relaxed">
-              选择已编译的演讲 ContextPack，确认麦克风与隐私告知后，即可开启彩排或正式演讲。
+              选择已整理好的演讲提纲，即可开启台前彩排或正式上台陪伴。
             </p>
           </div>
 
@@ -317,12 +313,11 @@ export const StageView: React.FC<StageViewProps> = ({
             >
               <div className="flex items-center gap-2 font-medium">
                 <CheckCircle2 className="w-4 h-4 shrink-0" />
-                <span>已彻底清除上一场会话转写、候选与临时状态。</span>
+                <span>上一场演讲记录已清空。</span>
               </div>
               {state.deletionReceipt && (
-                <div className="text-xs font-mono text-ink-2 pl-6 tabular-nums">
-                  回执：{state.deletionReceipt.receiptId} · 完成时间：
-                  {formatDateTime(state.deletionReceipt.completedAt)}
+                <div className="text-xs text-ink-2 pl-6 tabular-nums">
+                  清理时间：{formatDateTime(state.deletionReceipt.completedAt)}
                 </div>
               )}
             </div>
@@ -335,24 +330,24 @@ export const StageView: React.FC<StageViewProps> = ({
           )}
 
           <div className="space-y-3 text-xs">
-            <div className="font-semibold text-ink">当前演讲上下文包</div>
+            <div className="font-semibold text-ink">当前讲稿</div>
             {activePack ? (
               <div className="bg-surface-muted rounded p-4 flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <div className="font-semibold text-sm text-ink">{activePack.title}</div>
                   <div className="text-ink-3 mt-1 tabular-nums">
-                    {activePack.facts.filter((f) => f.userConfirmed).length} 条已确认事实 ·{' '}
-                    {activePack.cueSheet.chapters.length} 章节 · 目标{' '}
-                    {formatDuration(activePack.targetDurationSec)}
+                    共 {activePack.cueSheet.chapters.length} 章 ｜ 预计{' '}
+                    {formatDuration(activePack.targetDurationSec)} ｜ 已启用{' '}
+                    {activePack.facts.filter((f) => f.userConfirmed).length} 条关键数据
                   </div>
                 </div>
                 <Button type="button" variant="quiet" size="sm" onClick={onGoToCompiler}>
-                  返回编辑白名单
+                  修改讲稿与数据
                 </Button>
               </div>
             ) : (
               <div className="bg-surface-muted rounded p-4 space-y-3">
-                <p className="text-ink-2">尚未选定 ContextPack，可选择已保存包或载入路演示例包。</p>
+                <p className="text-ink-2">尚未选择讲稿，可切换已保存讲稿或加载内置示例体验。</p>
                 <div className="flex flex-wrap gap-2">
                   {savedPacks.length > 0 && (
                     <select
@@ -361,7 +356,7 @@ export const StageView: React.FC<StageViewProps> = ({
                       className="h-9 px-3 border border-line bg-surface rounded text-xs text-ink focus-visible:outline-none focus-visible:border-ink"
                     >
                       <option value="" disabled>
-                        选择已保存演讲包...
+                        选择已保存的讲稿…
                       </option>
                       {savedPacks.map((p) => (
                         <option key={p.packId} value={p.packId}>
@@ -378,7 +373,7 @@ export const StageView: React.FC<StageViewProps> = ({
                     disabled={loadingPack}
                   >
                     <Sparkles className="w-3.5 h-3.5" />
-                    <span>载入 CueX 路演演示包</span>
+                    <span>加载示例讲稿</span>
                   </Button>
                 </div>
               </div>
@@ -386,19 +381,6 @@ export const StageView: React.FC<StageViewProps> = ({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-            <button
-              type="button"
-              onClick={() => setLaunchMode('rehearsal')}
-              className={cn(
-                'text-left p-4 rounded border transition-colors space-y-1',
-                launchMode === 'rehearsal'
-                  ? 'border-ink bg-surface-muted font-medium'
-                  : 'border-line bg-surface hover:bg-surface-muted/60'
-              )}
-            >
-              <div className="font-semibold text-ink">彩排模式 (Rehearsal)</div>
-              <p className="text-ink-3 leading-relaxed">支持测试话术仿真、随时切换视角、检验提示与撤回机制。</p>
-            </button>
             <button
               type="button"
               onClick={() => setLaunchMode('live')}
@@ -409,8 +391,21 @@ export const StageView: React.FC<StageViewProps> = ({
                   : 'border-line bg-surface hover:bg-surface-muted/60'
               )}
             >
-              <div className="font-semibold text-ink">正式演讲 (Live)</div>
-              <p className="text-ink-3 leading-relaxed">开启 Focus 余光极简界面，最小必要干扰陪你完成真实演讲。</p>
+              <div className="font-semibold text-ink">正式演讲</div>
+              <p className="text-ink-3 leading-relaxed">自动开启麦克风进入清爽提词舞台，顺畅时安静倾听。</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => setLaunchMode('rehearsal')}
+              className={cn(
+                'text-left p-4 rounded border transition-colors space-y-1',
+                launchMode === 'rehearsal'
+                  ? 'border-ink bg-surface-muted font-medium'
+                  : 'border-line bg-surface hover:bg-surface-muted/60'
+              )}
+            >
+              <div className="font-semibold text-ink">台前彩排</div>
+              <p className="text-ink-3 leading-relaxed">自由练习节奏与问答，支持无麦文字模拟测试。</p>
             </button>
           </div>
 
@@ -423,13 +418,13 @@ export const StageView: React.FC<StageViewProps> = ({
               data-testid="stage-privacy-checkbox"
             />
             <span className="text-ink-2 leading-relaxed">
-              我已确认麦克风仅在本场会话期间采集，场后未确认记忆不会落盘，并可随时一键清除本场会话记录。
+              允许在演讲期间使用麦克风识别语流（原始录音不落盘，讲完可随时一键清空）。
             </span>
           </label>
 
           <div className="flex flex-wrap justify-end gap-3">
             <Button type="button" variant="quiet" onClick={onGoToCompiler}>
-              先去场前编译
+              先去准备讲稿
             </Button>
             <Button
               type="button"
@@ -438,7 +433,7 @@ export const StageView: React.FC<StageViewProps> = ({
               data-testid="stage-start-btn"
               className="gap-1.5 min-h-[40px]"
             >
-              <span>开始场中协同</span>
+              <span>{launchMode === 'live' ? '开始正式演讲' : '开始彩排'}</span>
               <ArrowRight className="w-4 h-4" />
             </Button>
           </div>
@@ -457,7 +452,6 @@ export const StageView: React.FC<StageViewProps> = ({
   const isPaused = session.status === 'paused';
   const isSilent = session.silentMode;
 
-  // Compute peripheral EdgeLight phase
   let edgePhase: EdgeLightPhase = 'quiet';
   if (!isSilent && !isPaused && !isEnded) {
     if (lastWithdrawn) {
@@ -473,11 +467,9 @@ export const StageView: React.FC<StageViewProps> = ({
     }
   }
 
-  const matchedEvidence = activeIntervention
-    ? (activePack?.evidence ?? state.rehearsalContext?.supportingEvidence ?? []).filter((ev) =>
-        activeIntervention.evidenceIds.includes(ev.id)
-      )
-    : [];
+  const glanceable = activeIntervention
+    ? extractGlanceableCue(activeIntervention.cueText, activeIntervention.title)
+    : null;
 
   const activeAsrMode =
     runtime.micMode === 'browser_webspeech'
@@ -485,40 +477,13 @@ export const StageView: React.FC<StageViewProps> = ({
       : state.asrStatus?.mode ?? 'text_simulation';
 
   const asrLifecycle = state.asrStatus?.lifecycleState ?? health?.asr.lifecycleState;
-  const isRuntimeFallbackOrDegraded = Boolean(
-    state.telemetry?.degraded ||
-      state.telemetry?.usingLocalFallback ||
-      state.asrStatus?.fallbackActive ||
-      state.latestS1Observation?.degraded ||
-      asrLifecycle === 'degraded' ||
-      asrLifecycle === 'disconnected' ||
-      asrLifecycle === 'unavailable' ||
-      asrLifecycle === 'starting' ||
-      asrLifecycle === 'restarting' ||
-      (health &&
-        (!health.system1.healthy ||
-          !health.system2.healthy ||
-          health.system1.degraded ||
-          health.system2.degraded ||
-          health.system1.fallbackActive ||
-          health.system2.fallbackActive ||
-          health.system1.mode === 'local_fallback' ||
-          health.system2.mode === 'local_fallback'))
-  );
   const companionUrl = buildCompanionUrl(session.sessionId);
-  const s1BannerModel =
-    state.latestS1Observation?.model ??
-    health?.system1.model ??
-    health?.system1.backend ??
-    (state.telemetry?.usingLocalFallback ? 'local_rule_zero' : 'ok');
   const s1BannerDegraded = Boolean(
     state.latestS1Observation?.degraded ||
       health?.system1.fallbackActive ||
       health?.system1.degraded ||
       health?.system1.mode === 'local_fallback'
   );
-  const s2BannerModel =
-    state.system2Guidance?.model ?? health?.system2.model ?? health?.system2.backend ?? 'ok';
   const s2BannerDegraded = Boolean(
     health?.system2.fallbackActive ||
       health?.system2.degraded ||
@@ -537,7 +502,7 @@ export const StageView: React.FC<StageViewProps> = ({
         <div className="max-w-[1440px] mx-auto flex flex-wrap items-center justify-between gap-3 text-xs">
           <div className="flex flex-wrap items-center gap-2 min-w-0">
             <h1 className="text-xs sm:text-sm font-semibold text-ink truncate max-w-[240px]">
-              {activePack?.title ?? 'CueX Presentation 会话'}
+              {activePack?.title ?? '正在演讲'}
             </h1>
             <Badge variant={session.mode === 'rehearsal' ? 'violet' : 'amber'}>
               {session.mode === 'rehearsal' ? '彩排模式' : '正式演讲'}
@@ -551,68 +516,42 @@ export const StageView: React.FC<StageViewProps> = ({
                 {isEnded
                   ? '已结束'
                   : isPaused
-                    ? '监听已暂停'
+                    ? '已暂停'
                     : state.wsStatus === 'connected'
                       ? '实时协同中'
-                      : state.wsStatus}
+                      : '连接中'}
               </span>
             </Badge>
 
-            {/* Privacy Recording Badge (calm solid dot when capturing) */}
-            <Badge
-              variant={runtime.micMode !== 'off' ? 'amber' : 'outline'}
+            {/* Primary 1-Click Microphone Button right in the top bar */}
+            <button
+              type="button"
+              disabled={isPaused || isEnded}
+              onClick={() => void runtime.toggleBestMic()}
               data-testid="privacy-recording-badge"
+              className={cn(
+                'inline-flex items-center gap-1.5 px-2.5 h-7 rounded border text-xs font-medium transition-colors disabled:opacity-50',
+                runtime.micMode !== 'off'
+                  ? 'bg-amber-tint border-amber/45 text-amber-ink'
+                  : 'bg-ground border-line-strong text-ink-2 hover:text-ink hover:bg-ground-2'
+              )}
             >
               {runtime.micMode !== 'off' ? (
                 <>
                   <span className="w-2 h-2 rounded-full bg-amber shrink-0" />
-                  <span>正在收音（仅本场会话 · 可随时清除）</span>
+                  <span>正在收音（点击停止）</span>
                 </>
               ) : (
-                <span>麦克风未开启</span>
+                <>
+                  <Mic className="w-3.5 h-3.5 text-amber shrink-0" />
+                  <span>开启麦克风</span>
+                </>
               )}
-            </Badge>
+            </button>
           </div>
 
-          {/* Focus / Inspector Dual View Switch + Split-Strip Ergonomics Toggle */}
+          {/* Stage Layout, Companion Window & Secondary Backstage Inspector Toggle */}
           <div className="flex flex-wrap items-center gap-2">
-            <div
-              className="inline-flex rounded border border-line bg-ground p-0.5"
-              role="group"
-              aria-label="切换视角"
-            >
-              <button
-                type="button"
-                onClick={() => handleToggleViewMode('focus')}
-                data-testid="view-toggle-focus"
-                aria-pressed={viewMode === 'focus'}
-                className={cn(
-                  'px-2.5 sm:px-3 py-1 rounded-sm text-xs font-medium flex items-center gap-1.5',
-                  viewMode === 'focus'
-                    ? 'bg-ink text-ground'
-                    : 'text-ink-2 hover:text-ink'
-                )}
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>Focus 极简视角</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleToggleViewMode('inspector')}
-                data-testid="view-toggle-inspector"
-                aria-pressed={viewMode === 'inspector'}
-                className={cn(
-                  'px-2.5 sm:px-3 py-1 rounded-sm text-xs font-medium flex items-center gap-1.5',
-                  viewMode === 'inspector'
-                    ? 'bg-ink text-ground'
-                    : 'text-ink-2 hover:text-ink'
-                )}
-              >
-                <Cpu className="w-3.5 h-3.5" />
-                <span>Inspector 透视视角</span>
-              </button>
-            </div>
-
             {viewMode === 'focus' && (
               <Button
                 type="button"
@@ -627,12 +566,10 @@ export const StageView: React.FC<StageViewProps> = ({
                   layoutMode === 'split_strip' &&
                     'bg-amber-tint border-amber/45 text-amber-ink hover:bg-amber-tint'
                 )}
-                title="切换演说窄屏伴随条模式（适合置顶分屏于 PPT 旁）"
+                title="切换窄栏分屏布局，方便与幻灯片并排摆放"
               >
                 <Columns2 className="w-3.5 h-3.5 mr-1" />
-                <span>
-                  {layoutMode === 'split_strip' ? '精简伴随条 · Split Strip' : '标准双栏布局'}
-                </span>
+                <span>{layoutMode === 'split_strip' ? '退出窄栏分屏' : '窄栏分屏'}</span>
               </Button>
             )}
 
@@ -644,16 +581,43 @@ export const StageView: React.FC<StageViewProps> = ({
               onClick={() => void handleOpenCompanionWindow(session.sessionId)}
               data-testid="open-companion-window-btn"
               className="h-8 px-3 text-xs whitespace-nowrap"
-              title="打开同会话只读伴随窗（不支持操作系统级全屏 PPT 强制置顶）"
+              title="打开独立提词小窗，方便移至副屏或配合演讲者视图观看"
             >
               <ExternalLink className="w-3.5 h-3.5 mr-1 text-violet-ink" />
-              <span>打开独立伴随窗</span>
+              <span>独立提词小窗</span>
             </Button>
 
             {state.attachState && (state.attachState.companionCount ?? 0) > 0 && (
               <Badge variant="violet" data-testid="primary-companion-count">
-                伴随窗 {state.attachState.companionCount}
+                小窗在线 {state.attachState.companionCount}
               </Badge>
+            )}
+
+            {viewMode === 'focus' ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => handleToggleViewMode('inspector')}
+                data-testid="view-toggle-inspector"
+                className="h-8 px-2.5 text-xs text-ink-3 hover:text-ink"
+                title="查看双系统实时运行指标与检索详情"
+              >
+                <Cpu className="w-3.5 h-3.5 mr-1" />
+                <span>引擎透视</span>
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="default"
+                size="sm"
+                onClick={() => handleToggleViewMode('focus')}
+                data-testid="view-toggle-focus"
+                className="h-8 px-3 text-xs"
+              >
+                <Eye className="w-3.5 h-3.5 mr-1" />
+                <span>返回演讲画面</span>
+              </Button>
             )}
           </div>
 
@@ -664,10 +628,10 @@ export const StageView: React.FC<StageViewProps> = ({
               size="sm"
               onClick={runtime.wipeCurrentSession}
               data-testid="wipe-session-btn"
-              title="立刻销毁本场转写、候选与临时状态"
+              title="清空本场记录并返回"
             >
               <Trash2 className="w-3.5 h-3.5 text-amber-ink" />
-              <span>清除本场</span>
+              <span>清空本场</span>
             </Button>
 
             {isEnded ? (
@@ -677,7 +641,7 @@ export const StageView: React.FC<StageViewProps> = ({
                 onClick={() => onGoToReflection(session.sessionId)}
                 data-testid="go-reflection-btn"
               >
-                <span>查看场后复盘</span>
+                <span>查看复盘</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </Button>
             ) : (
@@ -687,71 +651,31 @@ export const StageView: React.FC<StageViewProps> = ({
                 onClick={handleEndAndReview}
                 data-testid="end-session-btn"
               >
-                <span>结束并进入复盘</span>
+                <span>结束并复盘</span>
               </Button>
             )}
           </div>
         </div>
       </div>
 
-      {state.error && (
-        <div
-          role="alert"
-          className="max-w-[1440px] w-full mx-auto px-4 sm:px-6 pt-3"
-          data-testid="stage-error"
-        >
-          <div className="border border-amber/40 bg-amber-tint text-amber-ink px-4 py-2 rounded text-xs">
-            {state.error}
-          </div>
-        </div>
-      )}
-
-      {/* Honest ASR Simulation / Runtime Degraded Banners */}
+      {/* Actionable Notices Only (Zero Defensive Disclaimers) */}
       <div className="max-w-[1440px] w-full mx-auto px-4 sm:px-6 pt-2.5 space-y-2 empty:hidden">
-        {activeAsrMode === 'text_simulation' && (
+        {state.error && (
           <div
-            className="border border-amber/35 bg-amber-tint/70 text-amber-ink px-3.5 py-2 rounded text-xs flex flex-wrap items-center justify-between gap-2"
-            data-testid="asr-simulation-banner"
+            role="alert"
+            className="border border-amber/40 bg-amber-tint text-amber-ink px-4 py-2 rounded text-xs"
+            data-testid="stage-error"
           >
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-              <span>
-                <strong>文本仿真输入模式：</strong>当前输入为模拟演讲文本（非真实麦克风 ASR），用于验证双层理解、触发阈值与撤回链路。
-              </span>
-            </div>
-            <Badge variant="outline">
-              ASR: {activeAsrMode}
-            </Badge>
+            {state.error}
           </div>
         )}
 
-        {isRuntimeFallbackOrDegraded && (
+        {runtime.micError && (
           <div
-            className="border border-line bg-surface px-3.5 py-2 rounded text-xs text-ink-2 flex flex-wrap items-center justify-between gap-2"
-            data-testid="runtime-degraded-banner"
+            role="alert"
+            className="border border-amber/40 bg-amber-tint text-amber-ink px-4 py-2 rounded text-xs"
           >
-            <div className="flex items-center gap-2 min-w-0">
-              <ShieldAlert className="w-3.5 h-3.5 text-amber shrink-0" />
-              <span>
-                <strong>引擎状态诚实披露：</strong>
-                {state.asrStatus?.fallbackActive && state.asrStatus?.fallbackReason
-                  ? `ASR 回退中（${state.asrStatus.fallbackReason}）。`
-                  : health?.asr.fallbackActive && health?.asr.fallbackReason
-                    ? `ASR 回退中（${health.asr.fallbackReason}）。`
-                    : state.telemetry?.degraded
-                      ? '部分推理或识别通道处于降级态，已自动回退至本地确定性规则引擎。'
-                      : asrLifecycle && asrLifecycle !== 'ready'
-                        ? `${COLAB_ASR_LIFECYCLE_LABELS[asrLifecycle]}。`
-                        : '当前使用本地确定性规则引擎运行（0 外部 LLM Token），未伪装外部大模型调用。'}
-              </span>
-            </div>
-            <span className="font-mono text-xs text-ink-3 tabular-nums">
-              {asrLifecycle ? `ASR:${asrLifecycle} · ` : ''}
-              S1:{s1BannerModel}
-              {s1BannerDegraded ? '(降级)' : ''} · S2:{s2BannerModel}
-              {health?.system2.reasoningEffort ? `(${health.system2.reasoningEffort})` : ''}
-              {s2BannerDegraded ? '(降级)' : ''} · {state.telemetry?.usageSource ?? 'local_rule_zero'}
-            </span>
+            {runtime.micError}
           </div>
         )}
 
@@ -769,13 +693,13 @@ export const StageView: React.FC<StageViewProps> = ({
                 data-testid="companion-window-link"
                 className="text-violet-ink underline underline-offset-4 font-medium"
               >
-                伴随窗直达链接
+                在新标签页打开小窗
               </a>
               <button
                 type="button"
                 onClick={() => setCompanionLaunchNote(null)}
                 className="text-ink-3 hover:text-ink"
-                aria-label="收起伴随窗提示"
+                aria-label="关闭小窗提示"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -814,7 +738,7 @@ export const StageView: React.FC<StageViewProps> = ({
             >
               <div className="space-y-2 min-w-0">
                 <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <span className="font-mono text-ink-3">当前章节</span>
+                  <span className="text-ink-3">当前章节</span>
                   {pres && (
                     <Badge
                       variant={
@@ -837,7 +761,7 @@ export const StageView: React.FC<StageViewProps> = ({
                 >
                   {cog?.activeChapterTitle ??
                     pres?.chapterNodes[pres.activeChapterIndex]?.title ??
-                    '开场与核心论点'}
+                    '开场与核心观点'}
                 </div>
 
                 {pres && pres.chapterNodes.length > 0 && (
@@ -876,7 +800,9 @@ export const StageView: React.FC<StageViewProps> = ({
               <div
                 className={cn(
                   'shrink-0',
-                  layoutMode === 'split_strip' ? 'text-left pt-2 border-t border-line' : 'text-left sm:text-right'
+                  layoutMode === 'split_strip'
+                    ? 'text-left pt-2 border-t border-line'
+                    : 'text-left sm:text-right'
                 )}
               >
                 <div
@@ -892,16 +818,16 @@ export const StageView: React.FC<StageViewProps> = ({
                     / {formatDuration(pres?.targetDurationSec ?? activePack?.targetDurationSec ?? 300)}
                   </span>
                 </div>
-                <div className="text-xs text-ink-3 mt-1">
-                  当前注意态：{ATTENTION_SIGNAL_LABELS[cog?.attentionSignal ?? 'fluent']} · 干预上限{' '}
-                  <span className="font-mono font-semibold text-ink">
-                    {session.maxInterventionLevel}
-                  </span>
-                </div>
+                {runtime.micMode === 'pcm_mic' && (
+                  <div className="flex items-center sm:justify-end gap-2 mt-1.5 text-xs text-ink-3">
+                    <span>音量</span>
+                    <meter min={0} max={1} value={runtime.micVolume} className="w-24 h-2" />
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Rehearsal Prompt Strip */}
+            {/* Single-Point Rehearsal Prompt Strip */}
             {state.rehearsalContext && (
               <div
                 className="border border-violet/35 bg-violet-tint/50 rounded-md p-4 text-xs space-y-2"
@@ -909,9 +835,9 @@ export const StageView: React.FC<StageViewProps> = ({
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-semibold text-violet-ink">
-                    单点重练模式 · 目标片段：{state.rehearsalContext.weakSegment.chapterTitle}
+                    正在单点重练：{state.rehearsalContext.weakSegment.chapterTitle}
                   </span>
-                  <Badge variant="violet">Rehearsal Target</Badge>
+                  <Badge variant="violet">片段重练</Badge>
                 </div>
                 <p className="text-ink leading-relaxed">{state.rehearsalContext.promptText}</p>
                 {state.rehearsalContext.supportingEvidence.length > 0 && (
@@ -921,7 +847,7 @@ export const StageView: React.FC<StageViewProps> = ({
                         key={ev.id}
                         className="px-2.5 py-1 rounded bg-surface border border-violet/25 text-ink-2 text-xs"
                       >
-                        依据：{ev.text}
+                        参考数据：{ev.text}
                       </span>
                     ))}
                   </div>
@@ -934,19 +860,19 @@ export const StageView: React.FC<StageViewProps> = ({
               className={cn(
                 'flex flex-col items-center justify-center border border-line bg-surface rounded-md relative',
                 layoutMode === 'split_strip'
-                  ? 'min-h-[210px] p-4 sm:p-5'
-                  : 'flex-1 min-h-[260px] p-6 sm:p-10'
+                  ? 'min-h-[220px] p-4 sm:p-5'
+                  : 'flex-1 min-h-[280px] p-6 sm:p-10'
               )}
               aria-live="polite"
               aria-atomic="true"
               data-testid="focus-cue-stage"
             >
               {isSilent ? (
-                <div className="text-center space-y-3" data-testid="focus-silent-state">
+                <div className="text-center space-y-2.5" data-testid="focus-silent-state">
                   <VolumeX className="w-8 h-8 text-ink-3 mx-auto" />
-                  <div className="text-xl font-semibold text-ink">L0 · 静默模式已开启</div>
+                  <div className="text-xl font-semibold text-ink">免打扰模式已开启</div>
                   <p className="text-xs text-ink-2 max-w-md leading-relaxed">
-                    系统仍在静默记录转写与覆盖率，但不会向画面输出任何 L1–L3 干预提示。
+                    正在后台安静记录你的演讲进度，期间不会弹出任何提词卡片。
                   </p>
                 </div>
               ) : activeIntervention ? (
@@ -957,59 +883,59 @@ export const StageView: React.FC<StageViewProps> = ({
                   data-grounded={activeIntervention.grounded}
                 >
                   <div className="flex flex-wrap items-center justify-center gap-2">
-                    <Badge
-                      variant={activeIntervention.level === 'L3' ? 'violet' : 'amber'}
-                      className="font-mono"
-                    >
+                    <Badge variant={activeIntervention.level === 'L3' ? 'violet' : 'amber'}>
                       {INTERVENTION_LEVEL_LABELS[activeIntervention.level]}
                     </Badge>
                     {activeIntervention.grounded ? (
                       <Badge variant="resolved">
                         <ShieldCheck className="w-3 h-3" />
-                        已核验事实依据 ({activeIntervention.evidenceIds.length})
+                        来自讲稿关键数据
                       </Badge>
                     ) : (
                       <Badge variant="amber">
                         <ShieldAlert className="w-3 h-3" />
-                        资料未覆盖 · 勿现场编造
+                        讲稿未包含此项
                       </Badge>
                     )}
                   </div>
 
-                  {/* L1: Subtle minimal whisper */}
+                  {/* L1: Minimal nudge */}
                   {activeIntervention.level === 'L1' && (
                     <div className="space-y-2">
                       <div className="text-2xl sm:text-3xl font-semibold text-amber-ink tracking-tight">
+                        {glanceable?.headline ?? activeIntervention.title}
+                      </div>
+                      {glanceable?.subline && (
+                        <p className="text-sm text-ink-2">{glanceable.subline}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* L2: Crisp, glanceable keyword pill */}
+                  {activeIntervention.level === 'L2' && (
+                    <div className="space-y-2.5">
+                      <div className="inline-block max-w-full break-words px-5 sm:px-7 py-3.5 rounded-md bg-amber-tint border border-amber/40 text-2xl sm:text-4xl font-bold tracking-tight text-ink">
+                        {glanceable?.headline ?? activeIntervention.cueText}
+                      </div>
+                      {glanceable?.subline && (
+                        <p className="text-sm text-ink-2 max-w-lg mx-auto">
+                          {glanceable.subline}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* L3: Structured 2-3 bullet card */}
+                  {activeIntervention.level === 'L3' && (
+                    <div className="space-y-3 text-left bg-violet-tint/35 border border-violet/30 rounded-md p-5">
+                      <div className="text-sm font-semibold text-violet-ink">
                         {activeIntervention.title}
                       </div>
-                      <p className="text-sm text-ink-2">{activeIntervention.cueText}</p>
-                    </div>
-                  )}
-
-                  {/* L2: Crisp large 2-6+ char keyword pill readable by peripheral vision (flattened, <= 1 border) */}
-                  {activeIntervention.level === 'L2' && (
-                    <div className="space-y-3">
-                      <div className="inline-block max-w-full break-words px-5 sm:px-6 py-3 rounded-md bg-amber-tint border border-amber/40 text-2xl sm:text-5xl font-bold tracking-tight text-ink">
-                        {activeIntervention.cueText}
-                      </div>
-                      <p className="text-sm text-ink-2">{activeIntervention.title}</p>
-                    </div>
-                  )}
-
-                  {/* L3: Concise 2-3 bullet scaffold */}
-                  {activeIntervention.level === 'L3' && (
-                    <div className="space-y-3.5 text-left bg-violet-tint/35 border border-violet/30 rounded-md p-5">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-base sm:text-lg font-bold text-ink">
-                          {activeIntervention.title}
-                        </span>
-                        <span className="text-xs font-mono text-violet-ink">L3 脚手架</span>
-                      </div>
-                      <p className="text-lg sm:text-2xl font-semibold text-ink leading-snug">
-                        {activeIntervention.cueText}
+                      <p className="text-lg sm:text-2xl font-bold text-ink leading-snug">
+                        {glanceable?.headline ?? activeIntervention.cueText}
                       </p>
                       {activeIntervention.bullets && activeIntervention.bullets.length > 0 && (
-                        <ul className="space-y-2 pt-1 text-sm sm:text-base text-ink-2 list-disc pl-5">
+                        <ul className="space-y-1.5 pt-1 text-sm sm:text-base text-ink-2 list-disc pl-5">
                           {activeIntervention.bullets.slice(0, 3).map((b, idx) => (
                             <li key={idx}>{b}</li>
                           ))}
@@ -1020,29 +946,16 @@ export const StageView: React.FC<StageViewProps> = ({
 
                   {activeIntervention.missingEvidenceNotice && (
                     <div
-                      className="border border-amber/40 bg-amber-tint rounded p-3 text-xs text-amber-ink text-left flex items-start gap-2"
+                      className="border border-amber/40 bg-amber-tint rounded p-3 text-xs text-amber-ink text-left flex items-start gap-2 max-w-xl mx-auto"
                       data-testid="missing-evidence-warning"
                     >
                       <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                      <span>{activeIntervention.missingEvidenceNotice}</span>
+                      <span>讲稿材料未包含这项数据记录，建议坦诚说明会后核实补充。</span>
                     </div>
                   )}
 
-                  {matchedEvidence.length > 0 && (
-                    <div className="flex flex-wrap justify-center gap-2 pt-1 text-xs text-ink-2">
-                      {matchedEvidence.map((ev) => (
-                        <span
-                          key={ev.id}
-                          className="px-2.5 py-1 rounded bg-surface-muted"
-                        >
-                          出处：{ev.source} · {ev.text}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Micro-feedback (H/I) + Dismiss suppression */}
-                  <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
+                  {/* Compact Feedback & Dismiss */}
+                  <div className="pt-1 flex flex-wrap items-center justify-center gap-2">
                     <Button
                       type="button"
                       variant={activeIntervention.userFeedback === 'helpful' ? 'resolved' : 'quiet'}
@@ -1052,7 +965,7 @@ export const StageView: React.FC<StageViewProps> = ({
                       className="min-h-9"
                     >
                       <ThumbsUp className="w-3.5 h-3.5" />
-                      <span>有效 (H)</span>
+                      <span>有帮助</span>
                     </Button>
                     <Button
                       type="button"
@@ -1065,7 +978,7 @@ export const StageView: React.FC<StageViewProps> = ({
                       className="min-h-9"
                     >
                       <ThumbsDown className="w-3.5 h-3.5" />
-                      <span>打扰 (I)</span>
+                      <span>嫌打扰</span>
                     </Button>
                     <Button
                       type="button"
@@ -1076,37 +989,31 @@ export const StageView: React.FC<StageViewProps> = ({
                       className="min-h-9"
                     >
                       <X className="w-3.5 h-3.5" />
-                      <span>忽略并抑制此提示</span>
+                      <span>收起</span>
                     </Button>
                   </div>
                 </div>
               ) : lastWithdrawn ? (
                 <div
-                  className="text-center space-y-2 max-w-lg border border-resolved/35 bg-resolved-tint/60 rounded-md px-6 py-5"
+                  className="text-center space-y-1 max-w-md border border-resolved/35 bg-resolved-tint/60 rounded-md px-5 py-3.5"
                   data-testid="focus-withdrawn-banner"
                 >
-                  <Badge variant="resolved">主动退出 · 已自动撤回</Badge>
-                  {lastWithdrawn.cueText && (
-                    <p className="text-lg text-ink-3">
-                      <del>{lastWithdrawn.cueText}</del>
-                    </p>
-                  )}
-                  <p className="text-xs text-resolved font-medium">
-                    {WITHDRAWAL_REASON_LABELS[lastWithdrawn.reason] ?? lastWithdrawn.reason}
+                  <p className="text-sm text-resolved font-medium">
+                    {WITHDRAWAL_REASON_LABELS[lastWithdrawn.reason] ?? '已接回主线，提示自动收起'}
                   </p>
                 </div>
               ) : (
                 <div className="text-center space-y-3" data-testid="focus-l0-quiet">
                   <div className="w-2.5 h-2.5 rounded-full bg-resolved mx-auto" />
                   <div className="text-lg sm:text-xl font-medium text-ink">
-                    L0 · 正在持续理解，当前无需干预
+                    正在安静倾听，保持自然节奏即可
                   </div>
                   <p className="text-xs text-ink-3 max-w-md leading-relaxed">
-                    保持你的正常节奏即可；只有当出现显著偏离、遗漏或现场问答时，CueX 才会以最小必要方式接住你。
+                    遇到卡顿、漏讲要点或现场追问时，这里会自动浮现简短提示，接上话后自动收起。
                   </p>
                   {pres && pres.missedKeyPoints.length > 0 && (
                     <div className="flex flex-wrap justify-center items-center gap-1.5 pt-2">
-                      <span className="text-xs text-ink-3">当前章节待覆盖：</span>
+                      <span className="text-xs text-ink-3">本章要点：</span>
                       {pres.missedKeyPoints.slice(0, 4).map((m) => (
                         <span
                           key={m.pointId}
@@ -1121,7 +1028,7 @@ export const StageView: React.FC<StageViewProps> = ({
               )}
             </div>
 
-            {/* Minimal Speaker Controls Bar */}
+            {/* Clean Speaker Controls Bar */}
             <div className="border border-line bg-surface rounded-md p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
               <div className="flex flex-wrap items-center gap-2">
                 <Button
@@ -1132,7 +1039,7 @@ export const StageView: React.FC<StageViewProps> = ({
                   data-testid="toggle-pause-btn"
                 >
                   {isPaused ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
-                  <span>{isPaused ? '恢复监听' : '暂停监听'}</span>
+                  <span>{isPaused ? '继续' : '暂停'}</span>
                 </Button>
 
                 <Button
@@ -1143,7 +1050,7 @@ export const StageView: React.FC<StageViewProps> = ({
                   data-testid="toggle-silent-btn"
                 >
                   <VolumeX className="w-3.5 h-3.5" />
-                  <span>{isSilent ? '关闭静默模式' : '静默模式 (L0)'}</span>
+                  <span>{isSilent ? '退出免打扰' : '免打扰'}</span>
                 </Button>
 
                 <Button
@@ -1154,7 +1061,7 @@ export const StageView: React.FC<StageViewProps> = ({
                   data-testid="request-help-l2-btn"
                 >
                   <HelpCircle className="w-3.5 h-3.5 text-amber" />
-                  <span>请求提示 (L2)</span>
+                  <span>提示关键词</span>
                 </Button>
 
                 <Button
@@ -1165,34 +1072,35 @@ export const StageView: React.FC<StageViewProps> = ({
                   data-testid="request-help-l3-btn"
                 >
                   <Layers className="w-3.5 h-3.5 text-violet" />
-                  <span>展开要点 (L3)</span>
+                  <span>展开要点</span>
                 </Button>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
                 <label className="flex items-center gap-1.5 text-ink-2">
-                  <span>最高级别：</span>
+                  <span>提示详略：</span>
                   <select
                     value={session.maxInterventionLevel}
                     onChange={(e) => runtime.setCeilingLevel(e.target.value as InterventionLevel)}
                     data-testid="ceiling-select"
-                    className="h-8 border border-line bg-ground rounded px-2 text-ink font-mono focus-visible:outline-none focus-visible:border-ink"
+                    className="h-8 border border-line bg-ground rounded px-2 text-ink focus-visible:outline-none focus-visible:border-ink"
                   >
-                    <option value="L0">L0</option>
-                    <option value="L1">L1</option>
-                    <option value="L2">L2</option>
-                    <option value="L3">L3</option>
+                    <option value="L3">可展开要点</option>
+                    <option value="L2">仅关键词</option>
+                    <option value="L1">仅边缘微光</option>
+                    <option value="L0">全程免打扰</option>
                   </select>
                 </label>
 
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant={showInputDrawer ? 'default' : 'ghost'}
                   size="sm"
+                  data-testid="toggle-sim-drawer-btn"
                   onClick={() => setShowInputDrawer((v) => !v)}
                 >
                   <MessageSquare className="w-3.5 h-3.5" />
-                  <span>{showInputDrawer ? '收起语音与测试面板' : '展开语音与测试面板'}</span>
+                  <span>{showInputDrawer ? '收起彩排模拟' : '无麦模拟输入'}</span>
                 </Button>
               </div>
 
@@ -1203,18 +1111,18 @@ export const StageView: React.FC<StageViewProps> = ({
                 <span className="inline-flex items-center gap-1.5">
                   <Keyboard className="w-3.5 h-3.5 shrink-0" />
                   <span>
-                    快捷键：<code>Space</code> 暂停/恢复 · <code>M</code> 静默(L0) · <code>H</code>{' '}
-                    请求帮助 · <code>Esc</code> 忽略提示
+                    快捷键：<code>Space</code> 暂停/继续 ｜ <code>M</code> 免打扰 ｜ <code>H</code>{' '}
+                    提示 ｜ <code>Esc</code> 收起
                   </span>
                 </span>
-                <span className="font-mono whitespace-nowrap">
-                  {layoutMode === 'split_strip' ? 'Split Strip 伴随栏模式' : '标准双栏视角'}
+                <span className="whitespace-nowrap">
+                  {layoutMode === 'split_strip' ? '窄栏分屏布局' : '标准舞台布局'}
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Secondary Column: Speech Input & Honest ASR / Text Simulation Panel */}
+          {/* Collapsible Rehearsal Simulator & Audio Channel Drawer (Hidden by default) */}
           {showInputDrawer && (
             <div
               className={cn(
@@ -1223,32 +1131,128 @@ export const StageView: React.FC<StageViewProps> = ({
               )}
               data-testid="stage-input-panel"
             >
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-3">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold text-ink">实时语音采集与输入链路</span>
-                  <Badge
-                    variant={
-                      activeAsrMode === 'text_simulation'
-                        ? 'amber'
-                        : activeAsrMode === 'browser_webspeech'
-                          ? 'violet'
-                          : 'resolved'
-                    }
-                    data-testid="asr-capability-badge"
-                  >
-                    {ASR_MODE_LABELS[activeAsrMode]}
-                  </Badge>
-                  {asrLifecycle && (
-                    <Badge variant={getColabLifecycleBadgeVariant(asrLifecycle)}>
-                      {COLAB_ASR_LIFECYCLE_LABELS[asrLifecycle]}
-                    </Badge>
-                  )}
-                  {state.asrStatus?.detail && (
-                    <span className="text-xs text-ink-3">{state.asrStatus.detail}</span>
-                  )}
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
+                <div>
+                  <span className="font-semibold text-ink">无麦彩排与现场追问模拟</span>
+                  <p className="text-ink-3 mt-0.5">
+                    在不方便开麦的环境下，可直接输入发言或模拟观众提问来体验提词与收起节奏。
+                  </p>
                 </div>
+                <label className="flex items-center gap-1.5 text-ink-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={progressiveSim}
+                    onChange={(e) => setProgressiveSim(e.target.checked)}
+                    className="accent-ink"
+                  />
+                  <span>模拟逐句流式说话</span>
+                </label>
+              </div>
 
-                <div className="flex flex-wrap items-center gap-2">
+              <form onSubmit={handleSimSubmit} className="flex flex-col sm:flex-row gap-2">
+                <select
+                  value={simSpeaker}
+                  onChange={(e) => setSimSpeaker(e.target.value as TranscriptSpeaker)}
+                  aria-label="选择发言角色"
+                  data-testid="sim-speaker-select"
+                  className="border border-line bg-ground rounded px-2.5 py-2 text-ink sm:w-36 focus-visible:outline-none focus-visible:border-ink"
+                >
+                  <option value="presenter">主讲人发言</option>
+                  <option value="audience">观众/评委提问</option>
+                </select>
+                <input
+                  type="text"
+                  value={simText}
+                  onChange={(e) => setSimText(e.target.value)}
+                  aria-label="输入模拟发言或观众提问"
+                  placeholder="输入一句话或评委追问，按回车发送…"
+                  disabled={isEnded}
+                  data-testid="sim-speech-input"
+                  className="flex-1 border border-line bg-ground rounded px-3 py-2 text-ink focus-visible:outline-none focus-visible:border-ink"
+                />
+                <Button
+                  type="submit"
+                  disabled={isEnded || !simText.trim()}
+                  data-testid="sim-speech-submit"
+                  className="gap-1.5"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>发送</span>
+                </Button>
+              </form>
+
+              {/* Quick Rehearsal Snippets */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-xs text-ink-3 mr-1">快捷试演：</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleQuickSnippet(
+                      '各位评委好，今天汇报 CueX 通用实时认知外挂。它的核心理念是在深度思考之外接住当下，核心系统围绕实时理解与最小必要干预构建。',
+                      'presenter'
+                    )
+                  }
+                  className="px-2.5 py-1.5 rounded border border-line bg-ground hover:bg-surface-muted text-xs text-ink-2"
+                >
+                  顺畅开讲
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleQuickSnippet(
+                      '顺便聊一个我昨天在咖啡厅想到的界面配色细节和个人生活随想，先不管核心架构和指标。',
+                      'presenter'
+                    )
+                  }
+                  className="px-2.5 py-1.5 rounded border border-line bg-ground hover:bg-surface-muted text-xs text-amber-ink"
+                >
+                  模拟跑题卡壳
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleQuickSnippet(
+                      '回到核心架构：CueX 通过 System 1 与 System 2 并行，再由独立 InterventionController 控制介入并用 V = H - λI 度量净有效介入。',
+                      'presenter'
+                    )
+                  }
+                  className="px-2.5 py-1.5 rounded border border-line bg-ground hover:bg-surface-muted text-xs text-resolved"
+                >
+                  自然接回主线
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleQuickSnippet(
+                      '请问你们是如何量化衡量一次干预到底有没有打扰用户的？公式和默认参数是什么？',
+                      'audience'
+                    )
+                  }
+                  className="px-2.5 py-1.5 rounded border border-line bg-ground hover:bg-surface-muted text-xs text-violet-ink"
+                >
+                  评委提问（讲稿内）
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleQuickSnippet(
+                      '请问你们明年第三季度的海外定价策略、已完成签署的百万级企业付费合同金额是多少？',
+                      'audience'
+                    )
+                  }
+                  className="px-2.5 py-1.5 rounded border border-line bg-ground hover:bg-surface-muted text-xs text-amber-ink"
+                >
+                  评委追问（超纲问题）
+                </button>
+              </div>
+
+              {/* Optional manual audio channel switcher */}
+              <details className="group pt-2 border-t border-line">
+                <summary className="cursor-pointer list-none flex items-center justify-between text-xs text-ink-3 hover:text-ink select-none">
+                  <span>高级语音通道切换（当前：{ASR_MODE_LABELS[activeAsrMode]}）</span>
+                  <ChevronDown className="w-3.5 h-3.5 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="pt-2.5 flex flex-wrap items-center gap-2">
                   <Button
                     type="button"
                     variant={runtime.micMode === 'pcm_mic' ? 'amber' : 'quiet'}
@@ -1267,7 +1271,7 @@ export const StageView: React.FC<StageViewProps> = ({
                       <Mic className="w-3.5 h-3.5" />
                     )}
                     <span>
-                      {runtime.micMode === 'pcm_mic' ? '停止 PCM 麦克风' : '真实麦克风 (PCM16)'}
+                      {runtime.micMode === 'pcm_mic' ? '停止流式收音' : '使用流式麦克风'}
                     </span>
                   </Button>
 
@@ -1281,184 +1285,19 @@ export const StageView: React.FC<StageViewProps> = ({
                         : runtime.startWebSpeech()
                     }
                     disabled={!runtime.webSpeechSupported || isPaused || isEnded}
-                    title={
-                      runtime.webSpeechSupported
-                        ? '使用浏览器原生 SpeechRecognition'
-                        : '当前浏览器不支持 Web Speech API'
-                    }
                     data-testid="toggle-webspeech-btn"
                   >
                     <Radio className="w-3.5 h-3.5" />
                     <span>
                       {runtime.webSpeechSupported
                         ? runtime.micMode === 'browser_webspeech'
-                          ? '停止 Web Speech'
-                          : '浏览器 Web Speech'
-                        : 'Web Speech（浏览器不支持）'}
+                          ? '停止浏览器语音'
+                          : '使用浏览器语音识别'
+                        : '当前浏览器不支持语音识别'}
                     </span>
                   </Button>
                 </div>
-              </div>
-
-              {(state.asrStatus?.gpuName ||
-                state.asrStatus?.modelId ||
-                state.asrStatus?.rtf !== undefined ||
-                state.asrStatus?.fallbackActive) && (
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-mono text-ink-2 bg-surface-muted/70 rounded px-3 py-2 tabular-nums">
-                  {state.asrStatus.gpuName && <span>GPU: {state.asrStatus.gpuName}</span>}
-                  {state.asrStatus.modelId && <span>模型: {state.asrStatus.modelId}</span>}
-                  {state.asrStatus.rtf !== undefined && (
-                    <span>RTF: {state.asrStatus.rtf.toFixed(3)}</span>
-                  )}
-                  {state.asrStatus.lastHealthCheckAt && (
-                    <span>心跳: {formatTime(state.asrStatus.lastHealthCheckAt)}</span>
-                  )}
-                  {state.asrStatus.fallbackActive && (
-                    <span className="text-amber-ink">
-                      已回退：{state.asrStatus.fallbackReason ?? '备用链路'}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {runtime.micMode === 'pcm_mic' && (
-                <div className="flex items-center gap-3 bg-surface-muted rounded px-3 py-2">
-                  <span className="text-ink-2">麦克风电平：</span>
-                  <meter min={0} max={1} value={runtime.micVolume} className="w-40" />
-                  {state.asrStatus?.mode === 'text_simulation' && (
-                    <span className="text-amber-ink">
-                      提示：服务端当前未启用 Sherpa ASR（仅文本仿真可识别语义），可切换右侧 Web Speech 或下方文本仿真测试。
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {runtime.micError && (
-                <p
-                  role="alert"
-                  className="text-amber-ink bg-amber-tint border border-amber/30 rounded px-3 py-2"
-                >
-                  {runtime.micError}
-                </p>
-              )}
-
-              {/* Explicitly labeled Text Simulation Panel */}
-              <div className="bg-surface-muted/70 border border-line rounded p-3.5 space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="amber">文本仿真输入 · 非真实麦克风 ASR</Badge>
-                    <span className="text-ink-3 text-xs">
-                      用于快速验证 L0/L1/L2/L3 判定、自动撤回与现场 Q&amp;A 事实核验
-                    </span>
-                  </div>
-                  <label className="flex items-center gap-1.5 text-ink-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={progressiveSim}
-                      onChange={(e) => setProgressiveSim(e.target.checked)}
-                      className="accent-ink"
-                    />
-                    <span>逐段流式送出</span>
-                  </label>
-                </div>
-
-                <form onSubmit={handleSimSubmit} className="flex flex-col sm:flex-row gap-2">
-                  <select
-                    value={simSpeaker}
-                    onChange={(e) => setSimSpeaker(e.target.value as TranscriptSpeaker)}
-                    aria-label="选择仿真发言身份"
-                    data-testid="sim-speaker-select"
-                    className="border border-line bg-surface rounded px-2.5 py-2 text-ink sm:w-36 focus-visible:outline-none focus-visible:border-ink"
-                  >
-                    <option value="presenter">演讲者 (Presenter)</option>
-                    <option value="audience">观众提问 (Audience)</option>
-                  </select>
-                  <input
-                    type="text"
-                    value={simText}
-                    onChange={(e) => setSimText(e.target.value)}
-                    aria-label="输入仿真话术或观众追问"
-                    placeholder="输入仿真话术或观众追问，按 Enter 提交..."
-                    disabled={isEnded}
-                    data-testid="sim-speech-input"
-                    className="flex-1 border border-line bg-surface rounded px-3 py-2 text-ink focus-visible:outline-none focus-visible:border-ink"
-                  />
-                  <Button
-                    type="submit"
-                    disabled={isEnded || !simText.trim()}
-                    data-testid="sim-speech-submit"
-                    className="gap-1.5"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>发送测试话术</span>
-                  </Button>
-                </form>
-
-                {/* Quick E2E / Demo Simulation Snippets */}
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-xs text-ink-3 mr-1">示例话术片段：</span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleQuickSnippet(
-                        '各位评委好，今天汇报 CueX 通用实时认知外挂。它的核心理念是在深度思考之外接住当下，核心系统围绕实时理解与最小必要干预构建。',
-                        'presenter'
-                      )
-                    }
-                    className="px-2.5 py-1.5 rounded border border-line bg-surface hover:bg-surface-muted text-xs text-ink-2"
-                  >
-                    1. 流畅开场（应保持 L0）
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleQuickSnippet(
-                        '顺便聊一个我昨天在咖啡厅想到的界面配色细节和个人生活随想，先不管核心架构和指标。',
-                        'presenter'
-                      )
-                    }
-                    className="px-2.5 py-1.5 rounded border border-line bg-surface hover:bg-surface-muted text-xs text-amber-ink"
-                  >
-                    2. 跑偏/遗漏（触发提示）
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleQuickSnippet(
-                        '回到核心架构：CueX 通过 System 1 与 System 2 并行，再由独立 InterventionController 控制介入并用 V = H - λI 度量净有效介入。',
-                        'presenter'
-                      )
-                    }
-                    className="px-2.5 py-1.5 rounded border border-line bg-surface hover:bg-surface-muted text-xs text-resolved"
-                  >
-                    3. 主动补正（应自动撤回）
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleQuickSnippet(
-                        '请问你们是如何量化衡量一次干预到底有没有打扰用户的？公式和默认参数是什么？',
-                        'audience'
-                      )
-                    }
-                    className="px-2.5 py-1.5 rounded border border-line bg-surface hover:bg-surface-muted text-xs text-violet-ink"
-                  >
-                    4. 观众追问（白名单有依据）
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleQuickSnippet(
-                        '请问你们明年第三季度的海外定价策略、已完成签署的百万级企业付费合同金额是多少？',
-                        'audience'
-                      )
-                    }
-                    className="px-2.5 py-1.5 rounded border border-line bg-surface hover:bg-surface-muted text-xs text-amber-ink"
-                  >
-                    5. 观众追问（资料未覆盖 · 警示勿编造）
-                  </button>
-                </div>
-              </div>
+              </details>
             </div>
           )}
         </div>

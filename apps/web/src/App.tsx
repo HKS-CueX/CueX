@@ -46,7 +46,7 @@ function resolveInitialRoute(): { view: AppRouteView; sessionId: string | null }
   return { view: safeView, sessionId };
 }
 
-/** 独立伴随窗外壳：只订阅主会话状态，绝不初始化主控 usePresentationSession / AudioCapture。 */
+/** 独立提词小窗外壳：仅订阅主舞台状态，不初始化麦克风采集。 */
 function CompanionShell({ initialSessionId }: { initialSessionId: string | null }) {
   const [health, setHealth] = useState<HealthStatusResponse | null>(null);
 
@@ -102,7 +102,7 @@ function MainWorkspaceShell({
   const [health, setHealth] = useState<HealthStatusResponse | null>(null);
   const [scenarios, setScenarios] = useState<ScenarioCapabilityDescriptor[]>([]);
   const [activePack, setActivePack] = useState<PresentationContextPack | null>(null);
-  const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(true);
   const [loadingDemo, setLoadingDemo] = useState(false);
   const [memoryModalOpen, setMemoryModalOpen] = useState(false);
   const [accountModalOpen, setAccountModalOpen] = useState(false);
@@ -110,11 +110,12 @@ function MainWorkspaceShell({
   const [completedSessionId, setCompletedSessionId] = useState<string | null>(
     initialView === 'reflection' ? initialSessionId : null
   );
-  const [completedReflection, setCompletedReflection] = useState<PresentationReflection | null>(null);
+  const [completedReflection, setCompletedReflection] = useState<PresentationReflection | null>(
+    null
+  );
 
   const runtime = usePresentationSession();
 
-  // Keep latest completed session/reflection available for ReflectionView
   useEffect(() => {
     if (runtime.state.session?.status === 'ended') {
       setCompletedSessionId(runtime.state.session.sessionId);
@@ -180,10 +181,10 @@ function MainWorkspaceShell({
     try {
       await ensureAuthSession().then(setAuthSession).catch(() => {});
       const pack = await compilePresentationPack({
-        title: 'CueX：通用实时认知外挂路演演示包',
+        title: 'CueX 产品路演示例讲稿',
         sceneType: 'pitch',
-        goal: '在 5 分钟内讲清 CueX 最小必要干预原则、双层架构与 Presentation 闭环',
-        audience: '赛事评委与投资人',
+        goal: '在 5 分钟内清晰传达核心价值、临场提词体验与产品拓展方向',
+        audience: '现场听众与评审嘉宾',
         targetDurationSec: 300,
         rawMaterials: '',
         useSamplePack: true,
@@ -219,6 +220,7 @@ function MainWorkspaceShell({
       maxInterventionLevel: options.maxLevel,
       silentMode: false,
       privacyNoticeAccepted: privacyAccepted,
+      autoStartMic: options.mode === 'live',
     });
     navigate('stage');
   };
@@ -325,20 +327,20 @@ function MainWorkspaceShell({
 
       <Footer onSelectView={navigate} />
 
-      {/* Global Account, Plans, Usage & Data Sovereignty Dialog */}
+      {/* 个人中心弹窗 */}
       <Dialog.Root open={accountModalOpen} onOpenChange={setAccountModalOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-ink/40 z-50" />
-          <Dialog.Content className="cuex-dialog-panel fixed left-1/2 top-1/2 w-[min(94vw,880px)] max-h-[88dvh] overflow-y-auto bg-surface border border-line-strong rounded-md p-5 sm:p-6 shadow-xl z-50 space-y-4">
+          <Dialog.Content className="cuex-dialog-panel fixed left-1/2 top-1/2 w-[min(94vw,820px)] max-h-[88dvh] overflow-y-auto bg-surface border border-line-strong rounded-md p-5 sm:p-6 shadow-xl z-50 space-y-4">
             <div className="flex items-center justify-between border-b border-line pb-3">
               <Dialog.Title className="text-base font-semibold text-ink">
-                账户隔离、套餐用量与数据主权控制台
+                个人中心
               </Dialog.Title>
               <Dialog.Close asChild>
                 <button
                   type="button"
                   className="cuex-btn h-9 w-9 inline-flex items-center justify-center rounded hover:bg-ground-2 text-ink-2 active:scale-[0.97]"
-                  aria-label="关闭账户控制台"
+                  aria-label="关闭个人中心"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -359,20 +361,20 @@ function MainWorkspaceShell({
         </Dialog.Portal>
       </Dialog.Root>
 
-      {/* Global Opt-in Memory Governance Drawer/Dialog */}
+      {/* 演讲偏好弹窗 */}
       <Dialog.Root open={memoryModalOpen} onOpenChange={setMemoryModalOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-ink/40 z-50" />
-          <Dialog.Content className="cuex-dialog-panel fixed left-1/2 top-1/2 w-[min(92vw,740px)] max-h-[86dvh] overflow-y-auto bg-surface border border-line-strong rounded-md p-5 sm:p-6 shadow-xl z-50 space-y-4">
+          <Dialog.Content className="cuex-dialog-panel fixed left-1/2 top-1/2 w-[min(92vw,700px)] max-h-[86dvh] overflow-y-auto bg-surface border border-line-strong rounded-md p-5 sm:p-6 shadow-xl z-50 space-y-4">
             <div className="flex items-center justify-between border-b border-line pb-3">
               <Dialog.Title className="text-base font-semibold text-ink">
-                个人记忆治理与隐私检查
+                演讲偏好
               </Dialog.Title>
               <Dialog.Close asChild>
                 <button
                   type="button"
                   className="cuex-btn h-9 w-9 inline-flex items-center justify-center rounded hover:bg-ground-2 text-ink-2 active:scale-[0.97]"
-                  aria-label="关闭记忆治理弹窗"
+                  aria-label="关闭演讲偏好弹窗"
                 >
                   <X className="w-4 h-4" />
                 </button>

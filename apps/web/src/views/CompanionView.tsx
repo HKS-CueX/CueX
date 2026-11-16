@@ -20,9 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useCompanionSession } from '@/core/session/useCompanionSession';
 import {
-  ASR_MODE_LABELS,
-  ATTENTION_SIGNAL_LABELS,
-  COLAB_ASR_LIFECYCLE_LABELS,
+  extractGlanceableCue,
   formatDuration,
   INTERVENTION_LEVEL_LABELS,
   PACE_STATUS_LABELS,
@@ -37,12 +35,11 @@ interface CompanionViewProps {
 }
 
 /**
- * 独立演讲伴随窗（Presenter Companion Window）。
- * 设计定位：极简余光 Focus 视图，同会话多订阅只读附着，绝不采集麦克风或新建 Runtime。
+ * 独立提词小窗（Presenter Companion Window）。
+ * 用于双屏或分屏陪讲，实时同步章节计时与余光提示，不重复开启麦克风。
  */
 export const CompanionView: React.FC<CompanionViewProps> = ({
   sessionId,
-  health,
   onNavigateMain,
 }) => {
   const companion = useCompanionSession(sessionId);
@@ -58,7 +55,6 @@ export const CompanionView: React.FC<CompanionViewProps> = ({
   const isSilent = session?.silentMode ?? false;
   const canInteractWithCues = state.attachState?.rolePolicy.canInteractWithCues ?? true;
 
-  // 伴随窗安全快捷键：仅开放 H（求助）与 Esc（忽略当前提示），绝不绑定 M/Space 等主控写操作
   useEffect(() => {
     if (!session || isEnded || !canInteractWithCues) return;
 
@@ -87,7 +83,6 @@ export const CompanionView: React.FC<CompanionViewProps> = ({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [session, isEnded, canInteractWithCues, activeIntervention, companion]);
 
-  // 计算与主 Focus 同口径的边缘微光状态
   let edgePhase: EdgeLightPhase = 'quiet';
   if (!isSilent && !isPaused && !isEnded) {
     if (lastWithdrawn) {
@@ -103,20 +98,9 @@ export const CompanionView: React.FC<CompanionViewProps> = ({
     }
   }
 
-  const s1ModelText =
-    state.latestS1Observation?.model ??
-    health?.system1.model ??
-    health?.system1.backend ??
-    '待同步';
-  const s1Degraded = Boolean(
-    state.latestS1Observation?.degraded ||
-      health?.system1.fallbackActive ||
-      health?.system1.degraded
-  );
-  const s2ModelText =
-    state.system2Guidance?.model ?? health?.system2.model ?? health?.system2.backend ?? '待同步';
-  const s2Degraded = Boolean(health?.system2.fallbackActive || health?.system2.degraded);
-  const asrLifecycle = state.asrStatus?.lifecycleState ?? health?.asr.lifecycleState;
+  const glanceable = activeIntervention
+    ? extractGlanceableCue(activeIntervention.cueText, activeIntervention.title)
+    : null;
 
   if (!sessionId) {
     return (
@@ -131,17 +115,16 @@ export const CompanionView: React.FC<CompanionViewProps> = ({
                 height="25"
                 className="h-6 w-auto block"
               />
-              <h1 className="text-sm font-semibold text-ink">演讲伴随窗（Companion）</h1>
+              <h1 className="text-sm font-semibold text-ink">独立提词小窗</h1>
             </div>
-            <Badge variant="outline">未指定会话</Badge>
+            <Badge variant="outline">尚未连接</Badge>
           </div>
         </header>
         <main className="flex-1 max-w-[680px] w-full mx-auto px-4 py-8" data-testid="companion-view">
           <div className="border border-line bg-surface rounded-md p-6 space-y-3 text-xs">
-            <div className="font-semibold text-sm text-ink">缺少可附着的 sessionId 参数</div>
+            <div className="font-semibold text-sm text-ink">尚未关联正在进行的演讲</div>
             <p className="text-ink-2 leading-relaxed">
-              请从主舞台（「场中协同」页）点击「打开独立伴随窗」启动，或在 URL 中传入{' '}
-              <code>?view=companion&amp;sessionId=...</code>。
+              请先在主窗口进入「上台演讲」，再点击右上角「独立提词小窗」即可同步画面。
             </p>
             <div>
               <Button
@@ -150,7 +133,7 @@ export const CompanionView: React.FC<CompanionViewProps> = ({
                 onClick={() => onNavigateMain?.('stage')}
                 data-testid="companion-back-stage-btn"
               >
-                前往主控台场中协同
+                前往上台演讲
               </Button>
             </div>
           </div>
@@ -163,7 +146,7 @@ export const CompanionView: React.FC<CompanionViewProps> = ({
     <div className="min-h-dvh bg-ground text-ink flex flex-col font-ui antialiased">
       <CueEdgeLight phase={edgePhase} paused={isPaused} />
 
-      {/* 伴随窗精简顶栏：清晰展示只读角色、主控在线态与零采集声明 */}
+      {/* 精简顶栏 */}
       <header className="w-full border-b border-line bg-surface px-4 py-2.5 sticky top-0 z-30">
         <div className="max-w-[680px] mx-auto flex flex-wrap items-center justify-between gap-2 text-xs">
           <div className="flex flex-wrap items-center gap-2 min-w-0">
@@ -174,11 +157,11 @@ export const CompanionView: React.FC<CompanionViewProps> = ({
               height="22"
               className="w-5 h-5 shrink-0"
             />
-            <h1 className="text-sm font-semibold text-ink truncate max-w-[220px]">
-              CueX 伴随窗
+            <h1 className="text-sm font-semibold text-ink truncate max-w-[200px]">
+              CueX 提词小窗
             </h1>
             <Badge variant="violet" data-testid="companion-attach-badge">
-              {state.attachState?.role === 'companion' ? 'companion 只读附着' : '只读伴随连接'}
+              副窗同步
             </Badge>
             <Badge
               variant={
@@ -195,21 +178,21 @@ export const CompanionView: React.FC<CompanionViewProps> = ({
               <Radio className="w-3 h-3" />
               <span>
                 {isEnded
-                  ? '会话已结束'
+                  ? '演讲已结束'
                   : state.attachState && !state.attachState.activePrimaryConnected
-                    ? '主控端暂离线'
+                    ? '主窗口重连中'
                     : isPaused
-                      ? '监听已暂停'
+                      ? '已暂停'
                       : state.wsStatus === 'connected'
-                        ? '已同步主控会话'
-                        : state.wsStatus}
+                        ? '已同步主舞台'
+                        : '连接中'}
               </span>
             </Badge>
           </div>
 
           <div className="flex items-center gap-1.5">
             <Badge variant="outline" data-testid="companion-no-mic-badge">
-              不采集麦克风
+              由主窗口收音
             </Badge>
             {(state.wsStatus === 'error' || state.wsStatus === 'closed') && !isEnded && (
               <Button
@@ -242,14 +225,14 @@ export const CompanionView: React.FC<CompanionViewProps> = ({
             </div>
           )}
 
-          {/* 章节与计时头：适合 420–520px 窄窗余光一眼扫读 */}
+          {/* 章节与计时头 */}
           <div
             className="border border-line bg-surface rounded-md p-4 space-y-2"
             data-testid="companion-header"
           >
             <div className="flex items-center justify-between gap-2 text-xs">
               <div className="flex items-center gap-1.5 min-w-0">
-                <span className="font-mono text-ink-3">当前章节</span>
+                <span className="text-ink-3">当前章节</span>
                 {pres && (
                   <Badge
                     variant={
@@ -279,20 +262,12 @@ export const CompanionView: React.FC<CompanionViewProps> = ({
             <div className="text-base sm:text-lg font-bold text-ink leading-snug break-words">
               {cog?.activeChapterTitle ??
                 pres?.chapterNodes[pres.activeChapterIndex]?.title ??
-                (state.wsStatus === 'connected' ? '开场与核心论点' : '正在接入主控会话…')}
-            </div>
-
-            <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink-3">
-              <span>
-                注意态：{ATTENTION_SIGNAL_LABELS[cog?.attentionSignal ?? 'fluent']} · 上限{' '}
-                <code className="text-ink font-semibold">{session?.maxInterventionLevel ?? 'L3'}</code>
-              </span>
-              <span className="font-mono truncate max-w-[200px]">session: {sessionId}</span>
+                (state.wsStatus === 'connected' ? '开场与核心论点' : '正在连接主舞台…')}
             </div>
 
             {cog && cog.openGapLabels.length > 0 && !activeIntervention && (
               <div className="flex flex-wrap items-center gap-1.5 pt-1 text-xs">
-                <span className="text-ink-3">待覆盖：</span>
+                <span className="text-ink-3">本章要点：</span>
                 {cog.openGapLabels.slice(0, 3).map((gap) => (
                   <span
                     key={gap}
@@ -305,7 +280,7 @@ export const CompanionView: React.FC<CompanionViewProps> = ({
             )}
           </div>
 
-          {/* 伴随窗核心余光提示舞台 */}
+          {/* 余光提示舞台 */}
           <div
             className="border border-line bg-surface rounded-md min-h-[240px] p-5 sm:p-6 flex flex-col items-center justify-center relative"
             aria-live="polite"
@@ -314,17 +289,14 @@ export const CompanionView: React.FC<CompanionViewProps> = ({
           >
             {!session ? (
               <div className="text-center space-y-2.5" data-testid="companion-connecting">
-                <div className="text-base font-medium text-ink">正在同步主控会话状态…</div>
-                <p className="text-xs text-ink-3 max-w-sm leading-relaxed">
-                  正在以只读伴随角色接入会话 {sessionId}。
-                </p>
+                <div className="text-base font-medium text-ink">正在同步演讲进度…</div>
               </div>
             ) : isEnded ? (
               <div className="text-center space-y-3" data-testid="companion-session-ended">
-                <Badge variant="secondary">主控会话已结束</Badge>
-                <div className="text-base font-semibold text-ink">本场演讲已同步结束</div>
+                <Badge variant="secondary">演讲已结束</Badge>
+                <div className="text-base font-semibold text-ink">辛苦了，本场分享已完成</div>
                 <p className="text-xs text-ink-2 max-w-sm leading-relaxed">
-                  当前伴随连接保留最终结束快照，可前往主界面查看「场后复盘」与净效用评分 V = H - λI。
+                  可返回主窗口查看要点覆盖情况，并针对薄弱片段单点重练。
                 </p>
                 {onNavigateMain && (
                   <Button
@@ -333,7 +305,7 @@ export const CompanionView: React.FC<CompanionViewProps> = ({
                     onClick={() => onNavigateMain('reflection', sessionId)}
                     data-testid="companion-go-reflection-btn"
                   >
-                    <span>在主界面查看复盘</span>
+                    <span>查看复盘报告</span>
                     <ArrowUpRight className="w-3.5 h-3.5" />
                   </Button>
                 )}
@@ -341,9 +313,9 @@ export const CompanionView: React.FC<CompanionViewProps> = ({
             ) : isSilent ? (
               <div className="text-center space-y-2.5" data-testid="companion-silent-state">
                 <VolumeX className="w-7 h-7 text-ink-3 mx-auto" />
-                <div className="text-lg font-semibold text-ink">L0 · 主控已开启静默模式</div>
+                <div className="text-lg font-semibold text-ink">免打扰模式已开启</div>
                 <p className="text-xs text-ink-2 max-w-sm leading-relaxed">
-                  伴随窗同步保持零干预静默，仅保留计时与章节进度。
+                  当前仅保留章节计时，不弹出任何提示卡片。
                 </p>
               </div>
             ) : activeIntervention ? (
@@ -354,21 +326,18 @@ export const CompanionView: React.FC<CompanionViewProps> = ({
                 data-grounded={activeIntervention.grounded}
               >
                 <div className="flex flex-wrap items-center justify-center gap-1.5">
-                  <Badge
-                    variant={activeIntervention.level === 'L3' ? 'violet' : 'amber'}
-                    className="font-mono"
-                  >
+                  <Badge variant={activeIntervention.level === 'L3' ? 'violet' : 'amber'}>
                     {INTERVENTION_LEVEL_LABELS[activeIntervention.level]}
                   </Badge>
                   {activeIntervention.grounded ? (
                     <Badge variant="resolved">
                       <ShieldCheck className="w-3 h-3" />
-                      已核验依据 ({activeIntervention.evidenceIds.length})
+                      来自讲稿数据
                     </Badge>
                   ) : (
                     <Badge variant="amber">
                       <ShieldAlert className="w-3 h-3" />
-                      资料未覆盖 · 勿现场编造
+                      讲稿未包含此项
                     </Badge>
                   )}
                 </div>
@@ -376,31 +345,34 @@ export const CompanionView: React.FC<CompanionViewProps> = ({
                 {activeIntervention.level === 'L1' && (
                   <div className="space-y-1.5">
                     <div className="text-xl sm:text-2xl font-semibold text-amber-ink tracking-tight">
-                      {activeIntervention.title}
+                      {glanceable?.headline ?? activeIntervention.title}
                     </div>
-                    <p className="text-sm text-ink-2">{activeIntervention.cueText}</p>
+                    {glanceable?.subline && (
+                      <p className="text-sm text-ink-2">{glanceable.subline}</p>
+                    )}
                   </div>
                 )}
 
                 {activeIntervention.level === 'L2' && (
-                  <div className="space-y-2.5">
-                    <div className="inline-block max-w-full break-words px-5 py-2.5 rounded-md bg-amber-tint border border-amber/40 text-2xl sm:text-4xl font-bold tracking-tight text-ink">
-                      {activeIntervention.cueText}
+                  <div className="space-y-2">
+                    <div className="inline-block max-w-full break-words px-5 py-2.5 rounded-md bg-amber-tint border border-amber/40 text-2xl sm:text-3xl font-bold tracking-tight text-ink">
+                      {glanceable?.headline ?? activeIntervention.cueText}
                     </div>
-                    <p className="text-xs sm:text-sm text-ink-2">{activeIntervention.title}</p>
+                    {glanceable?.subline && (
+                      <p className="text-xs sm:text-sm text-ink-2 max-w-md mx-auto">
+                        {glanceable.subline}
+                      </p>
+                    )}
                   </div>
                 )}
 
                 {activeIntervention.level === 'L3' && (
                   <div className="space-y-2.5 text-left bg-violet-tint/35 border border-violet/30 rounded-md p-4">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-sm sm:text-base font-bold text-ink">
-                        {activeIntervention.title}
-                      </span>
-                      <span className="text-xs font-mono text-violet-ink">L3 脚手架</span>
+                    <div className="text-sm font-semibold text-violet-ink">
+                      {activeIntervention.title}
                     </div>
-                    <p className="text-base sm:text-lg font-semibold text-ink leading-snug">
-                      {activeIntervention.cueText}
+                    <p className="text-base sm:text-lg font-bold text-ink leading-snug">
+                      {glanceable?.headline ?? activeIntervention.cueText}
                     </p>
                     {activeIntervention.bullets && activeIntervention.bullets.length > 0 && (
                       <ul className="space-y-1.5 pt-1 text-xs sm:text-sm text-ink-2 list-disc pl-4">
@@ -418,7 +390,7 @@ export const CompanionView: React.FC<CompanionViewProps> = ({
                     data-testid="companion-missing-evidence-warning"
                   >
                     <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                    <span>{activeIntervention.missingEvidenceNotice}</span>
+                    <span>讲稿中暂无这项数据记录，建议坦诚说明会后核实补充。</span>
                   </div>
                 )}
 
@@ -434,7 +406,7 @@ export const CompanionView: React.FC<CompanionViewProps> = ({
                       data-testid="companion-feedback-helpful-btn"
                     >
                       <ThumbsUp className="w-3.5 h-3.5" />
-                      <span>有效</span>
+                      <span>有帮助</span>
                     </Button>
                     <Button
                       type="button"
@@ -448,7 +420,7 @@ export const CompanionView: React.FC<CompanionViewProps> = ({
                       data-testid="companion-feedback-distracting-btn"
                     >
                       <ThumbsDown className="w-3.5 h-3.5" />
-                      <span>打扰</span>
+                      <span>嫌打扰</span>
                     </Button>
                     <Button
                       type="button"
@@ -458,40 +430,34 @@ export const CompanionView: React.FC<CompanionViewProps> = ({
                       data-testid="companion-dismiss-btn"
                     >
                       <X className="w-3.5 h-3.5" />
-                      <span>忽略提示</span>
+                      <span>收起</span>
                     </Button>
                   </div>
                 )}
               </div>
             ) : lastWithdrawn ? (
               <div
-                className="text-center space-y-2 max-w-md border border-resolved/35 bg-resolved-tint/60 rounded-md px-5 py-4"
+                className="text-center space-y-1.5 max-w-md border border-resolved/35 bg-resolved-tint/60 rounded-md px-5 py-3.5"
                 data-testid="companion-withdrawn-banner"
               >
-                <Badge variant="resolved">主动退出 · 已自动撤回</Badge>
-                {lastWithdrawn.cueText && (
-                  <p className="text-base text-ink-3">
-                    <del>{lastWithdrawn.cueText}</del>
-                  </p>
-                )}
-                <p className="text-xs text-resolved font-medium">
-                  {WITHDRAWAL_REASON_LABELS[lastWithdrawn.reason] ?? lastWithdrawn.reason}
+                <p className="text-sm text-resolved font-medium">
+                  {WITHDRAWAL_REASON_LABELS[lastWithdrawn.reason] ?? '已接回主线，提示自动收起'}
                 </p>
               </div>
             ) : (
               <div className="text-center space-y-2.5" data-testid="companion-l0-quiet">
                 <div className="w-2.5 h-2.5 rounded-full bg-resolved mx-auto" />
                 <div className="text-base sm:text-lg font-medium text-ink">
-                  L0 · 正在持续理解，当前无需干预
+                  正在安静倾听，保持自然节奏即可
                 </div>
                 <p className="text-xs text-ink-3 max-w-sm leading-relaxed">
-                  伴随窗已与主控会话同步；保持自然语速即可，仅在必要时用余光一瞥线索。
+                  遇到卡顿或现场提问时，这里会自动浮现简短关键词。
                 </p>
               </div>
             )}
           </div>
 
-          {/* 伴随窗安全轻量操作条：仅支持手动求助，不开放任何会话控制/写操作 */}
+          {/* 快捷求助条 */}
           <div
             className="border border-line bg-surface rounded-md p-3 flex flex-wrap items-center justify-between gap-2 text-xs"
             data-testid="companion-controls"
@@ -506,7 +472,7 @@ export const CompanionView: React.FC<CompanionViewProps> = ({
                 data-testid="companion-request-l2-btn"
               >
                 <HelpCircle className="w-3.5 h-3.5 text-amber" />
-                <span>请求提示 (L2)</span>
+                <span>提示关键词</span>
               </Button>
               <Button
                 type="button"
@@ -517,29 +483,23 @@ export const CompanionView: React.FC<CompanionViewProps> = ({
                 data-testid="companion-request-l3-btn"
               >
                 <Layers className="w-3.5 h-3.5 text-violet" />
-                <span>展开要点 (L3)</span>
+                <span>展开要点</span>
               </Button>
             </div>
-            <span className="text-ink-3 font-mono">
-              快捷键：<code>H</code> 求助 · <code>Esc</code> 忽略
+            <span className="text-ink-3">
+              快捷键：<code>H</code> 提示 / <code>Esc</code> 收起
             </span>
           </div>
         </div>
 
-        {/* 诚实边界与系统能力简要说明 */}
+        {/* 实用双屏摆放提示 */}
         <footer
-          className="border border-line bg-surface-muted/70 rounded-md px-3.5 py-2.5 text-xs text-ink-2 space-y-1 leading-relaxed"
+          className="border border-line bg-surface-muted/70 rounded-md px-3.5 py-2.5 text-xs text-ink-2 leading-relaxed"
           data-testid="companion-honesty-notice"
         >
           <p>
-            <strong>窗口置顶边界说明：</strong>
-            浏览器独立窗口（含 Document PiP）<strong>无法保证操作系统级强制置顶覆盖全屏 PowerPoint / Keynote</strong>；全屏演示时建议配合「演讲者视图」分屏或副屏独立摆放。
-          </p>
-          <p className="font-mono text-ink-3 tabular-nums break-words">
-            ASR:{state.asrStatus ? ASR_MODE_LABELS[state.asrStatus.mode] : '待同步'}
-            {asrLifecycle ? `(${COLAB_ASR_LIFECYCLE_LABELS[asrLifecycle]})` : ''} · S1:{s1ModelText}
-            {s1Degraded ? '(降级)' : ''} · S2:{s2ModelText}
-            {s2Degraded ? '(降级)' : ''}
+            <strong>双屏使用建议：</strong>
+            全屏播放幻灯片时，建议开启 PPT / Keynote「演讲者视图」，或将此提词小窗移至扩展副屏观看。
           </p>
         </footer>
       </main>
