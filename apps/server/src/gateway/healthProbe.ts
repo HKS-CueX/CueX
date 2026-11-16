@@ -1,6 +1,6 @@
 import { loadServerConfig } from '../config';
 import { createFastDecisionProvider, createSlowReasoningProvider } from '../runtime';
-import { createAsrEngine, describeAsrCapability } from '../voice';
+import { ColabAsrProvider, createAsrEngine, describeAsrCapability } from '../voice';
 
 const config = loadServerConfig();
 const fast = createFastDecisionProvider(config.system1Mode);
@@ -10,7 +10,7 @@ const asr = createAsrEngine();
 const [s1, s2, asrStatus] = await Promise.all([
   fast.health(),
   slow.health(),
-  describeAsrCapability(asr),
+  asr instanceof ColabAsrProvider ? asr.probe() : describeAsrCapability(asr),
 ]);
 
 console.log('[healthProbe] System 1:', fast.backend, fast.mode, s1);

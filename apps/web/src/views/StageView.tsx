@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   Columns2,
   Cpu,
+  ExternalLink,
   Eye,
   HelpCircle,
   Keyboard,
@@ -54,7 +55,9 @@ import {
   formatTime,
   INTERVENTION_LEVEL_LABELS,
   PACE_STATUS_LABELS,
+  S1_PROVIDER_KIND_LABELS,
   SUPPRESS_REASON_LABELS,
+  SYSTEM2_GUIDANCE_BIAS_LABELS,
   USAGE_SOURCE_LABELS,
   WITHDRAWAL_REASON_LABELS,
 } from '@/lib/format';
@@ -86,6 +89,8 @@ interface StageViewProps {
   onPackChange: (pack: PresentationContextPack) => void;
   privacyAccepted: boolean;
   onPrivacyChange: (accepted: boolean) => void;
+  /** 鉴权初始化完成标识，避免深链接直接进入舞台时触发未授权列表拉取。 */
+  authReady?: boolean;
   health?: HealthStatusResponse | null;
   runtime: PresentationHookReturn;
   onLoadDemoPack: () => Promise<PresentationContextPack | null>;
@@ -98,6 +103,7 @@ export const StageView: React.FC<StageViewProps> = ({
   onPackChange,
   privacyAccepted,
   onPrivacyChange,
+  authReady = true,
   health = null,
   runtime,
   onLoadDemoPack,
@@ -116,6 +122,7 @@ export const StageView: React.FC<StageViewProps> = ({
   const [progressiveSim, setProgressiveSim] = useState(false);
   const [showInputDrawer, setShowInputDrawer] = useState(true);
   const [autoNavigateOnEnd, setAutoNavigateOnEnd] = useState(false);
+  const [companionLaunchNote, setCompanionLaunchNote] = useState<string | null>(null);
 
   useEffect(() => {
     if (state.session?.viewMode) {
@@ -124,12 +131,12 @@ export const StageView: React.FC<StageViewProps> = ({
   }, [state.session?.viewMode]);
 
   useEffect(() => {
-    if (!state.session) {
+    if (!state.session && authReady) {
       void listPresentationPacks()
         .then(setSavedPacks)
         .catch(() => {});
     }
-  }, [state.session]);
+  }, [state.session, authReady]);
 
   useEffect(() => {
     if (autoNavigateOnEnd && state.session?.status === 'ended' && state.reflection) {
@@ -231,6 +238,62 @@ export const StageView: React.FC<StageViewProps> = ({
   const handleEndAndReview = () => {
     setAutoNavigateOnEnd(true);
     runtime.endSession('completed');
+  };
+
+  // 构建同会话伴随窗 URL（?view=companion&sessionId=...）
+  const buildCompanionUrl = (sid: string): string => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('view', 'companion');
+    url.searchParams.set('sessionId', sid);
+    return url.toString();
+  };
+
+  // 渐进打开演讲伴随窗：优先尝试 Document PiP，不支持或被拒时无缝降级至 window.open
+  const handleOpenCompanionWindow = async (sid: string) => {
+    const companionUrl = buildCompanionUrl(sid);
+    type DocPipWindowApi = {
+      requestWindow?: (opts?: { width?: number; height?: number }) => Promise<Window>;
+    };
+    const pipApi = (window as unknown as { documentPictureInPicture?: DocPipWindowApi })
+      .documentPictureInPicture;
+
+    if (pipApi?.requestWindow) {
+      try {
+        const pipWin = await pipApi.requestWindow({ width: 440, height: 680 });
+        pipWin.document.title = 'CueX 演讲伴随窗';
+        pipWin.document.documentElement.style.height = '100%';
+        pipWin.document.body.style.height = '100%';
+        pipWin.document.body.style.margin = '0';
+        pipWin.document.body.style.background = '#F8F7F3';
+        const frame = pipWin.document.createElement('iframe');
+        frame.src = companionUrl;
+        frame.title = 'CueX 演讲伴随窗';
+        frame.style.display = 'block';
+        frame.style.width = '100%';
+        frame.style.height = '100%';
+        frame.style.border = '0';
+        pipWin.document.body.appendChild(frame);
+        setCompanionLaunchNote(
+          '已以 Document PiP 打开伴随窗（注：浏览器无法保证系统级置顶覆盖全屏 PPT/Keynote）。'
+        );
+        return;
+      } catch {
+        // 无头环境或安全限制拒绝 Document PiP 时继续走 window.open 降级
+      }
+    }
+
+    const popup = window.open(
+      companionUrl,
+      'cuex_companion_window',
+      'noopener,width=460,height=720'
+    );
+    if (popup) {
+      setCompanionLaunchNote(
+        '已在新独立窗口打开伴随窗（注：浏览器弹窗无法保证系统级置顶覆盖全屏 PPT/Keynote）。'
+      );
+    } else {
+      setCompanionLaunchNote('弹窗可能被浏览器拦截，请点击右侧「伴随窗直达链接」手动打开。');
+    }
   };
 
   // Pre-session launch gate if no session active
@@ -426,6 +489,7 @@ export const StageView: React.FC<StageViewProps> = ({
     state.telemetry?.degraded ||
       state.telemetry?.usingLocalFallback ||
       state.asrStatus?.fallbackActive ||
+      state.latestS1Observation?.degraded ||
       asrLifecycle === 'degraded' ||
       asrLifecycle === 'disconnected' ||
       asrLifecycle === 'unavailable' ||
@@ -436,8 +500,29 @@ export const StageView: React.FC<StageViewProps> = ({
           !health.system2.healthy ||
           health.system1.degraded ||
           health.system2.degraded ||
+          health.system1.fallbackActive ||
+          health.system2.fallbackActive ||
           health.system1.mode === 'local_fallback' ||
           health.system2.mode === 'local_fallback'))
+  );
+  const companionUrl = buildCompanionUrl(session.sessionId);
+  const s1BannerModel =
+    state.latestS1Observation?.model ??
+    health?.system1.model ??
+    health?.system1.backend ??
+    (state.telemetry?.usingLocalFallback ? 'local_rule_zero' : 'ok');
+  const s1BannerDegraded = Boolean(
+    state.latestS1Observation?.degraded ||
+      health?.system1.fallbackActive ||
+      health?.system1.degraded ||
+      health?.system1.mode === 'local_fallback'
+  );
+  const s2BannerModel =
+    state.system2Guidance?.model ?? health?.system2.model ?? health?.system2.backend ?? 'ok';
+  const s2BannerDegraded = Boolean(
+    health?.system2.fallbackActive ||
+      health?.system2.degraded ||
+      health?.system2.mode === 'local_fallback'
   );
 
   return (
@@ -550,6 +635,26 @@ export const StageView: React.FC<StageViewProps> = ({
                 </span>
               </Button>
             )}
+
+            <Button
+              type="button"
+              variant="quiet"
+              size="sm"
+              disabled={isEnded}
+              onClick={() => void handleOpenCompanionWindow(session.sessionId)}
+              data-testid="open-companion-window-btn"
+              className="h-8 px-3 text-xs whitespace-nowrap"
+              title="打开同会话只读伴随窗（不支持操作系统级全屏 PPT 强制置顶）"
+            >
+              <ExternalLink className="w-3.5 h-3.5 mr-1 text-violet-ink" />
+              <span>打开独立伴随窗</span>
+            </Button>
+
+            {state.attachState && (state.attachState.companionCount ?? 0) > 0 && (
+              <Badge variant="violet" data-testid="primary-companion-count">
+                伴随窗 {state.attachState.companionCount}
+              </Badge>
+            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -642,9 +747,39 @@ export const StageView: React.FC<StageViewProps> = ({
             </div>
             <span className="font-mono text-xs text-ink-3 tabular-nums">
               {asrLifecycle ? `ASR:${asrLifecycle} · ` : ''}
-              S1:{health?.system1.model ?? health?.system1.mode ?? (state.telemetry?.usingLocalFallback ? 'local_fallback' : 'ok')} · S2:
-              {health?.system2.model ?? health?.system2.mode ?? 'ok'} · {state.telemetry?.usageSource ?? 'local_rule_zero'}
+              S1:{s1BannerModel}
+              {s1BannerDegraded ? '(降级)' : ''} · S2:{s2BannerModel}
+              {health?.system2.reasoningEffort ? `(${health.system2.reasoningEffort})` : ''}
+              {s2BannerDegraded ? '(降级)' : ''} · {state.telemetry?.usageSource ?? 'local_rule_zero'}
             </span>
+          </div>
+        )}
+
+        {companionLaunchNote && (
+          <div
+            className="border border-violet/30 bg-violet-tint/35 text-ink px-3.5 py-2 rounded text-xs flex flex-wrap items-center justify-between gap-2"
+            data-testid="companion-launch-notice"
+          >
+            <span>{companionLaunchNote}</span>
+            <div className="flex items-center gap-3 shrink-0">
+              <a
+                href={companionUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="companion-window-link"
+                className="text-violet-ink underline underline-offset-4 font-medium"
+              >
+                伴随窗直达链接
+              </a>
+              <button
+                type="button"
+                onClick={() => setCompanionLaunchNote(null)}
+                className="text-ink-3 hover:text-ink"
+                aria-label="收起伴随窗提示"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -1409,14 +1544,15 @@ export const StageView: React.FC<StageViewProps> = ({
             </div>
           </div>
 
-          {/* Runtime Subsystems Ledger Bar (Colab 7-State ASR + S1/S2 CPA Models) */}
+          {/* Runtime Subsystems Ledger Bar (ASR + System 1 JEV + System 2 CPA 清晰三路归因) */}
           <div
             className="border border-line bg-surface rounded-md grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-line text-xs"
             data-testid="inspector-subsystems"
           >
-            <div className="p-3.5 space-y-1">
+            {/* 1. ASR 实时语音识别 */}
+            <div className="p-3.5 space-y-1.5">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <span className="font-semibold text-ink">ASR 通道能力</span>
+                <span className="font-semibold text-ink">ASR 实时语音识别</span>
                 <div className="flex flex-wrap items-center gap-1.5">
                   <Badge variant="outline">
                     {state.asrStatus ? ASR_MODE_LABELS[state.asrStatus.mode] : '未知'}
@@ -1428,7 +1564,7 @@ export const StageView: React.FC<StageViewProps> = ({
                   )}
                 </div>
               </div>
-              <div className="font-mono text-xs text-ink-2 tabular-nums">
+              <div className="font-mono text-xs text-ink-2 tabular-nums break-words">
                 {(state.asrStatus?.gpuName ?? health?.asr.gpuName)
                   ? `${state.asrStatus?.gpuName ?? health?.asr.gpuName} · `
                   : ''}
@@ -1444,7 +1580,8 @@ export const StageView: React.FC<StageViewProps> = ({
                 <div className="text-xs text-ink-3">
                   {(state.asrStatus?.lastHealthCheckAt ?? health?.asr.lastHealthCheckAt) && (
                     <span>
-                      心跳 {formatTime((state.asrStatus?.lastHealthCheckAt ?? health?.asr.lastHealthCheckAt)!)}
+                      心跳{' '}
+                      {formatTime((state.asrStatus?.lastHealthCheckAt ?? health?.asr.lastHealthCheckAt)!)}
                     </span>
                   )}
                   {(state.asrStatus?.fallbackActive || health?.asr.fallbackActive) && (
@@ -1459,38 +1596,348 @@ export const StageView: React.FC<StageViewProps> = ({
               )}
             </div>
 
-            <div className="p-3.5 space-y-1">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-semibold text-ink">System 1 快速判决器</span>
-                <Badge variant={health?.system1.degraded ? 'amber' : 'secondary'}>
-                  {health?.system1.mode ?? 'unknown'}
+            {/* 2. System 1 快思考实时感知（Colab Jev-Like） */}
+            <div className="p-3.5 space-y-1.5" data-testid="inspector-subsystem-s1">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-semibold text-ink">System 1 · 快思考实时感知</span>
+                <Badge
+                  variant={
+                    s1BannerDegraded
+                      ? 'amber'
+                      : health?.system1.mode === 'real'
+                        ? 'resolved'
+                        : 'secondary'
+                  }
+                >
+                  {s1BannerDegraded
+                    ? '已降级本地规则'
+                    : health?.system1.mode === 'real'
+                      ? '实时模型在线'
+                      : health?.system1.mode ?? 'unknown'}
                 </Badge>
               </div>
-              <div className="font-mono text-xs text-ink-2">
+              <div className="font-mono text-xs text-ink-2 break-words tabular-nums">
                 {health?.system1.provider ? `${health.system1.provider} · ` : ''}
-                {health?.system1.model ?? health?.system1.backend ?? '—'}
+                {state.latestS1Observation?.model ??
+                  health?.system1.model ??
+                  health?.system1.backend ??
+                  '—'}
+                {(state.latestS1Observation?.promptFormat ?? health?.system1.promptFormat)
+                  ? ` · ${state.latestS1Observation?.promptFormat ?? health?.system1.promptFormat}`
+                  : ''}
+                {(state.latestS1Observation?.calibrated ?? health?.system1.calibrated) !== undefined &&
+                  ` · ${(state.latestS1Observation?.calibrated ?? health?.system1.calibrated) ? '已校准' : '未校准'}`}
               </div>
+              {health?.system1.fallbackReason && (
+                <p className="text-xs text-amber-ink break-words">
+                  降级原因：{health.system1.fallbackReason}
+                </p>
+              )}
+              {state.telemetry?.byTier?.system1 && (
+                <div className="text-xs font-mono text-ink-3 tabular-nums">
+                  本场 S1：{state.telemetry.byTier.system1.calls} 次 · avg{' '}
+                  {state.telemetry.byTier.system1.latencyMsAvg}ms ·{' '}
+                  {state.telemetry.byTier.system1.usageSource}
+                </div>
+              )}
               {health?.system1.detail && (
                 <p className="text-xs text-ink-3 break-words">{health.system1.detail}</p>
               )}
             </div>
 
-            <div className="p-3.5 space-y-1">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-semibold text-ink">System 2 慢速推理器</span>
-                <Badge variant={health?.system2.degraded ? 'amber' : 'secondary'}>
-                  {health?.system2.mode ?? 'unknown'}
+            {/* 3. System 2 慢思考深度规划（CPA） */}
+            <div className="p-3.5 space-y-1.5" data-testid="inspector-subsystem-s2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-semibold text-ink">System 2 · 慢思考深度规划</span>
+                <Badge
+                  variant={
+                    s2BannerDegraded
+                      ? 'amber'
+                      : health?.system2.mode === 'real'
+                        ? 'violet'
+                        : 'secondary'
+                  }
+                >
+                  {s2BannerDegraded
+                    ? '已降级本地规则'
+                    : health?.system2.mode === 'real'
+                      ? '实时模型在线'
+                      : health?.system2.mode ?? 'unknown'}
                 </Badge>
               </div>
-              <div className="font-mono text-xs text-ink-2">
+              <div className="font-mono text-xs text-ink-2 break-words tabular-nums">
                 {health?.system2.provider ? `${health.system2.provider} · ` : ''}
-                {health?.system2.model ?? health?.system2.backend ?? '—'}
+                {state.system2Guidance?.model ??
+                  health?.system2.model ??
+                  health?.system2.backend ??
+                  '—'}
+                {(state.system2Guidance?.reasoningEffort ?? health?.system2.reasoningEffort)
+                  ? ` · effort=${state.system2Guidance?.reasoningEffort ?? health?.system2.reasoningEffort}`
+                  : ''}
               </div>
+              {(health?.system2.compilerModel ||
+                health?.system2.reflectionModel ||
+                health?.compiler?.model ||
+                health?.reflection?.model) && (
+                <div className="text-xs font-mono text-ink-3 break-words">
+                  Compiler:{health?.compiler?.model ?? health?.system2.compilerModel ?? '—'} ·
+                  Reflection:{health?.reflection?.model ?? health?.system2.reflectionModel ?? '—'}
+                </div>
+              )}
+              {health?.system2.fallbackReason && (
+                <p className="text-xs text-amber-ink break-words">
+                  降级原因：{health.system2.fallbackReason}
+                </p>
+              )}
+              {state.telemetry?.byTier?.system2 && (
+                <div className="text-xs font-mono text-ink-3 tabular-nums">
+                  本场 S2：{state.telemetry.byTier.system2.calls} 次 ·{' '}
+                  {state.telemetry.byTier.system2.inputTokens +
+                    state.telemetry.byTier.system2.outputTokens}{' '}
+                  tok（reasoning {state.telemetry.byTier.system2.reasoningTokens ?? 0}）
+                </div>
+              )}
               {health?.system2.detail && (
                 <p className="text-xs text-ink-3 break-words">{health.system2.detail}</p>
               )}
             </div>
           </div>
+
+          {/* 双向异步双系统协同黑板面板：S1 单轮观测 + S2 System2Guidance + 协同调度计数 */}
+          <div
+            className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start"
+            data-testid="inspector-dual-system-board"
+          >
+            {/* S1 Single-Turn Observation Snapshot */}
+            <section
+              className="border border-line bg-surface rounded-md p-4 space-y-2.5 text-xs"
+              data-testid="inspector-s1-observation"
+            >
+              <div className="flex items-center justify-between border-b border-line pb-2">
+                <span className="font-bold text-ink">System 1 · 单轮观测快照</span>
+                {state.latestS1Observation ? (
+                  <Badge variant={state.latestS1Observation.degraded ? 'amber' : 'resolved'}>
+                    turn #{state.latestS1Observation.turnSeq}
+                  </Badge>
+                ) : (
+                  <Badge variant="outline">待评估</Badge>
+                )}
+              </div>
+              {!state.latestS1Observation ? (
+                <p className="text-ink-3 py-1">等待本轮 System 1 实时评估快照...</p>
+              ) : (
+                <div className="space-y-1.5 font-mono tabular-nums">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-ink font-semibold">
+                      {state.latestS1Observation.decisionType} · slot #
+                      {state.latestS1Observation.selectedSlot}（{state.latestS1Observation.label}）
+                    </span>
+                    <span className="text-amber-ink">
+                      {state.latestS1Observation.latencyMs}ms
+                    </span>
+                  </div>
+                  <div className="text-ink-2">
+                    置信度 {(state.latestS1Observation.calibratedConfidence * 100).toFixed(1)}% ·
+                    margin {state.latestS1Observation.margin.toFixed(3)} · entropy{' '}
+                    {state.latestS1Observation.entropy.toFixed(3)}
+                  </div>
+                  <div className="text-ink-3">
+                    来源：{S1_PROVIDER_KIND_LABELS[state.latestS1Observation.providerKind]}
+                    {state.latestS1Observation.guidanceAppliedRevision !== undefined
+                      ? ` · 已读取 Guidance r${state.latestS1Observation.guidanceAppliedRevision}`
+                      : ''}
+                  </div>
+                  <div className="text-ink-3">
+                    异步升级 S2：{state.latestS1Observation.escalatedToS2 ? '是' : '否'}
+                    {state.latestS1Observation.escalationReason
+                      ? `（${state.latestS1Observation.escalationReason}）`
+                      : ''}
+                  </div>
+                </div>
+              )}
+            </section>
+
+            {/* S2 -> S1 Blackboard Guidance */}
+            <section
+              className="border border-line bg-surface rounded-md p-4 space-y-2.5 text-xs"
+              data-testid="inspector-s2-guidance"
+            >
+              <div className="flex items-center justify-between border-b border-line pb-2">
+                <span className="font-bold text-ink">System 2 · 异步指导指令</span>
+                {state.system2Guidance ? (
+                  (() => {
+                    const g = state.system2Guidance;
+                    const expiredByTime = Number.isFinite(g.expiresAtMs) && Date.now() > g.expiresAtMs;
+                    const expiredByTurn =
+                      state.latestS1Observation !== null &&
+                      g.staleAfterTurnSeq !== undefined &&
+                      state.latestS1Observation.turnSeq > g.staleAfterTurnSeq;
+                    const consumedByS1 =
+                      state.latestS1Observation?.guidanceAppliedRevision === g.revision;
+                    return (
+                      <Badge
+                        variant={
+                          expiredByTime || expiredByTurn
+                            ? 'secondary'
+                            : consumedByS1
+                              ? 'resolved'
+                              : 'violet'
+                        }
+                      >
+                        r{g.revision} ·{' '}
+                        {expiredByTime
+                          ? '已超时失效'
+                          : expiredByTurn
+                            ? '轮次已推进过期'
+                            : consumedByS1
+                              ? '已被 S1 消费'
+                              : '黑板生效中'}
+                      </Badge>
+                    );
+                  })()
+                ) : (
+                  <Badge variant="outline">暂无指导</Badge>
+                )}
+              </div>
+              {!state.system2Guidance ? (
+                <p className="text-ink-3 py-1">System 2 尚未向共享黑板下发异步指导。</p>
+              ) : (
+                <div className="space-y-1.5">
+                  <div className="font-semibold text-ink leading-snug">
+                    {state.system2Guidance.focusDirective}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                    {state.system2Guidance.recommendedBias && (
+                      <Badge variant="violet">
+                        {SYSTEM2_GUIDANCE_BIAS_LABELS[state.system2Guidance.recommendedBias]}
+                      </Badge>
+                    )}
+                    {state.system2Guidance.preferredLevel && (
+                      <Badge variant="outline" className="font-mono">
+                        建议 {state.system2Guidance.preferredLevel}
+                      </Badge>
+                    )}
+                    <Badge variant={state.system2Guidance.grounded ? 'resolved' : 'amber'}>
+                      {state.system2Guidance.grounded
+                        ? `证据 ${state.system2Guidance.evidenceAnchors.length} 条`
+                        : '无证据约束'}
+                    </Badge>
+                  </div>
+                  {state.system2Guidance.strategyHints.length > 0 && (
+                    <p className="text-ink-2 leading-relaxed">
+                      策略：{state.system2Guidance.strategyHints.join('；')}
+                    </p>
+                  )}
+                  <div className="font-mono text-ink-3 tabular-nums break-words">
+                    依据轮次 turn #{state.system2Guidance.basedOnTurnSeq}
+                    {state.system2Guidance.staleAfterTurnSeq !== undefined
+                      ? ` · 失效阈值 #${state.system2Guidance.staleAfterTurnSeq}`
+                      : ''}
+                    {state.system2Guidance.targetChapterTitle
+                      ? ` · 目标章节：${state.system2Guidance.targetChapterTitle}`
+                      : ''}
+                  </div>
+                </div>
+              )}
+            </section>
+
+            {/* Dual-System Async Collaboration & Multi-Subscriber Metrics */}
+            <section
+              className="border border-line bg-surface rounded-md p-4 space-y-2.5 text-xs"
+              data-testid="inspector-dual-metrics"
+            >
+              <div className="flex items-center justify-between border-b border-line pb-2">
+                <span className="font-bold text-ink">双系统异步协同与订阅态</span>
+                {state.attachState && (
+                  <Badge variant="outline" className="font-mono">
+                    {state.attachState.role} · 伴随 {state.attachState.companionCount ?? 0}
+                  </Badge>
+                )}
+              </div>
+              {!state.dualSystemMetrics ? (
+                <p className="text-ink-3 py-1">等待双系统协同计数同步...</p>
+              ) : (
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 font-mono tabular-nums">
+                  <div className="text-ink-2">
+                    S1 评估 / 升级：{state.dualSystemMetrics.s1Evaluations} /{' '}
+                    {state.dualSystemMetrics.s1Escalations}
+                  </div>
+                  <div className="text-ink-2">
+                    S2 调度 / 完成：{state.dualSystemMetrics.s2AsyncDispatches} /{' '}
+                    {state.dualSystemMetrics.s2Completed}
+                  </div>
+                  <div className="text-amber-ink">
+                    过期取消 / 合并：{state.dualSystemMetrics.s2CancelledAsStale} /{' '}
+                    {state.dualSystemMetrics.s2Coalesced}
+                  </div>
+                  <div className="text-resolved">
+                    指导签发 / 消费：{state.dualSystemMetrics.guidanceRevisionsIssued} /{' '}
+                    {state.dualSystemMetrics.guidanceAppliedCount}
+                  </div>
+                  <div className="text-ink-3">
+                    S1 P50/P95：{state.dualSystemMetrics.s1P50LatencyMs ?? '—'} /{' '}
+                    {state.dualSystemMetrics.s1P95LatencyMs ?? '—'} ms
+                  </div>
+                  <div className="text-ink-3">
+                    S2 P50/P95：{state.dualSystemMetrics.s2P50LatencyMs ?? '—'} /{' '}
+                    {state.dualSystemMetrics.s2P95LatencyMs ?? '—'} ms
+                  </div>
+                </div>
+              )}
+            </section>
+          </div>
+
+          {/* 分系统真实调用与 Token 计量明细（ASR / S1 / S2 / Compiler / Reflection） */}
+          {state.telemetry?.byTier && Object.keys(state.telemetry.byTier).length > 0 && (
+            <section
+              className="border border-line bg-surface rounded-md p-4 space-y-2.5 text-xs"
+              data-testid="inspector-tier-telemetry"
+            >
+              <div className="flex items-center justify-between border-b border-line pb-2">
+                <span className="font-bold text-ink">分系统模型调用与 Token 明细（byTier）</span>
+                <span className="font-mono text-ink-3 tabular-nums">
+                  {Object.keys(state.telemetry.byTier).length} 个子系统
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left font-mono text-xs tabular-nums">
+                  <thead>
+                    <tr className="border-b border-line text-ink-3">
+                      <th className="py-1.5 pr-3">Tier</th>
+                      <th className="py-1.5 pr-3">Provider / Model</th>
+                      <th className="py-1.5 pr-3">Calls (Retry)</th>
+                      <th className="py-1.5 pr-3">Tokens (In/Out/Reas)</th>
+                      <th className="py-1.5 pr-3">Avg ms</th>
+                      <th className="py-1.5">Usage Source</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-line">
+                    {Object.values(state.telemetry.byTier).map(
+                      (item) =>
+                        item && (
+                          <tr key={item.tier}>
+                            <td className="py-1.5 pr-3 font-semibold text-ink">{item.tier}</td>
+                            <td className="py-1.5 pr-3 text-ink-2">
+                              {item.provider}
+                              {item.model ? ` · ${item.model}` : ''}
+                              {item.degraded ? ' [降级]' : ''}
+                            </td>
+                            <td className="py-1.5 pr-3 text-ink">
+                              {item.calls} ({item.retries})
+                            </td>
+                            <td className="py-1.5 pr-3 text-ink-2">
+                              {item.inputTokens} / {item.outputTokens} / {item.reasoningTokens ?? 0}
+                            </td>
+                            <td className="py-1.5 pr-3 text-ink">{item.latencyMsAvg}</td>
+                            <td className="py-1.5 text-ink-3">{item.usageSource}</td>
+                          </tr>
+                        )
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
             {/* Left: Live Transcript + SharedCognitiveState */}
@@ -1619,6 +2066,9 @@ export const StageView: React.FC<StageViewProps> = ({
                           {String(v.signals.topicDrift)} · qa={String(v.signals.openQuestion)} ·
                           recovery={String(v.signals.recovery)} · req={v.requestId.slice(0, 8)}
                           {v.usage?.correlationId ? ` · corr=${v.usage.correlationId.slice(0, 8)}` : ''}
+                          {v.observation
+                            ? ` · turn=#${v.observation.turnSeq} · slot=${v.observation.selectedSlot} · conf=${(v.observation.calibratedConfidence * 100).toFixed(0)}%`
+                            : ''}
                         </div>
                       </div>
                     ))

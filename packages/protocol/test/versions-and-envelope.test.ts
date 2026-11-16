@@ -19,7 +19,7 @@ import {
 } from '#src/index';
 
 test('schema & protocol version constants match 2026-11 v2 contract', () => {
-  assert.equal(PROTOCOL_PACKAGE_VERSION, '2.1.0');
+  assert.equal(PROTOCOL_PACKAGE_VERSION, '2.2.0');
   assert.equal(API_VERSION, '2026-11');
   assert.equal(WS_PROTOCOL_VERSION, '2.0');
   assert.equal(PACK_SCHEMA_VERSION, 2);
@@ -69,7 +69,9 @@ test('createEventEnvelope produces valid CloudEvents-inspired envelope verified 
 });
 
 test('createApiErrorResponse covers all unified error codes cleanly', () => {
-  assert.equal(API_ERROR_CODES.length, 14);
+  assert.equal(API_ERROR_CODES.length, 16);
+  assert.ok(API_ERROR_CODES.includes('COMPANION_READ_ONLY'));
+  assert.ok(API_ERROR_CODES.includes('PRIMARY_MIC_CONFLICT'));
   for (const code of API_ERROR_CODES) {
     const res = createApiErrorResponse({ code, message: `Error ${code}`, correlationId: 'corr_1' });
     assert.equal(res.ok, false);

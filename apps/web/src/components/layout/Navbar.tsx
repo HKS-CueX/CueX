@@ -32,17 +32,44 @@ export const Navbar: React.FC<NavbarProps> = ({
     { key: 'reflection', label: '场后复盘' },
   ];
 
-  const isRealLlm = health
-    ? health.system1.mode === 'real' || health.system2.mode === 'real'
-    : false;
+  const s1Real = Boolean(
+    health &&
+      health.system1.mode === 'real' &&
+      health.system1.healthy &&
+      !health.system1.fallbackActive &&
+      !health.system1.degraded
+  );
+  const s2Real = Boolean(
+    health &&
+      health.system2.mode === 'real' &&
+      health.system2.healthy &&
+      !health.system2.fallbackActive &&
+      !health.system2.degraded
+  );
   const colabLifecycle = health?.asr.lifecycleState;
+
+  // 如实区分三路通道（Colab ASR / S1 快思考 / S2 慢思考），绝不把 S1 回退伪装为实时模型
+  const llmSummaryLabel = !health
+    ? ''
+    : s1Real && s2Real
+      ? '双系统实时'
+      : !s1Real && s2Real
+        ? 'S1回退·S2实时'
+        : s1Real && !s2Real
+          ? 'S1实时·S2回退'
+          : '规则兜底';
+
   const runtimeLabel = !health
     ? '后端检测中'
     : health.asr.mode === 'colab_gpu' && colabLifecycle
-      ? `${isRealLlm ? '实时模型' : '规则兜底'} · ${COLAB_ASR_LIFECYCLE_LABELS[colabLifecycle]}`
-      : isRealLlm
-        ? '实时 LLM 引擎'
+      ? `${llmSummaryLabel} · ${COLAB_ASR_LIFECYCLE_LABELS[colabLifecycle]}`
+      : s1Real || s2Real
+        ? llmSummaryLabel
         : '本地规则引擎';
+
+  const runtimeTitle = health
+    ? `ASR: ${health.asr.modelId ?? health.asr.backend} (${health.asr.lifecycleState ?? health.asr.mode}) | S1: ${health.system1.model ?? health.system1.backend}${health.system1.fallbackActive ? ' [已降级]' : ''} | S2: ${health.system2.model ?? health.system2.backend}${health.system2.fallbackActive ? ' [已降级]' : ''}`
+    : '等待健康检查';
 
   const accountLabel = authSession?.user.displayName || '账户';
   const activePlan = authSession?.usageSummary?.activePlanId?.toUpperCase() || 'FREE';
@@ -109,14 +136,14 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Right: Health Readout + Account & Memory Utilities */}
         <div className="order-2 md:order-3 h-12 md:h-auto flex items-center gap-1.5 sm:gap-2 shrink-0">
           <div
-            className="hidden lg:inline-flex items-center gap-1.5 px-2.5 h-8 rounded border border-line bg-ground text-xs text-ink-2 whitespace-nowrap max-w-[240px]"
-            title={health ? `ASR: ${health.asr.detail}` : '等待健康检查'}
+            className="hidden lg:inline-flex items-center gap-1.5 px-2.5 h-8 rounded border border-line bg-ground text-xs text-ink-2 whitespace-nowrap max-w-[260px]"
+            title={runtimeTitle}
             data-testid="nav-health-badge"
           >
             <Activity
               className={cn(
                 'w-3.5 h-3.5 shrink-0',
-                colabLifecycle === 'ready' || (!colabLifecycle && health?.ok)
+                (colabLifecycle === 'ready' || (!colabLifecycle && health?.ok)) && s1Real && s2Real
                   ? 'text-resolved'
                   : colabLifecycle === 'disconnected' || colabLifecycle === 'unavailable'
                     ? 'text-alert'

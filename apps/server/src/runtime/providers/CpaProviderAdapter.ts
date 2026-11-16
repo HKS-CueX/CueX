@@ -2,12 +2,15 @@ import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import {
+  LLM_REASONING_EFFORTS,
   nowUtcIso8601,
+  SYSTEM2_GUIDANCE_BIASES,
   type Candidate,
   type CandidateKind,
   type FastDecisionInput,
   type FastDecisionVerdict,
   type InterventionLevel,
+  type LlmReasoningEffort,
   type PresentationCompileInput,
   type PresentationContextPack,
   type PresentationQACard,
@@ -15,6 +18,8 @@ import {
   type ProviderUsageRecord,
   type SlowReasoningCandidateRequest,
   type SlowReasoningCandidateResult,
+  type System2Guidance,
+  type System2GuidanceBias,
 } from '@cuex/protocol';
 import { redactLogText } from '../../observability';
 import {
@@ -32,10 +37,11 @@ import { ProviderResilience } from './ProviderResilience';
 import { LocalSlowReasoningProvider } from './SlowReasoningAdapter';
 
 export type CpaApiMode = 'responses' | 'chat_completions' | 'auto';
-export type CpaReasoningEffort = 'none' | 'low' | 'medium' | 'high';
+export type CpaReasoningEffort = LlmReasoningEffort;
 
 export const DEFAULT_CPA_SYSTEM1_MODEL = 'gemini-4-hydrogen';
 export const DEFAULT_CPA_SYSTEM2_MODEL = 'gemini-4-hydrogen';
+export const DEFAULT_CPA_SYSTEM2_REASONING_EFFORT: CpaReasoningEffort = 'medium';
 export const DEFAULT_CPA_MAX_OUTPUT_TOKENS = 4096;
 export const MIN_CPA_OUTPUT_TOKENS = 1024;
 export const DEFAULT_CPA_TIMEOUT_MS = 25_000;
@@ -58,6 +64,8 @@ export interface CpaResolvedConfig {
   s1TimeoutMs: number;
   maxOutputTokens: number;
   reasoningEffort?: CpaReasoningEffort;
+  /** System 2 / Compiler / Reflection 默认推理强度（默认 'medium'）。 */
+  system2ReasoningEffort: CpaReasoningEffort;
   providerLabel: string;
   source: 'env' | 'dev_models_json';
   modelApiHints: Record<string, 'responses' | 'chat_completions'>;
@@ -163,8 +171,8 @@ function parseApiMode(raw: string | undefined): CpaApiMode {
 
 function parseReasoningEffort(raw: string | undefined): CpaReasoningEffort | undefined {
   const clean = raw?.trim().toLowerCase();
-  if (clean === 'none' || clean === 'low' || clean === 'medium' || clean === 'high') {
-    return clean;
+  if (clean && (LLM_REASONING_EFFORTS as readonly string[]).includes(clean)) {
+    return clean as CpaReasoningEffort;
   }
   return undefined;
 }
@@ -207,7 +215,7 @@ export function resolveCpaConfig(opts: CpaConfigOptions = {}): CpaResolvedConfig
     return null;
   }
 
-  const timeoutMs = parsePositiveInt(env.CPA_TIMEOUT_MS, DEFAULT_CPA_TIMEOUT_MS);
+  const timeoutMs = parsePositiveInt(env.CPA_TIMEOUT_MS ?? env.CUEX_CPA_TIMEOUT_MS, DEFAULT_CPA_TIMEOUT_MS);
   const s1TimeoutMs = parsePositiveInt(
     env.CPA_S1_TIMEOUT_MS,
     Math.min(timeoutMs, DEFAULT_CPA_S1_TIMEOUT_MS),
@@ -216,11 +224,14 @@ export function resolveCpaConfig(opts: CpaConfigOptions = {}): CpaResolvedConfig
     MIN_CPA_OUTPUT_TOKENS,
     parsePositiveInt(env.CPA_MAX_OUTPUT_TOKENS, DEFAULT_CPA_MAX_OUTPUT_TOKENS),
   );
-  const apiMode = parseApiMode(env.CPA_API_MODE);
-  const reasoningEffort = parseReasoningEffort(env.CPA_REASONING_EFFORT);
+  const apiMode = parseApiMode(env.CPA_API_MODE ?? env.CUEX_CPA_API_MODE);
+  const explicitReasoningEffort = parseReasoningEffort(
+    env.CPA_SYSTEM2_REASONING_EFFORT ?? env.CUEX_CPA_REASONING_EFFORT ?? env.CPA_REASONING_EFFORT,
+  );
+  const system2ReasoningEffort = explicitReasoningEffort ?? DEFAULT_CPA_SYSTEM2_REASONING_EFFORT;
 
-  const envUrl = env.CPA_BASE_URL?.trim();
-  const envKey = env.CPA_API_KEY?.trim();
+  const envUrl = (env.CPA_BASE_URL ?? env.CUEX_CPA_BASE_URL)?.trim();
+  const envKey = (env.CPA_API_KEY ?? env.CUEX_CPA_API_KEY)?.trim();
 
   let baseUrl = '';
   let apiKey = '';
@@ -281,9 +292,12 @@ export function resolveCpaConfig(opts: CpaConfigOptions = {}): CpaResolvedConfig
   }
 
   const system1Model = env.CPA_SYSTEM1_MODEL?.trim() || DEFAULT_CPA_SYSTEM1_MODEL;
-  const system2Model = env.CPA_SYSTEM2_MODEL?.trim() || DEFAULT_CPA_SYSTEM2_MODEL;
-  const compilerModel = env.CPA_COMPILER_MODEL?.trim() || system2Model;
-  const reflectionModel = env.CPA_REFLECTION_MODEL?.trim() || system2Model;
+  const system2Model =
+    (env.CPA_SYSTEM2_MODEL ?? env.CUEX_CPA_SYSTEM2_MODEL)?.trim() || DEFAULT_CPA_SYSTEM2_MODEL;
+  const compilerModel =
+    (env.CPA_COMPILER_MODEL ?? env.CUEX_CPA_COMPILER_MODEL)?.trim() || system2Model;
+  const reflectionModel =
+    (env.CPA_REFLECTION_MODEL ?? env.CUEX_CPA_REFLECTION_MODEL)?.trim() || system2Model;
 
   const redact = buildRedactor(apiKey);
   return {
@@ -296,7 +310,8 @@ export function resolveCpaConfig(opts: CpaConfigOptions = {}): CpaResolvedConfig
     timeoutMs,
     s1TimeoutMs,
     maxOutputTokens,
-    reasoningEffort,
+    ...(explicitReasoningEffort ? { reasoningEffort: explicitReasoningEffort } : {}),
+    system2ReasoningEffort,
     providerLabel,
     source,
     modelApiHints,
@@ -498,10 +513,14 @@ export class CpaClient {
     return this.config.modelApiHints[model] ?? 'responses';
   }
 
-  health(tier: 'system1' | 'system2' = 'system2'): ProviderHealthStatus {
+  health(tier: 'system1' | 'system2' | 'compiler' | 'reflection' = 'system2'): ProviderHealthStatus {
     const breakerKey = `cpa:${tier}:${this.config.providerLabel}`;
     const circuit = this.resilience.getCircuitState(breakerKey);
     const model = this.resolveModelForTier(tier);
+    const effort =
+      tier === 'system1'
+        ? (this.config.reasoningEffort ?? (/hydrogen/i.test(model) ? 'low' : undefined))
+        : this.config.system2ReasoningEffort;
     const lastHealthCheckAt = nowUtcIso8601();
     if (circuit.isOpen) {
       return {
@@ -510,15 +529,24 @@ export class CpaClient {
         provider: this.config.providerLabel,
         model,
         degraded: true,
+        fallbackActive: true,
+        fallbackReason: `Circuit breaker open (${tier})`,
+        ...(effort ? { reasoningEffort: effort } : {}),
+        compilerModel: this.config.compilerModel,
+        reflectionModel: this.config.reflectionModel,
         lastHealthCheckAt,
       };
     }
     return {
       ok: true,
-      detail: `CPA ready (${this.config.providerLabel}, model=${model}, endpoint=${this.resolveEndpoint(model)})`,
+      detail: `CPA ready (${this.config.providerLabel}, model=${model}, endpoint=${this.resolveEndpoint(model)}${effort ? `, effort=${effort}` : ''})`,
       provider: this.config.providerLabel,
       model,
       degraded: false,
+      fallbackActive: false,
+      ...(effort ? { reasoningEffort: effort } : {}),
+      compilerModel: this.config.compilerModel,
+      reflectionModel: this.config.reflectionModel,
       lastHealthCheckAt,
     };
   }
@@ -535,8 +563,9 @@ export class CpaClient {
     );
     const effort =
       req.reasoningEffort ??
-      this.config.reasoningEffort ??
-      (req.tier === 'system1' && /hydrogen/i.test(model) ? 'low' : undefined);
+      (req.tier === 'system1'
+        ? (this.config.reasoningEffort ?? (/hydrogen/i.test(model) ? 'low' : undefined))
+        : this.config.system2ReasoningEffort);
 
     if (endpoint === 'responses') {
       return {
@@ -556,6 +585,7 @@ export class CpaClient {
         { role: 'user', content: req.userPrompt },
       ],
       max_tokens: maxTokens,
+      ...(effort ? { reasoning_effort: effort } : {}),
       ...(req.temperature !== undefined ? { temperature: req.temperature } : {}),
       ...(stream ? { stream: true } : {}),
     };
@@ -891,7 +921,8 @@ const VALID_NEEDS = new Set<FastDecisionVerdict['interventionNeed']>([
 ]);
 
 /**
- * System 1 Fast Decision Provider backed by CPA (`CPA_SYSTEM1_MODEL`) + local feature anchoring.
+ * 基于 CPA 云端网关的 System 1 判别器（仅保留作离线/诊断对照基准使用，
+ * 默认 `CUEX_SYSTEM1=real` 路由已强制走 Colab/本地 JEV `LlamaSystemOne`，绝不默认走 CPA）。
  */
 export class CpaFastDecisionProvider implements FastDecisionProvider {
   readonly backend: string;
@@ -1037,6 +1068,13 @@ export class CpaFastDecisionProvider implements FastDecisionProvider {
   }
 }
 
+interface S2GuidancePayload {
+  focusDirective?: string;
+  strategyHints?: string[];
+  recommendedBias?: string;
+  preferredLevel?: InterventionLevel;
+}
+
 interface S2JsonPayload {
   status?: 'synthesized' | 'candidate_ready' | 'no_action_needed' | 'insufficient_evidence';
   title?: string;
@@ -1046,6 +1084,75 @@ interface S2JsonPayload {
   grounded?: boolean;
   ungroundedNotice?: string;
   rationale?: string;
+  guidance?: S2GuidancePayload;
+}
+
+const VALID_GUIDANCE_BIASES = new Set<string>(SYSTEM2_GUIDANCE_BIASES);
+
+function buildGuidanceFromS2(params: {
+  request: SlowReasoningCandidateRequest;
+  nowMs: number;
+  raw?: S2GuidancePayload;
+  evidenceIds: string[];
+  grounded: boolean;
+  reasoningEffort: CpaReasoningEffort;
+  provider: string;
+  model: string;
+  fallbackDirective: string;
+  fallbackBias: System2GuidanceBias;
+  allowedNumbers: ReadonlySet<string>;
+}): System2Guidance {
+  const safeClamp = (txt: string, limit: number): string => {
+    const cleaned = clampSpoken(txt, limit);
+    const hasBadNum = numbersIn(cleaned).some((n) => !params.allowedNumbers.has(n));
+    return hasBadNum ? clampSpoken(params.fallbackDirective, limit) : cleaned;
+  };
+  const focusDirective = safeClamp(
+    params.raw?.focusDirective?.trim() || params.fallbackDirective,
+    72,
+  );
+  const strategyHints = Array.isArray(params.raw?.strategyHints)
+    ? params.raw.strategyHints
+        .map((h) => safeClamp(String(h ?? '').trim(), 64))
+        .filter(Boolean)
+        .slice(0, 3)
+    : [];
+  const rawBias = params.raw?.recommendedBias?.trim();
+  const recommendedBias: System2GuidanceBias =
+    rawBias && VALID_GUIDANCE_BIASES.has(rawBias) ? (rawBias as System2GuidanceBias) : params.fallbackBias;
+  const preferredLevel =
+    params.raw?.preferredLevel === 'L0' ||
+    params.raw?.preferredLevel === 'L1' ||
+    params.raw?.preferredLevel === 'L2' ||
+    params.raw?.preferredLevel === 'L3'
+      ? params.raw.preferredLevel
+      : undefined;
+  const turnSeq = params.request.basedOnTurnSeq ?? 0;
+
+  return {
+    guidanceId: `guid_cpa_${params.nowMs}_${Math.random().toString(36).slice(2, 6)}`,
+    sessionId: params.request.sessionId,
+    revision: 1,
+    contextVersion: params.request.contextVersion,
+    basedOnTurnSeq: turnSeq,
+    staleAfterTurnSeq: turnSeq + 3,
+    issuedAtMs: params.nowMs,
+    expiresAtMs: params.nowMs + 25_000,
+    issuedAt: msToIso(params.nowMs),
+    expiresAt: msToIso(params.nowMs + 25_000),
+    ...(params.request.activeChapterId ? { targetChapterId: params.request.activeChapterId } : {}),
+    ...(params.request.activeChapterTitle ? { targetChapterTitle: params.request.activeChapterTitle } : {}),
+    focusDirective,
+    strategyHints: strategyHints.length ? strategyHints : [focusDirective],
+    recommendedBias,
+    ...(preferredLevel ? { preferredLevel } : {}),
+    evidenceAnchors: [...params.evidenceIds],
+    grounded: params.grounded,
+    reasoningEffort: params.reasoningEffort,
+    triggerKind: params.request.triggerKind,
+    provider: params.provider,
+    model: params.model,
+  };
 }
 
 function nextCpaCandidateId(nowMs: number): string {
@@ -1131,7 +1238,7 @@ export class CpaSlowReasoningProvider implements SlowReasoningProvider {
       '2. 任何量化数字或实测指标必须原样来自提供的 Verified Evidence，严禁猜测或编造数字。',
       '3. evidenceIds 数组只能填入上方明确存在的 id；若 Verified Evidence 为空且 triggerKind="live_qa"，必须输出 status="insufficient_evidence"、grounded=false、evidenceIds=[]，并在 cueText 中不包含任何数字，诚实说明“当前资料未覆盖该数据”。',
       '4. 若无需干预，输出 status="no_action_needed"。',
-      '输出 JSON Schema：{"status":"synthesized|no_action_needed|insufficient_evidence","title":"","cueText":"","bullets":[""],"evidenceIds":[""],"grounded":true,"ungroundedNotice":"","rationale":""}',
+      '输出 JSON Schema：{"status":"synthesized|no_action_needed|insufficient_evidence","title":"","cueText":"","bullets":[""],"evidenceIds":[""],"grounded":true,"ungroundedNotice":"","rationale":"","guidance":{"focusDirective":"","strategyHints":[""],"recommendedBias":"stay_silent|prefer_l1|prefer_l2|prefer_l3|qa_grounding|recovery_hold"}}',
     ].join('\n');
 
     const userPrompt = [
@@ -1154,11 +1261,13 @@ export class CpaSlowReasoningProvider implements SlowReasoningProvider {
       .filter(Boolean)
       .join('\n\n');
 
+    const appliedEffort = request.reasoningEffort ?? this.client.config.system2ReasoningEffort;
     const res = await this.client.completeJson<S2JsonPayload>({
       tier: 'system2',
       systemPrompt,
       userPrompt,
       temperature: 0.2,
+      reasoningEffort: appliedEffort,
       signal,
     });
 
@@ -1207,6 +1316,20 @@ export class CpaSlowReasoningProvider implements SlowReasoningProvider {
         timestamp: request.timestamp,
         status: 'insufficient_evidence',
         candidate,
+        guidance: buildGuidanceFromS2({
+          request,
+          nowMs: requestMs,
+          raw: p.guidance,
+          evidenceIds: [],
+          grounded: false,
+          reasoningEffort: appliedEffort,
+          provider: this.client.config.providerLabel,
+          model: res.model,
+          fallbackDirective: '当前资料无核验依据，提醒讲者坦诚留白不编造数字。',
+          fallbackBias: 'qa_grounding',
+          allowedNumbers: new Set(),
+        }),
+        reasoningEffort: appliedEffort,
         evidenceIds: [],
         grounded: false,
         ungroundedNotice: honestNotice,
@@ -1224,6 +1347,20 @@ export class CpaSlowReasoningProvider implements SlowReasoningProvider {
         contextVersion: request.contextVersion,
         timestamp: request.timestamp,
         status: 'no_action_needed',
+        guidance: buildGuidanceFromS2({
+          request,
+          nowMs: requestMs,
+          raw: p.guidance,
+          evidenceIds: [],
+          grounded: true,
+          reasoningEffort: appliedEffort,
+          provider: this.client.config.providerLabel,
+          model: res.model,
+          fallbackDirective: '当前叙事节奏正常，保持 L0 静默不打扰。',
+          fallbackBias: 'stay_silent',
+          allowedNumbers: new Set(),
+        }),
+        reasoningEffort: appliedEffort,
         evidenceIds: [],
         grounded: false,
         rationale: p.rationale?.trim() || 'CPA determined no intervention needed.',
@@ -1233,19 +1370,22 @@ export class CpaSlowReasoningProvider implements SlowReasoningProvider {
       };
     }
 
-    // Ensure Q&A candidates cite at least the top retrieved verified evidence if LLM omitted the id.
-    if (request.triggerKind === 'live_qa' && filteredEvidenceIds.length === 0 && request.retrievedEvidence[0]) {
+    const isInsufficient =
+      p.status === 'insufficient_evidence' ||
+      (request.triggerKind === 'live_qa' && p.grounded === false && filteredEvidenceIds.length === 0);
+
+    // 仅在模型确认有依据且非依据不足时，自动补齐首个检索命中的已核验证据 ID；避免把无关片段强行挂到拒答卡片上。
+    if (!isInsufficient && request.triggerKind === 'live_qa' && filteredEvidenceIds.length === 0 && request.retrievedEvidence[0]) {
       filteredEvidenceIds = [request.retrievedEvidence[0].id];
     }
 
-    const isInsufficient = p.status === 'insufficient_evidence';
     let cueText = clampSpoken(p.cueText?.trim() || '', 64);
     let bullets = Array.isArray(p.bullets)
       ? p.bullets.map((b) => clampSpoken(String(b ?? ''), 60)).filter(Boolean).slice(0, 3)
       : undefined;
 
     // Grounding safety guard: if CPA fabricated a number not present in cited evidence, fall back to safe evidence excerpt.
-    const allowedNumbers = collectAllowedNumbers(request, filteredEvidenceIds);
+    const allowedNumbers = isInsufficient ? new Set<string>() : collectAllowedNumbers(request, filteredEvidenceIds);
     const stripped = [cueText, ...(bullets ?? [])]
       .join(' ')
       .replace(/\bL[0-3]\b/g, ' ')
@@ -1253,11 +1393,15 @@ export class CpaSlowReasoningProvider implements SlowReasoningProvider {
       .replace(/第\s*\d+\s*[章页节条点]/g, ' ');
     const ungroundedNums = numbersIn(stripped).filter((n) => !allowedNumbers.has(n));
 
-    if (isInsufficient || ungroundedNums.length > 0 || !cueText) {
-      if (isInsufficient && filteredEvidenceIds.length === 0) {
+    if (isInsufficient) {
+      // 依据不足场景强制剥离任何未核验数字并保证返回明确诚实拒答文案。
+      if (ungroundedNums.length > 0 || !cueText) {
         cueText = '资料库未覆盖该问题依据，请坦诚说明当前暂无已核验记录。';
         bullets = ['避免临场估算数字，建议会后补全实测来源。'];
-      } else if (ungroundedNums.length > 0) {
+      }
+      filteredEvidenceIds = [];
+    } else if (ungroundedNums.length > 0 || !cueText) {
+      if (ungroundedNums.length > 0) {
         const localSafe = await this.localFallback.synthesize(request, signal);
         return {
           ...localSafe,
@@ -1269,11 +1413,17 @@ export class CpaSlowReasoningProvider implements SlowReasoningProvider {
       }
     }
 
+    const resolvedMissingNotice =
+      p.ungroundedNotice?.trim() ||
+      (isInsufficient
+        ? '当前已确认的汇报资料与事实白名单中未收录该问题的实测数据或依据，建议坦诚说明暂无该项数据支持。'
+        : undefined);
+
     const candidate: Candidate = {
       candidateId: nextCpaCandidateId(requestMs),
       sessionId: request.sessionId,
       level: request.requestedLevel === 'L0' ? 'L2' : request.requestedLevel,
-      title: clampSpoken(p.title?.trim() || '关键提示', 24),
+      title: clampSpoken(p.title?.trim() || (isInsufficient ? '依据缺失提醒' : '关键提示'), 24),
       cueText,
       ...(bullets?.length ? { bullets } : {}),
       priority: request.triggerKind === 'live_qa' ? 92 : request.triggerKind === 'manual_help' ? 95 : 80,
@@ -1286,7 +1436,7 @@ export class CpaSlowReasoningProvider implements SlowReasoningProvider {
       createdAt: request.timestamp,
       kind: isInsufficient ? 'missing_evidence_notice' : mapTriggerToKind(request.triggerKind),
       grounded: !isInsufficient && (Boolean(p.grounded) || filteredEvidenceIds.length > 0),
-      ...(p.ungroundedNotice?.trim() ? { missingEvidenceNotice: p.ungroundedNotice.trim() } : {}),
+      ...(resolvedMissingNotice ? { missingEvidenceNotice: resolvedMissingNotice } : {}),
       triggerReason: p.rationale?.trim() || `CPA ${request.triggerKind}`,
       targetChapterId: request.activeChapterId,
       ...(request.missingPoints?.[0] ? { targetKeyPointId: request.missingPoints[0].id } : {}),
@@ -1299,6 +1449,25 @@ export class CpaSlowReasoningProvider implements SlowReasoningProvider {
       timestamp: request.timestamp,
       status: isInsufficient ? 'insufficient_evidence' : 'synthesized',
       candidate,
+      guidance: buildGuidanceFromS2({
+        request,
+        nowMs: requestMs,
+        raw: p.guidance,
+        evidenceIds: candidate.evidenceIds,
+        grounded: Boolean(candidate.grounded),
+        reasoningEffort: appliedEffort,
+        provider: this.client.config.providerLabel,
+        model: res.model,
+        fallbackDirective: candidate.cueText,
+        fallbackBias:
+          request.triggerKind === 'live_qa'
+            ? 'qa_grounding'
+            : request.requestedLevel === 'L2'
+              ? 'prefer_l2'
+              : 'prefer_l1',
+        allowedNumbers,
+      }),
+      reasoningEffort: appliedEffort,
       evidenceIds: candidate.evidenceIds,
       grounded: Boolean(candidate.grounded),
       ...(candidate.missingEvidenceNotice ? { ungroundedNotice: candidate.missingEvidenceNotice } : {}),

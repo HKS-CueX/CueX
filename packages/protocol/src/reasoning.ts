@@ -2,7 +2,8 @@
  * Model-Agnostic Decision (System 1) and Slow Reasoning (System 2) Contracts.
  */
 
-import type { InterventionLevel, TelemetryUsageSource } from '#src/common';
+import type { InterventionLevel, LlmReasoningEffort, TelemetryUsageSource } from '#src/common';
+import type { S1ObservationSnapshot, System2Guidance } from '#src/dual-system';
 import type { Candidate, Evidence, Intervention, TranscriptSegment } from '#src/entities';
 import type { ScenarioId } from '#src/scenario';
 import type { UtcIso8601 } from '#src/versions';
@@ -47,6 +48,9 @@ export interface FastDecisionInput {
     'interventionId' | 'level' | 'title' | 'cueText' | 'shownAt'
   >;
   manualHelpRequested?: boolean;
+  /** 可选 System 1 评估轮次序号与黑板当前生效的 System 2 指导指令。 */
+  turnSeq?: number;
+  activeGuidance?: System2Guidance | null;
 }
 
 export type CognitiveAttentionState =
@@ -102,6 +106,8 @@ export interface FastDecisionVerdict {
   latencyMs: number;
   backend: string;
   usage?: ProviderUsageRecord;
+  /** 可选 System 1 本轮观测明细（供共享认知黑板同步记录）。 */
+  observation?: S1ObservationSnapshot;
 }
 
 export type SlowReasoningTriggerKind =
@@ -130,6 +136,9 @@ export interface SlowReasoningCandidateRequest {
   constraints: string[];
   forbiddenClaims?: string[];
   basedOnSegmentId: string;
+  /** 可选触发本次推理时的轮次序号与推理强度覆盖。 */
+  basedOnTurnSeq?: number;
+  reasoningEffort?: LlmReasoningEffort;
 }
 
 export interface SlowReasoningCandidateResult {
@@ -139,6 +148,9 @@ export interface SlowReasoningCandidateResult {
   timestamp: UtcIso8601;
   status: 'synthesized' | 'insufficient_evidence' | 'no_action_needed' | 'aborted' | 'error';
   candidate?: Candidate;
+  /** 可选由 System 2 同步产出的指导指令更新。 */
+  guidance?: System2Guidance;
+  reasoningEffort?: LlmReasoningEffort;
   evidenceIds: string[];
   /** True only when every claim in the candidate is grounded in verified Evidence items. */
   grounded: boolean;
@@ -148,4 +160,6 @@ export interface SlowReasoningCandidateResult {
   latencyMs: number;
   backend: string;
   usage?: ProviderUsageRecord;
+  /** 可选 System 1 本轮观测明细（供共享认知黑板同步记录）。 */
+  observation?: S1ObservationSnapshot;
 }

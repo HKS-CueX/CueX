@@ -25,6 +25,7 @@
         "intervention.feedback",
         "rehearsal.start",
         "view.mode",
+        "session.attach",
         "ping"
       ]
     },

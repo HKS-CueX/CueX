@@ -337,6 +337,7 @@ test(
       // 3. STAGE VIEW (Honest Banners, Keyboard Shortcuts, Split-Strip 420x900, L0/L2/Withdraw/QA, Inspector)
       await page.waitForSelector('[data-testid="stage-workspace"]');
       await page.waitForSelector('[data-testid="focus-view"]');
+      await page.waitForSelector('[data-testid="open-companion-window-btn"]');
       await page.waitForSelector('[data-testid="asr-simulation-banner"]');
       await page.waitForSelector('[data-testid="runtime-degraded-banner"]');
 
@@ -392,12 +393,24 @@ test(
       await page.getByTestId('sim-speech-submit').click();
       await page.waitForSelector('[data-testid="missing-evidence-warning"]', { timeout: 10000 });
 
-      // Inspector View verification (telemetry, usageSource, costFen, controller logs, events timeline)
+      // Inspector View verification (telemetry, usageSource, costFen, 3-tier subsystems, dual-system board, controller logs)
       await page.getByTestId('view-toggle-inspector').click();
       await page.waitForSelector('[data-testid="inspector-view"]');
+      await page.waitForSelector('[data-testid="inspector-subsystems"]');
+      await page.waitForSelector('[data-testid="inspector-subsystem-s1"]');
+      await page.waitForSelector('[data-testid="inspector-subsystem-s2"]');
+      await page.waitForSelector('[data-testid="inspector-dual-system-board"]');
+      await page.waitForSelector('[data-testid="inspector-s1-observation"]');
+      await page.waitForSelector('[data-testid="inspector-s2-guidance"]');
+      await page.waitForSelector('[data-testid="inspector-dual-metrics"]');
       await page.waitForSelector('[data-testid="inspector-usage-source"]');
       await page.waitForSelector('[data-testid="inspector-cost"]');
       await page.waitForSelector('[data-testid="inspector-events"]');
+      const s1PanelText = await page.getByTestId('inspector-subsystem-s1').innerText();
+      assert(
+        s1PanelText.includes('System 1') && !s1PanelText.includes('CPA'),
+        'System 1 subsystem attribution must not be mislabeled as CPA'
+      );
       const decisionCount = await page.locator('[data-testid="controller-decision-row"]').count();
       assert(decisionCount >= 1, 'Inspector shows live ControllerDecision arbitration logs');
 

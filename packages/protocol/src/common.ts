@@ -2,7 +2,18 @@
  * Shared domain-agnostic primitives for CueX Universal Cognitive Runtime.
  */
 
+import type { DualSystemCollaborationMetrics } from '#src/dual-system';
 import type { MoneyAmount, UtcIso8601 } from '#src/versions';
+
+/** 支持的 LLM 推理强度等级（用于 CPA / System 2 归因与指导元数据）。 */
+export const LLM_REASONING_EFFORTS = ['none', 'minimal', 'low', 'medium', 'high'] as const;
+
+export type LlmReasoningEffort = (typeof LLM_REASONING_EFFORTS)[number];
+
+/** System 1 提示词与决策头格式枚举。 */
+export const SYSTEM1_PROMPT_FORMATS = ['jev-v1', 'jevstyle-v1', 'chat', 'rule_zero'] as const;
+
+export type System1PromptFormat = (typeof SYSTEM1_PROMPT_FORMATS)[number];
 
 export type InterventionLevel = 'L0' | 'L1' | 'L2' | 'L3';
 
@@ -104,4 +115,6 @@ export interface TelemetryUsage {
   cost: MoneyAmount;
   estimation: TelemetryEstimationMetadata;
   byTier?: Partial<Record<ModelCallBreakdown['tier'], ModelCallBreakdown>>;
+  /** 可选双系统异步协同统计摘要。 */
+  dualSystem?: DualSystemCollaborationMetrics;
 }

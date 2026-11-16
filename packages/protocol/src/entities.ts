@@ -228,6 +228,9 @@ export interface Candidate {
   suppressedReason?: string;
 }
 
+/** Candidate 兼容别名，方便跨模块及文档对齐使用。 */
+export type CueCandidate = Candidate;
+
 export type InterventionFeedback = 'helpful' | 'distracting';
 
 export interface Intervention {

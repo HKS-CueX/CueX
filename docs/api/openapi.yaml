@@ -3,7 +3,7 @@ info:
   title: CueX Gateway HTTP API
   version: 2026-11
   description: |
-    Stage C Synced Contract Spec matching `apps/server/src/gateway/GatewayServer.ts` and `@cuex/protocol` (`API_VERSION = '2026-11'`, v2.1.0 Colab GPU ASR & CPA telemetry extensions).
+    Stage C Synced Contract Spec matching `apps/server/src/gateway/GatewayServer.ts` and `@cuex/protocol` (`API_VERSION = '2026-11'`, v2.2.0 双系统协同黑板、脱敏模型归因与 Presenter Companion 多订阅扩展).
     Monetary fields use integer minor units (`amountFen`, CNY Fen). Timestamps use UTC ISO-8601 (`UtcIso8601`).
     Unified `PlanCatalog` pricing and quotas (`Free ¥0 / 2 sessions / 20m cloud ASR`, `Event ¥29 / 14d / 120m`, `Pro ¥59/mo · ¥499/yr / 240m`, `Team ¥199/seat/mo planned`, all marked `isCommercialHypothesis: true`) align with `docs/business/PRICING_AND_PACKAGING.md` and `ppt/scripts/cuex-final-metrics.json`.
 servers:
@@ -738,6 +738,8 @@ components:
         - SESSION_EXPIRED
         - ASR_UNAVAILABLE
         - INSUFFICIENT_EVIDENCE
+        - COMPANION_READ_ONLY
+        - PRIMARY_MIC_CONFLICT
         - PAYMENT_NOT_CONFIGURED
         - INTERNAL_ERROR
 
@@ -817,8 +819,17 @@ components:
         fallbackReason:
           type: string
 
+    System1PromptFormat:
+      type: string
+      enum: [jev-v1, jevstyle-v1, chat, rule_zero]
+
+    LlmReasoningEffort:
+      type: string
+      enum: [none, minimal, low, medium, high]
+
     LlmSubsystemHealthStatus:
       type: object
+      description: 脱敏后的模型子系统健康与归因状态（严格禁止包含密钥或裸机 Host URL）。
       required: [backend, mode, healthy]
       properties:
         backend:
@@ -836,8 +847,258 @@ components:
           type: string
         degraded:
           type: boolean
+        fallbackActive:
+          type: boolean
+        fallbackReason:
+          type: string
+        promptFormat:
+          $ref: '#/components/schemas/System1PromptFormat'
+        calibrated:
+          type: boolean
+        reasoningEffort:
+          $ref: '#/components/schemas/LlmReasoningEffort'
+        compilerModel:
+          type: string
+        reflectionModel:
+          type: string
         lastHealthCheckAt:
           $ref: '#/components/schemas/UtcIso8601'
+
+    System2Guidance:
+      type: object
+      required:
+        - guidanceId
+        - sessionId
+        - revision
+        - contextVersion
+        - basedOnTurnSeq
+        - issuedAtMs
+        - expiresAtMs
+        - focusDirective
+        - strategyHints
+        - evidenceAnchors
+        - grounded
+      properties:
+        guidanceId:
+          type: string
+        sessionId:
+          type: string
+        revision:
+          type: integer
+          minimum: 1
+        contextVersion:
+          type: integer
+          minimum: 0
+        basedOnTurnSeq:
+          type: integer
+          minimum: 0
+        staleAfterTurnSeq:
+          type: integer
+          minimum: 0
+        issuedAtMs:
+          type: number
+        expiresAtMs:
+          type: number
+        issuedAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        expiresAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        targetChapterId:
+          type: string
+        targetChapterTitle:
+          type: string
+        focusDirective:
+          type: string
+        strategyHints:
+          type: array
+          items:
+            type: string
+        recommendedBias:
+          type: string
+          enum: [stay_silent, prefer_l1, prefer_l2, prefer_l3, qa_grounding, recovery_hold]
+        preferredLevel:
+          type: string
+          enum: [L0, L1, L2, L3]
+        evidenceAnchors:
+          type: array
+          items:
+            type: string
+        grounded:
+          type: boolean
+        reasoningEffort:
+          $ref: '#/components/schemas/LlmReasoningEffort'
+        provider:
+          type: string
+        model:
+          type: string
+        correlationId:
+          type: string
+
+    S1ObservationSnapshot:
+      type: object
+      required:
+        - turnSeq
+        - observedAtMs
+        - decisionType
+        - selectedSlot
+        - label
+        - calibratedConfidence
+        - margin
+        - entropy
+        - escalatedToS2
+        - latencyMs
+        - degraded
+        - providerKind
+      properties:
+        turnSeq:
+          type: integer
+          minimum: 0
+        observedAtMs:
+          type: number
+        observedAt:
+          $ref: '#/components/schemas/UtcIso8601'
+        decisionType:
+          type: string
+          enum: [noul, choice, score, unknown]
+        selectedSlot:
+          type: integer
+          minimum: -1
+        label:
+          type: string
+        calibratedConfidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        margin:
+          type: number
+          minimum: 0
+        entropy:
+          type: number
+          minimum: 0
+        escalationReason:
+          type: string
+        escalatedToS2:
+          type: boolean
+        latencyMs:
+          type: number
+          minimum: 0
+        degraded:
+          type: boolean
+        providerKind:
+          type: string
+          enum: [colab_jev, local_jev, local_rule_zero]
+        model:
+          type: string
+        promptFormat:
+          $ref: '#/components/schemas/System1PromptFormat'
+        calibrated:
+          type: boolean
+        guidanceAppliedRevision:
+          type: integer
+          minimum: 0
+
+    DualSystemCollaborationMetrics:
+      type: object
+      required:
+        - s1Evaluations
+        - s1Escalations
+        - s2AsyncDispatches
+        - s2Completed
+        - s2CancelledAsStale
+        - s2Coalesced
+        - guidanceRevisionsIssued
+        - guidanceAppliedCount
+        - guidanceExpiredOrOverridden
+      properties:
+        s1Evaluations:
+          type: integer
+          minimum: 0
+        s1Escalations:
+          type: integer
+          minimum: 0
+        s2AsyncDispatches:
+          type: integer
+          minimum: 0
+        s2Completed:
+          type: integer
+          minimum: 0
+        s2CancelledAsStale:
+          type: integer
+          minimum: 0
+        s2Coalesced:
+          type: integer
+          minimum: 0
+        guidanceRevisionsIssued:
+          type: integer
+          minimum: 0
+        guidanceAppliedCount:
+          type: integer
+          minimum: 0
+        guidanceExpiredOrOverridden:
+          type: integer
+          minimum: 0
+        s1LastLatencyMs:
+          type: number
+          minimum: 0
+        s1P50LatencyMs:
+          type: number
+          minimum: 0
+        s1P95LatencyMs:
+          type: number
+          minimum: 0
+        s2LastLatencyMs:
+          type: number
+          minimum: 0
+        s2P50LatencyMs:
+          type: number
+          minimum: 0
+        s2P95LatencyMs:
+          type: number
+          minimum: 0
+        updatedAt:
+          $ref: '#/components/schemas/UtcIso8601'
+
+    WsAttachRole:
+      type: string
+      enum: [primary, companion]
+
+    WsRolePolicy:
+      type: object
+      required: [role, canCaptureMic, canControlSession, canModifyContext, canViewInspector]
+      properties:
+        role:
+          $ref: '#/components/schemas/WsAttachRole'
+        canCaptureMic:
+          type: boolean
+        canControlSession:
+          type: boolean
+        canModifyContext:
+          type: boolean
+        canViewInspector:
+          type: boolean
+        canInteractWithCues:
+          type: boolean
+
+    WsAttachState:
+      type: object
+      required: [sessionId, lastSeenSeq, role, activePrimaryConnected, canCaptureMic, rolePolicy]
+      properties:
+        sessionId:
+          type: string
+        lastSeenSeq:
+          type: integer
+          minimum: 0
+        role:
+          $ref: '#/components/schemas/WsAttachRole'
+        activePrimaryConnected:
+          type: boolean
+        canCaptureMic:
+          type: boolean
+        companionCount:
+          type: integer
+          minimum: 0
+        rolePolicy:
+          $ref: '#/components/schemas/WsRolePolicy'
 
     TelemetryUsageSource:
       type: string
@@ -890,7 +1151,7 @@ components:
           example: cuex-server
         version:
           type: string
-          example: 2.1.0
+          example: 2.2.0
         apiVersion:
           type: string
           example: '2026-11'
@@ -905,6 +1166,12 @@ components:
           $ref: '#/components/schemas/LlmSubsystemHealthStatus'
         system2:
           $ref: '#/components/schemas/LlmSubsystemHealthStatus'
+        compiler:
+          $ref: '#/components/schemas/LlmSubsystemHealthStatus'
+        reflection:
+          $ref: '#/components/schemas/LlmSubsystemHealthStatus'
+        dualSystemMetrics:
+          $ref: '#/components/schemas/DualSystemCollaborationMetrics'
 
     AuthSessionCreateInput:
       type: object

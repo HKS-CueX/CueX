@@ -2,19 +2,22 @@ import {
   createMoneyAmount,
   type AttentionSignal,
   type Candidate,
+  type DualSystemCollaborationMetrics,
   type Intervention,
   type InterventionLevel,
   type ModelCallBreakdown,
   type Observation,
   type ProviderUsageRecord,
+  type S1ObservationSnapshot,
   type ScenarioId,
   type SessionStatus,
   type SharedCognitiveState,
   type SuppressionEntry,
+  type System2Guidance,
   type TelemetryUsage,
   type TranscriptSegment,
 } from '@cuex/protocol';
-import { computeLatencyStats, isoToMs, msToIso } from './time';
+import { computeLatencyStats, computeQuantiles, isoToMs, msToIso } from './time';
 
 export interface SharedStateInit {
   sessionId: string;
@@ -61,6 +64,13 @@ export class SharedCognitiveStateStore {
   private lastInterventionAtMs?: number;
   private readonly suppressions = new Map<string, InternalSuppressionRecord>();
   private readonly latencySamples: number[] = [];
+  private readonly s1Latencies: number[] = [];
+  private readonly s2Latencies: number[] = [];
+  private turnSeq = 0;
+  private guidanceRevision = 0;
+  private system2Guidance: System2Guidance | null = null;
+  private latestS1Observation: S1ObservationSnapshot | null = null;
+  private readonly dualSystemMetrics: DualSystemCollaborationMetrics;
   private readonly telemetry: TelemetryUsage;
 
   constructor(init: SharedStateInit) {
@@ -102,6 +112,28 @@ export class SharedCognitiveStateStore {
       },
       byTier: {},
     };
+    this.dualSystemMetrics = {
+      s1Evaluations: 0,
+      s1Escalations: 0,
+      s2AsyncDispatches: 0,
+      s2Completed: 0,
+      s2CancelledAsStale: 0,
+      s2Coalesced: 0,
+      guidanceRevisionsIssued: 0,
+      guidanceAppliedCount: 0,
+      guidanceExpiredOrOverridden: 0,
+      updatedAt: nowIso,
+    };
+  }
+
+  nextTurnSeq(nowMs: number): number {
+    this.turnSeq += 1;
+    this.updatedAtMs = nowMs;
+    return this.turnSeq;
+  }
+
+  getTurnSeq(): number {
+    return this.turnSeq;
   }
 
   getContextVersion(): number {
@@ -110,8 +142,119 @@ export class SharedCognitiveStateStore {
 
   bumpContextVersion(nowMs: number): number {
     this.contextVersion += 1;
+    if (this.system2Guidance && this.system2Guidance.contextVersion < this.contextVersion) {
+      this.system2Guidance = null;
+      this.dualSystemMetrics.guidanceExpiredOrOverridden += 1;
+      this.dualSystemMetrics.updatedAt = msToIso(nowMs);
+    }
     this.updatedAtMs = nowMs;
     return this.contextVersion;
+  }
+
+  /** 记录 System 1 实时单轮观测快照并更新双系统协作延迟统计。 */
+  recordS1Observation(observation: S1ObservationSnapshot, nowMs: number): void {
+    this.latestS1Observation = { ...observation };
+    this.dualSystemMetrics.s1Evaluations += 1;
+    if (observation.escalatedToS2) {
+      this.dualSystemMetrics.s1Escalations += 1;
+    }
+    if (observation.guidanceAppliedRevision !== undefined) {
+      this.dualSystemMetrics.guidanceAppliedCount += 1;
+    }
+    this.s1Latencies.push(Math.max(0, Math.round(observation.latencyMs)));
+    if (this.s1Latencies.length > 200) {
+      this.s1Latencies.splice(0, this.s1Latencies.length - 200);
+    }
+    const q = computeQuantiles(this.s1Latencies);
+    if (q) {
+      this.dualSystemMetrics.s1LastLatencyMs = q.lastMs;
+      this.dualSystemMetrics.s1P50LatencyMs = q.p50Ms;
+      this.dualSystemMetrics.s1P95LatencyMs = q.p95Ms;
+    }
+    this.dualSystemMetrics.updatedAt = msToIso(nowMs);
+    this.updatedAtMs = nowMs;
+  }
+
+  recordS2Dispatch(nowMs: number): void {
+    this.dualSystemMetrics.s2AsyncDispatches += 1;
+    this.dualSystemMetrics.updatedAt = msToIso(nowMs);
+  }
+
+  recordS2Coalesced(nowMs: number): void {
+    this.dualSystemMetrics.s2Coalesced += 1;
+    this.dualSystemMetrics.updatedAt = msToIso(nowMs);
+  }
+
+  recordS2CancelledAsStale(nowMs: number): void {
+    this.dualSystemMetrics.s2CancelledAsStale += 1;
+    this.dualSystemMetrics.updatedAt = msToIso(nowMs);
+  }
+
+  recordS2Completed(latencyMs: number, nowMs: number): void {
+    this.dualSystemMetrics.s2Completed += 1;
+    this.s2Latencies.push(Math.max(0, Math.round(latencyMs)));
+    if (this.s2Latencies.length > 200) {
+      this.s2Latencies.splice(0, this.s2Latencies.length - 200);
+    }
+    const q = computeQuantiles(this.s2Latencies);
+    if (q) {
+      this.dualSystemMetrics.s2LastLatencyMs = q.lastMs;
+      this.dualSystemMetrics.s2P50LatencyMs = q.p50Ms;
+      this.dualSystemMetrics.s2P95LatencyMs = q.p95Ms;
+    }
+    this.dualSystemMetrics.updatedAt = msToIso(nowMs);
+    this.updatedAtMs = nowMs;
+  }
+
+  /** 将 System 2 指导指令按严格递增 revision 写入共享认知黑板；若上下文版本已陈旧则拒绝写入。 */
+  commitSystem2Guidance(draft: System2Guidance, nowMs: number): System2Guidance | null {
+    if (draft.contextVersion !== this.contextVersion) {
+      this.dualSystemMetrics.guidanceExpiredOrOverridden += 1;
+      this.dualSystemMetrics.updatedAt = msToIso(nowMs);
+      return null;
+    }
+    const revision = ++this.guidanceRevision;
+    const committed: System2Guidance = {
+      ...draft,
+      revision,
+      issuedAtMs: nowMs,
+      issuedAt: msToIso(nowMs),
+    };
+    this.system2Guidance = committed;
+    this.dualSystemMetrics.guidanceRevisionsIssued += 1;
+    this.dualSystemMetrics.updatedAt = msToIso(nowMs);
+    this.updatedAtMs = nowMs;
+    return { ...committed };
+  }
+
+  /** 读取当前仍有效的 System 2 黑板指导；若已过期、跨轮次或上下文陈旧则自动失效并计数。 */
+  getActiveGuidance(nowMs: number, currentTurnSeq = this.turnSeq): System2Guidance | null {
+    const g = this.system2Guidance;
+    if (!g) return null;
+    const expiredByTime = nowMs >= g.expiresAtMs;
+    const staleByTurn = g.staleAfterTurnSeq !== undefined && currentTurnSeq > g.staleAfterTurnSeq;
+    const staleByContext = g.contextVersion !== this.contextVersion;
+    if (expiredByTime || staleByTurn || staleByContext) {
+      this.system2Guidance = null;
+      this.dualSystemMetrics.guidanceExpiredOrOverridden += 1;
+      this.dualSystemMetrics.updatedAt = msToIso(nowMs);
+      return null;
+    }
+    return { ...g, strategyHints: [...g.strategyHints], evidenceAnchors: [...g.evidenceAnchors] };
+  }
+
+  /** 因高紧急现场语音/人工求助/话题恢复显式覆盖并撤销当前黑板指导。 */
+  invalidateGuidance(nowMs: number): boolean {
+    if (!this.system2Guidance) return false;
+    this.system2Guidance = null;
+    this.dualSystemMetrics.guidanceExpiredOrOverridden += 1;
+    this.dualSystemMetrics.updatedAt = msToIso(nowMs);
+    this.updatedAtMs = nowMs;
+    return true;
+  }
+
+  getDualSystemMetrics(): DualSystemCollaborationMetrics {
+    return { ...this.dualSystemMetrics };
   }
 
   setSessionStatus(status: SessionStatus, nowMs: number): void {
@@ -430,6 +573,7 @@ export class SharedCognitiveStateStore {
       latencyStats: { ...this.telemetry.latencyStats },
       estimation: { ...this.telemetry.estimation },
       byTier: this.telemetry.byTier ? structuredClone(this.telemetry.byTier) : undefined,
+      dualSystem: this.getDualSystemMetrics(),
     };
   }
 
@@ -439,6 +583,7 @@ export class SharedCognitiveStateStore {
     scenarioState?: Record<string, unknown>;
     now: number;
   }): SharedCognitiveState {
+    const activeGuidance = this.getActiveGuidance(params.now);
     return {
       sessionId: this.sessionId,
       scenarioId: this.scenarioId,
@@ -464,6 +609,9 @@ export class SharedCognitiveStateStore {
         : {}),
       suppressions: this.getActiveSuppressions(params.now),
       ...(params.scenarioState ? { scenarioState: params.scenarioState } : {}),
+      system2Guidance: activeGuidance,
+      latestS1Observation: this.latestS1Observation ? { ...this.latestS1Observation } : null,
+      dualSystemMetrics: this.getDualSystemMetrics(),
       telemetry: this.getTelemetry(),
     };
   }

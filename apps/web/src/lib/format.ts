@@ -10,6 +10,8 @@ import type {
   MoneyAmount,
   PlanDefinition,
   PresentationSceneType,
+  S1ProviderKind,
+  System2GuidanceBias,
   TelemetryUsageSource,
   UsageType,
   UtcIso8601,
@@ -99,6 +101,9 @@ export const API_ERROR_LABELS: Record<ApiErrorCode, string> = {
   SESSION_EXPIRED: '会话已过期或已结束',
   ASR_UNAVAILABLE: '语音识别引擎暂不可用，请切换浏览器 Web Speech 或文本仿真',
   INSUFFICIENT_EVIDENCE: '已确认资料不足以支持该回答，禁止无依据编造',
+  // 伴随窗与主控权隔离错误提示
+  COMPANION_READ_ONLY: '当前为只读演讲伴随窗（Companion），禁止采集麦克风或启停控制会话',
+  PRIMARY_MIC_CONFLICT: '主控端控制权冲突：同一会话仅允许一个主控端持有麦克风与会话写权限',
   PAYMENT_NOT_CONFIGURED: '尚未接入真实商业支付商户（当前仅沙盒预览）',
   INTERNAL_ERROR: '服务端内部处理异常',
 };
@@ -244,4 +249,21 @@ export const USAGE_TYPE_LABELS: Record<UsageType, string> = {
   system2_synthesis: 'System 2 候选合成',
   reflection_generated: '场后复盘生成',
   memory_write: '个人记忆写入',
+};
+
+/** System 2 异步指导偏向中文标签。 */
+export const SYSTEM2_GUIDANCE_BIAS_LABELS: Record<System2GuidanceBias, string> = {
+  stay_silent: '保持静默（L0）',
+  prefer_l1: '优先 L1 边缘提醒',
+  prefer_l2: '优先 L2 关键词胶囊',
+  prefer_l3: '优先 L3 结构要点',
+  qa_grounding: '现场问答强实证锚定',
+  recovery_hold: '恢复巩固观测窗口',
+};
+
+/** System 1 推理提供方归因中文标签。 */
+export const S1_PROVIDER_KIND_LABELS: Record<S1ProviderKind, string> = {
+  colab_jev: 'Colab JEV-Like 在线头',
+  local_jev: '本地 JEV 推理服务',
+  local_rule_zero: '本地规则兜底（0 Token）',
 };

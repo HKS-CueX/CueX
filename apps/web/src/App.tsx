@@ -25,18 +25,78 @@ import {
   fetchScenarios,
   getPresentationPack,
 } from '@/lib/api';
+import { CompanionView } from '@/views/CompanionView';
 import { CompilerView } from '@/views/CompilerView';
 import { HomeView } from '@/views/HomeView';
 import { ReflectionView } from '@/views/ReflectionView';
 import { StageView } from '@/views/StageView';
 
+type AppRouteView = ViewKey | 'companion';
 const VALID_VIEWS: ViewKey[] = ['home', 'compiler', 'stage', 'reflection'];
 
+function resolveInitialRoute(): { view: AppRouteView; sessionId: string | null } {
+  const params = new URLSearchParams(window.location.search);
+  const requested = params.get('view');
+  const sessionId = params.get('sessionId');
+  if (requested === 'companion') {
+    return { view: 'companion', sessionId };
+  }
+  const safeView =
+    requested && VALID_VIEWS.includes(requested as ViewKey) ? (requested as ViewKey) : 'home';
+  return { view: safeView, sessionId };
+}
+
+/** 独立伴随窗外壳：只订阅主会话状态，绝不初始化主控 usePresentationSession / AudioCapture。 */
+function CompanionShell({ initialSessionId }: { initialSessionId: string | null }) {
+  const [health, setHealth] = useState<HealthStatusResponse | null>(null);
+
+  useEffect(() => {
+    void fetchHealth()
+      .then(setHealth)
+      .catch(() => {});
+  }, []);
+
+  const handleNavigateMain = useCallback((nextView: ViewKey, targetSessionId?: string) => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('view', nextView);
+    if (targetSessionId) {
+      url.searchParams.set('sessionId', targetSessionId);
+    } else {
+      url.searchParams.delete('sessionId');
+    }
+    window.location.assign(url.toString());
+  }, []);
+
+  return (
+    <CompanionView
+      sessionId={initialSessionId}
+      health={health}
+      onNavigateMain={handleNavigateMain}
+    />
+  );
+}
+
 export function App() {
-  const [view, setView] = useState<ViewKey>(() => {
-    const requested = new URLSearchParams(window.location.search).get('view') as ViewKey | null;
-    return requested && VALID_VIEWS.includes(requested) ? requested : 'home';
-  });
+  const [initialRoute] = useState(resolveInitialRoute);
+  if (initialRoute.view === 'companion') {
+    return <CompanionShell initialSessionId={initialRoute.sessionId} />;
+  }
+  return (
+    <MainWorkspaceShell
+      initialView={initialRoute.view}
+      initialSessionId={initialRoute.sessionId}
+    />
+  );
+}
+
+function MainWorkspaceShell({
+  initialView,
+  initialSessionId,
+}: {
+  initialView: ViewKey;
+  initialSessionId: string | null;
+}) {
+  const [view, setView] = useState<ViewKey>(initialView);
 
   const [authSession, setAuthSession] = useState<AuthSessionResponse | null>(null);
   const [health, setHealth] = useState<HealthStatusResponse | null>(null);
@@ -47,7 +107,9 @@ export function App() {
   const [memoryModalOpen, setMemoryModalOpen] = useState(false);
   const [accountModalOpen, setAccountModalOpen] = useState(false);
 
-  const [completedSessionId, setCompletedSessionId] = useState<string | null>(null);
+  const [completedSessionId, setCompletedSessionId] = useState<string | null>(
+    initialView === 'reflection' ? initialSessionId : null
+  );
   const [completedReflection, setCompletedReflection] = useState<PresentationReflection | null>(null);
 
   const runtime = usePresentationSession();
@@ -220,6 +282,7 @@ export function App() {
             onPackChange={setActivePack}
             privacyAccepted={privacyAccepted}
             onPrivacyChange={setPrivacyAccepted}
+            authReady={Boolean(authSession)}
             onLaunchStage={handleLaunchStage}
           />
         )}
@@ -230,6 +293,7 @@ export function App() {
             onPackChange={setActivePack}
             privacyAccepted={privacyAccepted}
             onPrivacyChange={setPrivacyAccepted}
+            authReady={Boolean(authSession)}
             health={health}
             runtime={runtime}
             onLoadDemoPack={loadSamplePack}

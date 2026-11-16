@@ -410,8 +410,10 @@ export class InterventionController {
         continue;
       }
 
-      const bypassCooldown =
-        signals.manualHelp || (signals.openQuestion && candidate.kind === 'qa_grounding');
+      const isLiveQaCandidate =
+        candidate.kind === 'qa_grounding' ||
+        (signals.openQuestion && candidate.kind === 'missing_evidence_notice');
+      const bypassCooldown = signals.manualHelp || (signals.openQuestion && isLiveQaCandidate);
       if (state.getCooldownRemainingMs(now) > 0 && !bypassCooldown) {
         reject(candidate, 'cooldown_active', 'Intervention cooldown window still active.');
         continue;
@@ -421,7 +423,7 @@ export class InterventionController {
       if (activeCandidate && activeCandidate.candidateId !== candidate.candidateId) {
         const supersedes =
           signals.manualHelp ||
-          candidate.kind === 'qa_grounding' ||
+          isLiveQaCandidate ||
           candidate.priority >= activeCandidate.priority + 10;
         if (!supersedes) {
           reject(

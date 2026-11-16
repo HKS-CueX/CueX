@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { CueXWSClient } from '../src/core/driver/CueXWSClient';
 import { CuexApiError } from '../src/lib/api';
 import {
+  API_ERROR_LABELS,
   ASR_MODE_LABELS,
   COLAB_ASR_LIFECYCLE_LABELS,
+  S1_PROVIDER_KIND_LABELS,
+  SYSTEM2_GUIDANCE_BIAS_LABELS,
   USAGE_SOURCE_LABELS,
   formatApiError,
   formatBytes,
@@ -87,5 +91,82 @@ describe('formatters & ApiError formatting', () => {
     expect(USAGE_SOURCE_LABELS.provider_unreported).toContain('未回传');
     expect(COLAB_ASR_LIFECYCLE_LABELS.ready).toContain('就绪');
     expect(COLAB_ASR_LIFECYCLE_LABELS.disconnected).toContain('断开');
+    expect(API_ERROR_LABELS.COMPANION_READ_ONLY).toContain('伴随窗');
+    expect(API_ERROR_LABELS.PRIMARY_MIC_CONFLICT).toContain('主控端');
+    expect(SYSTEM2_GUIDANCE_BIAS_LABELS.qa_grounding).toContain('问答');
+    expect(S1_PROVIDER_KIND_LABELS.colab_jev).toContain('JEV');
+  });
+
+  it('passes sessionId, lastSeenSeq, and role=companion on initial WS handshake and supports session.attach', () => {
+    const prevWindow = (globalThis as { window?: unknown }).window;
+    const prevWebSocket = (globalThis as { WebSocket?: unknown }).WebSocket;
+    const openedUrls: string[] = [];
+    const sentFrames: string[] = [];
+
+    class MockWebSocket {
+      static CONNECTING = 0;
+      static OPEN = 1;
+      static CLOSING = 2;
+      static CLOSED = 3;
+      readyState = MockWebSocket.OPEN;
+      onopen: (() => void) | null = null;
+      onmessage: ((ev: { data: string }) => void) | null = null;
+      onerror: (() => void) | null = null;
+      onclose: ((ev: { code?: number }) => void) | null = null;
+      constructor(url: string) {
+        openedUrls.push(url);
+      }
+      send(data: string) {
+        sentFrames.push(data);
+      }
+      close() {
+        this.readyState = MockWebSocket.CLOSED;
+      }
+    }
+
+    (globalThis as { window?: unknown }).window = {
+      location: { protocol: 'http:', host: '127.0.0.1:4173', href: 'http://127.0.0.1:4173/?view=companion' },
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      setTimeout: globalThis.setTimeout,
+      clearTimeout: globalThis.clearTimeout,
+      setInterval: globalThis.setInterval,
+      clearInterval: globalThis.clearInterval,
+    };
+    (globalThis as { WebSocket?: unknown }).WebSocket = MockWebSocket;
+
+    try {
+      const client = new CueXWSClient({
+        onStatusChange: () => {},
+        onMessage: () => {},
+        onError: () => {},
+      });
+      client.connect({
+        token: 'tok-abc',
+        sessionId: 'sess-comp-1',
+        lastSeenSeq: 12,
+        role: 'companion',
+      });
+
+      expect(openedUrls).toHaveLength(1);
+      const parsed = new URL(openedUrls[0]);
+      expect(parsed.searchParams.get('sessionId')).toBe('sess-comp-1');
+      expect(parsed.searchParams.get('lastSeenSeq')).toBe('12');
+      expect(parsed.searchParams.get('role')).toBe('companion');
+      expect(parsed.searchParams.get('token')).toBe('tok-abc');
+
+      const sent = client.attachSession('sess-comp-1', 'companion', 12);
+      expect(sent).toBe(true);
+      expect(sentFrames).toHaveLength(1);
+      const attachMsg = JSON.parse(sentFrames[0]) as { type: string; payload: { role?: string; sessionId: string } };
+      expect(attachMsg.type).toBe('session.attach');
+      expect(attachMsg.payload.sessionId).toBe('sess-comp-1');
+      expect(attachMsg.payload.role).toBe('companion');
+
+      client.disconnect();
+    } finally {
+      (globalThis as { window?: unknown }).window = prevWindow;
+      (globalThis as { WebSocket?: unknown }).WebSocket = prevWebSocket;
+    }
   });
 });

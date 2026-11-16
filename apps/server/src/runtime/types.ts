@@ -1,4 +1,5 @@
 import type {
+  Candidate,
   CognitiveEvent,
   ControllerDecision,
   Evidence,
@@ -6,6 +7,7 @@ import type {
   FastDecisionVerdict,
   Intervention,
   InterventionLevel,
+  LlmReasoningEffort,
   Observation,
   ScenarioId,
   Session,
@@ -13,10 +15,10 @@ import type {
   SlowReasoningCandidateRequest,
   SlowReasoningCandidateResult,
   SlowReasoningTriggerKind,
+  System1PromptFormat,
   TranscriptSegment,
   UtcIso8601,
   WithdrawalReason,
-  Candidate,
 } from '@cuex/protocol';
 
 export interface ProviderHealthStatus {
@@ -25,6 +27,13 @@ export interface ProviderHealthStatus {
   provider?: string;
   model?: string;
   degraded?: boolean;
+  fallbackActive?: boolean;
+  fallbackReason?: string;
+  promptFormat?: System1PromptFormat;
+  calibrated?: boolean;
+  reasoningEffort?: LlmReasoningEffort;
+  compilerModel?: string;
+  reflectionModel?: string;
   lastHealthCheckAt?: UtcIso8601;
 }
 

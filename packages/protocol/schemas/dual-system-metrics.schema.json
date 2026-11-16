@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuex.ai/schemas/dual-system-metrics.v2.schema.json",
+  "title": "DualSystemCollaborationMetrics",
+  "description": "Counters and latency summary for asynchronous bidirectional System 1 / System 2 collaboration.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "s1Evaluations",
+    "s1Escalations",
+    "s2AsyncDispatches",
+    "s2Completed",
+    "s2CancelledAsStale",
+    "s2Coalesced",
+    "guidanceRevisionsIssued",
+    "guidanceAppliedCount",
+    "guidanceExpiredOrOverridden"
+  ],
+  "properties": {
+    "s1Evaluations": { "type": "integer", "minimum": 0 },
+    "s1Escalations": { "type": "integer", "minimum": 0 },
+    "s2AsyncDispatches": { "type": "integer", "minimum": 0 },
+    "s2Completed": { "type": "integer", "minimum": 0 },
+    "s2CancelledAsStale": { "type": "integer", "minimum": 0 },
+    "s2Coalesced": { "type": "integer", "minimum": 0 },
+    "guidanceRevisionsIssued": { "type": "integer", "minimum": 0 },
+    "guidanceAppliedCount": { "type": "integer", "minimum": 0 },
+    "guidanceExpiredOrOverridden": { "type": "integer", "minimum": 0 },
+    "s1LastLatencyMs": { "type": "number", "minimum": 0 },
+    "s1P50LatencyMs": { "type": "number", "minimum": 0 },
+    "s1P95LatencyMs": { "type": "number", "minimum": 0 },
+    "s2LastLatencyMs": { "type": "number", "minimum": 0 },
+    "s2P50LatencyMs": { "type": "number", "minimum": 0 },
+    "s2P95LatencyMs": { "type": "number", "minimum": 0 },
+    "updatedAt": { "type": "string", "format": "date-time" }
+  }
+}

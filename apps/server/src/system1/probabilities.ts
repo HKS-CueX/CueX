@@ -22,12 +22,34 @@ export function answerFromWeights(question: DecisionQuestion, weights: number[])
   const sum = weights.reduce((a, b) => a + b, 0);
   if (sum <= 0) throw new Error('Decision probabilities have zero mass');
   const probabilities = Object.fromEntries(labels.map((label, i) => [label, weights[i] / sum]));
-  const top = labels.reduce((a, b) => (probabilities[a] >= probabilities[b] ? a : b));
+  const sortedProbs = labels.map((label) => probabilities[label]).sort((a, b) => b - a);
+  const margin = Number(
+    Math.max(0, (sortedProbs[0] ?? 0) - (sortedProbs[1] ?? 0)).toFixed(6),
+  );
+  const entropy = Number(
+    Math.max(
+      0,
+      sortedProbs.reduce((acc, p) => (p > 1e-12 ? acc - p * Math.log2(p) : acc), 0),
+    ).toFixed(6),
+  );
+  const topIndex = labels.reduce(
+    (bestIdx, label, idx) => (probabilities[label] > probabilities[labels[bestIdx]] ? idx : bestIdx),
+    0,
+  );
+  const top = labels[topIndex];
   const value =
     question.kind === 'noul'
       ? probabilities.true
       : question.kind === 'score'
         ? labels.reduce((acc, label) => acc + Number(label) * probabilities[label], 0)
         : probabilities[top];
-  return { kind: question.kind, probabilities, value, top };
+  return {
+    kind: question.kind,
+    probabilities,
+    value,
+    top,
+    margin,
+    entropy,
+    selectedSlot: topIndex,
+  };
 }

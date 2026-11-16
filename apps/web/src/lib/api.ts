@@ -222,21 +222,32 @@ export async function createAuthSession(
 
 export const fetchAuthMe = () => request<AuthSessionResponse>('/api/auth/me');
 
+let pendingEnsureAuth: Promise<AuthSessionResponse> | null = null;
+
 export async function ensureAuthSession(): Promise<AuthSessionResponse> {
-  const existingToken = getStoredAuthToken();
-  if (existingToken) {
-    try {
-      return await fetchAuthMe();
-    } catch (err) {
-      if (err instanceof CuexApiError && (err.httpStatus === 401 || err.code === 'UNAUTHORIZED')) {
-        clearStoredAuthToken();
-      } else {
-        throw err;
+  // 合并并发初始化鉴权请求，避免 React StrictMode 或深链接多组件同时触发重复建号与 401
+  if (pendingEnsureAuth) {
+    return pendingEnsureAuth;
+  }
+  pendingEnsureAuth = (async () => {
+    const existingToken = getStoredAuthToken();
+    if (existingToken) {
+      try {
+        return await fetchAuthMe();
+      } catch (err) {
+        if (err instanceof CuexApiError && (err.httpStatus === 401 || err.code === 'UNAUTHORIZED')) {
+          clearStoredAuthToken();
+        } else {
+          throw err;
+        }
       }
     }
-  }
-  const hint = getStoredProfileHint() ?? { displayName: 'CueX 演示演讲者' };
-  return createAuthSession(hint);
+    const hint = getStoredProfileHint() ?? { displayName: 'CueX 演示演讲者' };
+    return createAuthSession(hint);
+  })().finally(() => {
+    pendingEnsureAuth = null;
+  });
+  return pendingEnsureAuth;
 }
 
 export async function logoutAuthSession(): Promise<void> {

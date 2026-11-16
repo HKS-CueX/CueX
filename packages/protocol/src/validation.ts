@@ -10,6 +10,8 @@ import {
   type ColabAsrLifecycleState,
 } from '#src/audio';
 import type {
+  HealthStatusResponse,
+  LlmSubsystemHealthStatus,
   MemoryCreateInput,
   MemoryPatchInput,
 } from '#src/api';
@@ -21,14 +23,29 @@ import type {
 } from '#src/commercial';
 import { PLAN_IDS } from '#src/commercial';
 import {
+  LLM_REASONING_EFFORTS,
+  SYSTEM1_PROMPT_FORMATS,
   TELEMETRY_USAGE_SOURCES,
   type DataScope,
   type EvidenceLifecycle,
   type InterventionLevel,
+  type LlmReasoningEffort,
   type PrivacyLevel,
+  type System1PromptFormat,
   type TelemetryUsage,
   type TelemetryUsageSource,
 } from '#src/common';
+import {
+  S1_DECISION_KINDS,
+  S1_PROVIDER_KINDS,
+  SYSTEM2_GUIDANCE_BIASES,
+  type DualSystemCollaborationMetrics,
+  type S1DecisionKind,
+  type S1ObservationSnapshot,
+  type S1ProviderKind,
+  type System2Guidance,
+  type System2GuidanceBias,
+} from '#src/dual-system';
 import type {
   ContextPack,
   Evidence,
@@ -37,7 +54,13 @@ import type {
   TranscriptSpeaker,
 } from '#src/entities';
 import type { EventEnvelope, EventEnvelopeMeta, PrivacyClass } from '#src/envelope';
-import type { ClientMessage } from '#src/events';
+import {
+  WS_ATTACH_ROLES,
+  type ClientMessage,
+  type ServerEvent,
+  type WsAttachRole,
+  type WsAttachState,
+} from '#src/events';
 import type {
   PresentationCompileInput,
   PresentationContextPack,
@@ -108,6 +131,34 @@ const TRANSCRIPT_SPEAKERS = new Set<TranscriptSpeaker>([
 const TELEMETRY_SOURCES = new Set<TelemetryUsageSource>(TELEMETRY_USAGE_SOURCES);
 const COLAB_LIFECYCLE_STATE_SET = new Set<ColabAsrLifecycleState>(COLAB_ASR_LIFECYCLE_STATES);
 const ASR_BACKEND_MODE_SET = new Set<AsrBackendMode>(ASR_BACKEND_MODES);
+const SYSTEM2_GUIDANCE_BIAS_SET = new Set<System2GuidanceBias>(SYSTEM2_GUIDANCE_BIASES);
+const S1_DECISION_KIND_SET = new Set<S1DecisionKind>(S1_DECISION_KINDS);
+const S1_PROVIDER_KIND_SET = new Set<S1ProviderKind>(S1_PROVIDER_KINDS);
+const LLM_REASONING_EFFORT_SET = new Set<LlmReasoningEffort>(LLM_REASONING_EFFORTS);
+const SYSTEM1_PROMPT_FORMAT_SET = new Set<System1PromptFormat>(SYSTEM1_PROMPT_FORMATS);
+const WS_ATTACH_ROLE_SET = new Set<WsAttachRole>(WS_ATTACH_ROLES);
+const SERVER_EVENT_TYPES = new Set<string>([
+  'session.ready',
+  'session.state',
+  'session.ended',
+  'session.wiped',
+  'session.attach_state',
+  'asr.status',
+  'asr.transcript',
+  'cognitive.event',
+  'cognitive.state',
+  'system1.verdict',
+  'system2.candidate',
+  'system2.guidance',
+  'controller.decision',
+  'intervention.shown',
+  'intervention.withdrawn',
+  'presentation.progress',
+  'rehearsal.ready',
+  'telemetry.updated',
+  'pong',
+  'session.error',
+]);
 const USAGE_TYPES = new Set<UsageRecord['usageType']>([
   'session_started',
   'live_audio_ms',
@@ -783,6 +834,14 @@ export function validateTelemetryUsage(value: unknown): ValidationResult<Telemet
   if (value.reasoningTokens !== undefined && !isNonNegativeInt(value.reasoningTokens)) {
     addIssue(issues, 'reasoningTokens', 'reasoningTokens must be a non-negative safe integer');
   }
+  if (value.dualSystem !== undefined) {
+    const dualRes = validateDualSystemCollaborationMetrics(value.dualSystem);
+    if (!dualRes.ok) {
+      for (const issue of dualRes.issues) {
+        issues.push({ ...issue, path: `dualSystem.${issue.path}` });
+      }
+    }
+  }
   return succeedOrFail(value as unknown as TelemetryUsage, issues);
 }
 
@@ -959,6 +1018,20 @@ export function validateClientMessage(value: unknown): ValidationResult<ClientMe
       requireSessionId();
       if (!VIEW_MODES.has(p.viewMode as ViewMode)) {
         addIssue(issues, 'payload.viewMode', "viewMode must be 'focus' or 'inspector'");
+      }
+      break;
+    case 'session.attach':
+      requireSessionId();
+      if (p.lastSeenSeq !== undefined && !isNonNegativeInt(p.lastSeenSeq)) {
+        addIssue(issues, 'payload.lastSeenSeq', 'lastSeenSeq must be a non-negative safe integer');
+      }
+      if (p.role !== undefined && !WS_ATTACH_ROLE_SET.has(p.role as WsAttachRole)) {
+        addIssue(
+          issues,
+          'payload.role',
+          `role must be one of: ${WS_ATTACH_ROLES.join(', ')}`,
+          'invalid_enum',
+        );
       }
       break;
     case 'ping':
@@ -1146,3 +1219,447 @@ export const ProviderUsageRecordSchema: ProtocolSchema<ProviderUsageRecord> & {
   usageSources: TELEMETRY_USAGE_SOURCES,
   ...createProtocolSchema(validateProviderUsageRecord),
 };
+
+/** 校验双向异步黑板 System 2 指导指令（System2Guidance）。 */
+export function validateSystem2Guidance(value: unknown): ValidationResult<System2Guidance> {
+  const issues: ValidationIssue[] = [];
+  if (!isPlainObject(value)) {
+    addIssue(issues, '$', 'Expected System2Guidance object');
+    return { ok: false, issues };
+  }
+  if (!isNonEmptyString(value.guidanceId)) {
+    addIssue(issues, 'guidanceId', 'guidanceId is required', 'required');
+  }
+  if (!isNonEmptyString(value.sessionId)) {
+    addIssue(issues, 'sessionId', 'sessionId is required', 'required');
+  }
+  if (typeof value.revision !== 'number' || !Number.isSafeInteger(value.revision) || value.revision < 1) {
+    addIssue(issues, 'revision', 'revision must be a positive safe integer (>= 1)');
+  }
+  if (!isNonNegativeInt(value.contextVersion)) {
+    addIssue(issues, 'contextVersion', 'contextVersion must be a non-negative safe integer');
+  }
+  if (!isNonNegativeInt(value.basedOnTurnSeq)) {
+    addIssue(issues, 'basedOnTurnSeq', 'basedOnTurnSeq must be a non-negative safe integer');
+  }
+  if (value.staleAfterTurnSeq !== undefined && !isNonNegativeInt(value.staleAfterTurnSeq)) {
+    addIssue(issues, 'staleAfterTurnSeq', 'staleAfterTurnSeq must be a non-negative safe integer');
+  }
+  if (!isFiniteNumber(value.issuedAtMs) || value.issuedAtMs < 0) {
+    addIssue(issues, 'issuedAtMs', 'issuedAtMs must be a non-negative finite number');
+  }
+  if (!isFiniteNumber(value.expiresAtMs) || value.expiresAtMs < 0) {
+    addIssue(issues, 'expiresAtMs', 'expiresAtMs must be a non-negative finite number');
+  } else if (isFiniteNumber(value.issuedAtMs) && value.expiresAtMs < value.issuedAtMs) {
+    addIssue(issues, 'expiresAtMs', 'expiresAtMs must be >= issuedAtMs');
+  }
+  if (value.issuedAt !== undefined && !isUtcIso8601(value.issuedAt)) {
+    addIssue(issues, 'issuedAt', 'issuedAt must be UTC ISO-8601', 'invalid_datetime');
+  }
+  if (value.expiresAt !== undefined && !isUtcIso8601(value.expiresAt)) {
+    addIssue(issues, 'expiresAt', 'expiresAt must be UTC ISO-8601', 'invalid_datetime');
+  }
+  if (!isNonEmptyString(value.focusDirective)) {
+    addIssue(issues, 'focusDirective', 'focusDirective is required', 'required');
+  }
+  if (!Array.isArray(value.strategyHints) || value.strategyHints.some((item) => typeof item !== 'string')) {
+    addIssue(issues, 'strategyHints', 'strategyHints must be an array of strings');
+  }
+  if (
+    value.recommendedBias !== undefined &&
+    !SYSTEM2_GUIDANCE_BIAS_SET.has(value.recommendedBias as System2GuidanceBias)
+  ) {
+    addIssue(
+      issues,
+      'recommendedBias',
+      `recommendedBias must be one of: ${SYSTEM2_GUIDANCE_BIASES.join(', ')}`,
+      'invalid_enum',
+    );
+  }
+  if (
+    value.preferredLevel !== undefined &&
+    !INTERVENTION_LEVELS.has(value.preferredLevel as InterventionLevel)
+  ) {
+    addIssue(issues, 'preferredLevel', 'Invalid preferredLevel', 'invalid_enum');
+  }
+  if (!Array.isArray(value.evidenceAnchors) || value.evidenceAnchors.some((item) => typeof item !== 'string')) {
+    addIssue(issues, 'evidenceAnchors', 'evidenceAnchors must be an array of strings');
+  }
+  if (typeof value.grounded !== 'boolean') {
+    addIssue(issues, 'grounded', 'grounded must be a boolean');
+  }
+  if (
+    value.reasoningEffort !== undefined &&
+    !LLM_REASONING_EFFORT_SET.has(value.reasoningEffort as LlmReasoningEffort)
+  ) {
+    addIssue(
+      issues,
+      'reasoningEffort',
+      `reasoningEffort must be one of: ${LLM_REASONING_EFFORTS.join(', ')}`,
+      'invalid_enum',
+    );
+  }
+  return succeedOrFail(value as unknown as System2Guidance, issues);
+}
+
+export const System2GuidanceSchema: ProtocolSchema<System2Guidance> & {
+  readonly biases: typeof SYSTEM2_GUIDANCE_BIASES;
+} = {
+  biases: SYSTEM2_GUIDANCE_BIASES,
+  ...createProtocolSchema(validateSystem2Guidance),
+};
+
+/** 校验 System 1 单轮实时观测快照（S1ObservationSnapshot）。 */
+export function validateS1ObservationSnapshot(
+  value: unknown,
+): ValidationResult<S1ObservationSnapshot> {
+  const issues: ValidationIssue[] = [];
+  if (!isPlainObject(value)) {
+    addIssue(issues, '$', 'Expected S1ObservationSnapshot object');
+    return { ok: false, issues };
+  }
+  if (!isNonNegativeInt(value.turnSeq)) {
+    addIssue(issues, 'turnSeq', 'turnSeq must be a non-negative safe integer');
+  }
+  if (!isFiniteNumber(value.observedAtMs) || value.observedAtMs < 0) {
+    addIssue(issues, 'observedAtMs', 'observedAtMs must be a non-negative finite number');
+  }
+  if (value.observedAt !== undefined && !isUtcIso8601(value.observedAt)) {
+    addIssue(issues, 'observedAt', 'observedAt must be UTC ISO-8601', 'invalid_datetime');
+  }
+  if (!S1_DECISION_KIND_SET.has(value.decisionType as S1DecisionKind)) {
+    addIssue(
+      issues,
+      'decisionType',
+      `decisionType must be one of: ${S1_DECISION_KINDS.join(', ')}`,
+      'invalid_enum',
+    );
+  }
+  if (typeof value.selectedSlot !== 'number' || !Number.isSafeInteger(value.selectedSlot) || value.selectedSlot < -1) {
+    addIssue(issues, 'selectedSlot', 'selectedSlot must be a safe integer >= -1');
+  }
+  if (!isNonEmptyString(value.label)) {
+    addIssue(issues, 'label', 'label is required', 'required');
+  }
+  if (!isFiniteNumber(value.calibratedConfidence) || value.calibratedConfidence < 0 || value.calibratedConfidence > 1) {
+    addIssue(issues, 'calibratedConfidence', 'calibratedConfidence must be between 0 and 1');
+  }
+  if (!isFiniteNumber(value.margin) || value.margin < 0) {
+    addIssue(issues, 'margin', 'margin must be a finite number >= 0');
+  }
+  if (!isFiniteNumber(value.entropy) || value.entropy < 0) {
+    addIssue(issues, 'entropy', 'entropy must be a finite number >= 0');
+  }
+  if (typeof value.escalatedToS2 !== 'boolean') {
+    addIssue(issues, 'escalatedToS2', 'escalatedToS2 must be a boolean');
+  }
+  if (!isFiniteNumber(value.latencyMs) || value.latencyMs < 0) {
+    addIssue(issues, 'latencyMs', 'latencyMs must be a non-negative finite number');
+  }
+  if (typeof value.degraded !== 'boolean') {
+    addIssue(issues, 'degraded', 'degraded must be a boolean');
+  }
+  if (!S1_PROVIDER_KIND_SET.has(value.providerKind as S1ProviderKind)) {
+    addIssue(
+      issues,
+      'providerKind',
+      `providerKind must be one of: ${S1_PROVIDER_KINDS.join(', ')}`,
+      'invalid_enum',
+    );
+  }
+  if (
+    value.promptFormat !== undefined &&
+    !SYSTEM1_PROMPT_FORMAT_SET.has(value.promptFormat as System1PromptFormat)
+  ) {
+    addIssue(
+      issues,
+      'promptFormat',
+      `promptFormat must be one of: ${SYSTEM1_PROMPT_FORMATS.join(', ')}`,
+      'invalid_enum',
+    );
+  }
+  if (value.calibrated !== undefined && typeof value.calibrated !== 'boolean') {
+    addIssue(issues, 'calibrated', 'calibrated must be a boolean');
+  }
+  if (value.guidanceAppliedRevision !== undefined && !isNonNegativeInt(value.guidanceAppliedRevision)) {
+    addIssue(issues, 'guidanceAppliedRevision', 'guidanceAppliedRevision must be a non-negative safe integer');
+  }
+  return succeedOrFail(value as unknown as S1ObservationSnapshot, issues);
+}
+
+export const S1ObservationSnapshotSchema: ProtocolSchema<S1ObservationSnapshot> & {
+  readonly decisionKinds: typeof S1_DECISION_KINDS;
+  readonly providerKinds: typeof S1_PROVIDER_KINDS;
+} = {
+  decisionKinds: S1_DECISION_KINDS,
+  providerKinds: S1_PROVIDER_KINDS,
+  ...createProtocolSchema(validateS1ObservationSnapshot),
+};
+
+/** 校验双向异步双系统协同指标（DualSystemCollaborationMetrics）。 */
+export function validateDualSystemCollaborationMetrics(
+  value: unknown,
+): ValidationResult<DualSystemCollaborationMetrics> {
+  const issues: ValidationIssue[] = [];
+  if (!isPlainObject(value)) {
+    addIssue(issues, '$', 'Expected DualSystemCollaborationMetrics object');
+    return { ok: false, issues };
+  }
+  for (const counterField of [
+    's1Evaluations',
+    's1Escalations',
+    's2AsyncDispatches',
+    's2Completed',
+    's2CancelledAsStale',
+    's2Coalesced',
+    'guidanceRevisionsIssued',
+    'guidanceAppliedCount',
+    'guidanceExpiredOrOverridden',
+  ]) {
+    if (!isNonNegativeInt(value[counterField])) {
+      addIssue(issues, counterField, `${counterField} must be a non-negative safe integer`);
+    }
+  }
+  for (const latencyField of [
+    's1LastLatencyMs',
+    's1P50LatencyMs',
+    's1P95LatencyMs',
+    's2LastLatencyMs',
+    's2P50LatencyMs',
+    's2P95LatencyMs',
+  ]) {
+    if (value[latencyField] !== undefined && (!isFiniteNumber(value[latencyField]) || (value[latencyField] as number) < 0)) {
+      addIssue(issues, latencyField, `${latencyField} must be a non-negative finite number`);
+    }
+  }
+  if (value.updatedAt !== undefined && !isUtcIso8601(value.updatedAt)) {
+    addIssue(issues, 'updatedAt', 'updatedAt must be UTC ISO-8601', 'invalid_datetime');
+  }
+  return succeedOrFail(value as unknown as DualSystemCollaborationMetrics, issues);
+}
+
+export const DualSystemCollaborationMetricsSchema = createProtocolSchema(
+  validateDualSystemCollaborationMetrics,
+);
+
+/** 校验 WebSocket 连接角色枚举（primary | companion）。 */
+export function validateWsAttachRole(value: unknown): ValidationResult<WsAttachRole> {
+  const issues: ValidationIssue[] = [];
+  if (typeof value !== 'string' || !WS_ATTACH_ROLE_SET.has(value as WsAttachRole)) {
+    addIssue(
+      issues,
+      '$',
+      `role must be one of: ${WS_ATTACH_ROLES.join(', ')}`,
+      'invalid_enum',
+    );
+  }
+  return succeedOrFail(value as WsAttachRole, issues);
+}
+
+export const WsAttachRoleSchema: ProtocolSchema<WsAttachRole> & {
+  readonly values: typeof WS_ATTACH_ROLES;
+} = {
+  values: WS_ATTACH_ROLES,
+  ...createProtocolSchema(validateWsAttachRole),
+};
+
+/** 校验 Presenter Companion 多订阅附着状态（WsAttachState）。 */
+export function validateWsAttachState(value: unknown): ValidationResult<WsAttachState> {
+  const issues: ValidationIssue[] = [];
+  if (!isPlainObject(value)) {
+    addIssue(issues, '$', 'Expected WsAttachState object');
+    return { ok: false, issues };
+  }
+  if (!isNonEmptyString(value.sessionId)) {
+    addIssue(issues, 'sessionId', 'sessionId is required', 'required');
+  }
+  if (!isNonNegativeInt(value.lastSeenSeq)) {
+    addIssue(issues, 'lastSeenSeq', 'lastSeenSeq must be a non-negative safe integer');
+  }
+  if (typeof value.role !== 'string' || !WS_ATTACH_ROLE_SET.has(value.role as WsAttachRole)) {
+    addIssue(issues, 'role', `role must be one of: ${WS_ATTACH_ROLES.join(', ')}`, 'invalid_enum');
+  }
+  if (typeof value.activePrimaryConnected !== 'boolean') {
+    addIssue(issues, 'activePrimaryConnected', 'activePrimaryConnected must be a boolean');
+  }
+  if (typeof value.canCaptureMic !== 'boolean') {
+    addIssue(issues, 'canCaptureMic', 'canCaptureMic must be a boolean');
+  }
+  if (!isPlainObject(value.rolePolicy)) {
+    addIssue(issues, 'rolePolicy', 'rolePolicy must be an object');
+  } else {
+    const rp = value.rolePolicy;
+    if (typeof rp.role !== 'string' || !WS_ATTACH_ROLE_SET.has(rp.role as WsAttachRole)) {
+      addIssue(issues, 'rolePolicy.role', 'rolePolicy.role must be primary or companion', 'invalid_enum');
+    }
+    for (const flag of ['canCaptureMic', 'canControlSession', 'canModifyContext', 'canViewInspector']) {
+      if (typeof rp[flag] !== 'boolean') {
+        addIssue(issues, `rolePolicy.${flag}`, `rolePolicy.${flag} must be a boolean`);
+      }
+    }
+    if (rp.canInteractWithCues !== undefined && typeof rp.canInteractWithCues !== 'boolean') {
+      addIssue(issues, 'rolePolicy.canInteractWithCues', 'rolePolicy.canInteractWithCues must be a boolean');
+    }
+  }
+  if (value.companionCount !== undefined && !isNonNegativeInt(value.companionCount)) {
+    addIssue(issues, 'companionCount', 'companionCount must be a non-negative safe integer');
+  }
+  return succeedOrFail(value as unknown as WsAttachState, issues);
+}
+
+export const WsAttachStateSchema = createProtocolSchema(validateWsAttachState);
+
+/** 校验脱敏后的模型子系统健康与归因状态（LlmSubsystemHealthStatus）。 */
+export function validateLlmSubsystemHealthStatus(
+  value: unknown,
+): ValidationResult<LlmSubsystemHealthStatus> {
+  const issues: ValidationIssue[] = [];
+  if (!isPlainObject(value)) {
+    addIssue(issues, '$', 'Expected LlmSubsystemHealthStatus object');
+    return { ok: false, issues };
+  }
+  if (!isNonEmptyString(value.backend)) {
+    addIssue(issues, 'backend', 'backend is required', 'required');
+  }
+  if (value.mode !== 'real' && value.mode !== 'local_fallback') {
+    addIssue(issues, 'mode', "mode must be 'real' or 'local_fallback'", 'invalid_enum');
+  }
+  if (typeof value.healthy !== 'boolean') {
+    addIssue(issues, 'healthy', 'healthy must be a boolean');
+  }
+  for (const optBool of ['degraded', 'fallbackActive', 'calibrated']) {
+    if (value[optBool] !== undefined && typeof value[optBool] !== 'boolean') {
+      addIssue(issues, optBool, `${optBool} must be a boolean`);
+    }
+  }
+  if (
+    value.promptFormat !== undefined &&
+    !SYSTEM1_PROMPT_FORMAT_SET.has(value.promptFormat as System1PromptFormat)
+  ) {
+    addIssue(
+      issues,
+      'promptFormat',
+      `promptFormat must be one of: ${SYSTEM1_PROMPT_FORMATS.join(', ')}`,
+      'invalid_enum',
+    );
+  }
+  if (
+    value.reasoningEffort !== undefined &&
+    !LLM_REASONING_EFFORT_SET.has(value.reasoningEffort as LlmReasoningEffort)
+  ) {
+    addIssue(
+      issues,
+      'reasoningEffort',
+      `reasoningEffort must be one of: ${LLM_REASONING_EFFORTS.join(', ')}`,
+      'invalid_enum',
+    );
+  }
+  if (value.lastHealthCheckAt !== undefined && !isUtcIso8601(value.lastHealthCheckAt)) {
+    addIssue(issues, 'lastHealthCheckAt', 'lastHealthCheckAt must be UTC ISO-8601', 'invalid_datetime');
+  }
+  return succeedOrFail(value as unknown as LlmSubsystemHealthStatus, issues);
+}
+
+export const LlmSubsystemHealthStatusSchema = createProtocolSchema(validateLlmSubsystemHealthStatus);
+
+/** 校验完整 /health 响应结构，确保 ASR / S1 / S2 / Compiler / Reflection 归因规范一致。 */
+export function validateHealthStatusResponse(
+  value: unknown,
+): ValidationResult<HealthStatusResponse> {
+  const issues: ValidationIssue[] = [];
+  if (!isPlainObject(value)) {
+    addIssue(issues, '$', 'Expected HealthStatusResponse object');
+    return { ok: false, issues };
+  }
+  if (typeof value.ok !== 'boolean') addIssue(issues, 'ok', 'ok must be a boolean');
+  for (const strField of ['service', 'version', 'apiVersion', 'wsProtocolVersion']) {
+    if (!isNonEmptyString(value[strField])) {
+      addIssue(issues, strField, `${strField} is required`, 'required');
+    }
+  }
+  if (!isUtcIso8601(value.timestamp)) {
+    addIssue(issues, 'timestamp', 'timestamp must be UTC ISO-8601', 'invalid_datetime');
+  }
+  const asrRes = validateAsrCapabilityStatus(value.asr);
+  if (!asrRes.ok) {
+    for (const issue of asrRes.issues) issues.push({ ...issue, path: `asr.${issue.path}` });
+  }
+  const s1Res = validateLlmSubsystemHealthStatus(value.system1);
+  if (!s1Res.ok) {
+    for (const issue of s1Res.issues) issues.push({ ...issue, path: `system1.${issue.path}` });
+  }
+  const s2Res = validateLlmSubsystemHealthStatus(value.system2);
+  if (!s2Res.ok) {
+    for (const issue of s2Res.issues) issues.push({ ...issue, path: `system2.${issue.path}` });
+  }
+  if (value.compiler !== undefined) {
+    const compRes = validateLlmSubsystemHealthStatus(value.compiler);
+    if (!compRes.ok) {
+      for (const issue of compRes.issues) issues.push({ ...issue, path: `compiler.${issue.path}` });
+    }
+  }
+  if (value.reflection !== undefined) {
+    const reflRes = validateLlmSubsystemHealthStatus(value.reflection);
+    if (!reflRes.ok) {
+      for (const issue of reflRes.issues) issues.push({ ...issue, path: `reflection.${issue.path}` });
+    }
+  }
+  if (value.dualSystemMetrics !== undefined) {
+    const dualRes = validateDualSystemCollaborationMetrics(value.dualSystemMetrics);
+    if (!dualRes.ok) {
+      for (const issue of dualRes.issues) {
+        issues.push({ ...issue, path: `dualSystemMetrics.${issue.path}` });
+      }
+    }
+  }
+  return succeedOrFail(value as unknown as HealthStatusResponse, issues);
+}
+
+export const HealthStatusResponseSchema = createProtocolSchema(validateHealthStatusResponse);
+
+/** 校验 ServerEvent / ServerMessage 下行帧（含新增 'system2.guidance' 与 'session.attach_state'）。 */
+export function validateServerEvent(value: unknown): ValidationResult<ServerEvent> {
+  const issues: ValidationIssue[] = [];
+  if (!isPlainObject(value)) {
+    addIssue(issues, '$', 'Expected ServerEvent object');
+    return { ok: false, issues };
+  }
+  if (typeof value.type !== 'string' || !SERVER_EVENT_TYPES.has(value.type)) {
+    addIssue(issues, 'type', `Unsupported ServerEvent type: ${String(value.type)}`, 'unknown_type');
+    return { ok: false, issues };
+  }
+  if (!isPlainObject(value.payload)) {
+    addIssue(issues, 'payload', 'payload must be an object');
+    return { ok: false, issues };
+  }
+  if (value.serverSeq !== undefined && !isNonNegativeInt(value.serverSeq)) {
+    addIssue(issues, 'serverSeq', 'serverSeq must be a non-negative safe integer');
+  }
+  if (value.envelope !== undefined) {
+    validateEnvelopeMetaInternal(value.envelope, 'envelope', issues);
+  }
+  if (value.type === 'system2.guidance') {
+    const gRes = validateSystem2Guidance(value.payload);
+    if (!gRes.ok) {
+      for (const issue of gRes.issues) issues.push({ ...issue, path: `payload.${issue.path}` });
+    }
+  } else if (value.type === 'session.attach_state') {
+    const aRes = validateWsAttachState(value.payload);
+    if (!aRes.ok) {
+      for (const issue of aRes.issues) issues.push({ ...issue, path: `payload.${issue.path}` });
+    }
+  } else if (value.type === 'asr.status') {
+    const asrRes = validateAsrCapabilityStatus(value.payload);
+    if (!asrRes.ok) {
+      for (const issue of asrRes.issues) issues.push({ ...issue, path: `payload.${issue.path}` });
+    }
+  } else if (value.type === 'telemetry.updated') {
+    const telRes = validateTelemetryUsage(value.payload);
+    if (!telRes.ok) {
+      for (const issue of telRes.issues) issues.push({ ...issue, path: `payload.${issue.path}` });
+    }
+  }
+  return succeedOrFail(value as unknown as ServerEvent, issues);
+}
+
+export const ServerEventSchema = createProtocolSchema(validateServerEvent);

@@ -676,10 +676,23 @@ export const HomeView: React.FC<HomeViewProps> = ({
                 </span>
                 {health && (
                   <span className="text-ink-2 block leading-relaxed">
-                    ASR：{asrSummary} ｜ System 1：{health.system1.backend}（
-                    {health.system1.mode === 'real' ? '真实模型' : '本地规则引擎'}）｜ System 2：
-                    {health.system2.backend}（
-                    {health.system2.mode === 'real' ? '真实模型' : '本地规则引擎'}）
+                    ASR：{asrSummary}
+                    {health.asr.modelId ? `（${health.asr.modelId}）` : ''} ｜ System 1（快思考）：
+                    {health.system1.model ?? health.system1.backend}
+                    {health.system1.promptFormat ? ` · ${health.system1.promptFormat}` : ''}（
+                    {health.system1.fallbackActive || health.system1.degraded
+                      ? '已降级本地规则'
+                      : health.system1.mode === 'real'
+                        ? '真实模型'
+                        : '本地规则引擎'}
+                    ）｜ System 2（慢思考）：{health.system2.model ?? health.system2.backend}
+                    {health.system2.reasoningEffort ? ` · effort=${health.system2.reasoningEffort}` : ''}（
+                    {health.system2.fallbackActive || health.system2.degraded
+                      ? '已降级本地规则'
+                      : health.system2.mode === 'real'
+                        ? '真实模型'
+                        : '本地规则引擎'}
+                    ）
                   </span>
                 )}
                 {authSession && (

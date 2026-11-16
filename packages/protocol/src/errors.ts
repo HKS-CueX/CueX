@@ -18,6 +18,8 @@ export const API_ERROR_CODES = [
   'SESSION_EXPIRED',
   'ASR_UNAVAILABLE',
   'INSUFFICIENT_EVIDENCE',
+  'COMPANION_READ_ONLY',
+  'PRIMARY_MIC_CONFLICT',
   'PAYMENT_NOT_CONFIGURED',
   'INTERNAL_ERROR',
 ] as const;
@@ -37,6 +39,10 @@ export const ERROR_HTTP_STATUS: Record<ApiErrorCode, number> = {
   SESSION_EXPIRED: 410,
   ASR_UNAVAILABLE: 503,
   INSUFFICIENT_EVIDENCE: 422,
+  /** 演讲伴随窗（companion）尝试发送只读禁止的写入/控制指令。 */
+  COMPANION_READ_ONLY: 403,
+  /** 主控端（primary）与伴随窗或其他客户端发生麦克风采集权冲突。 */
+  PRIMARY_MIC_CONFLICT: 409,
   PAYMENT_NOT_CONFIGURED: 501,
   INTERNAL_ERROR: 500,
 };

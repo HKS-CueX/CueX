@@ -34,3 +34,22 @@ export function computeLatencyStats(samples: readonly number[]): TelemetryLatenc
     maxMs,
   };
 }
+
+/** 计算给定耗时样本列表的最近值、P50 与 P95（用于双系统延迟分位数统计）。 */
+export function computeQuantiles(samples: readonly number[]): {
+  lastMs: number;
+  p50Ms: number;
+  p95Ms: number;
+} | null {
+  if (samples.length === 0) return null;
+  const clean = samples.map((raw) => Math.max(0, Math.round(raw)));
+  const lastMs = clean[clean.length - 1];
+  const sorted = [...clean].sort((a, b) => a - b);
+  const p50Idx = Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * 0.5));
+  const p95Idx = Math.min(sorted.length - 1, Math.max(0, Math.ceil(sorted.length * 0.95) - 1));
+  return {
+    lastMs,
+    p50Ms: sorted[p50Idx],
+    p95Ms: sorted[p95Idx],
+  };
+}

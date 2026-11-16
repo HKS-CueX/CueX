@@ -1,4 +1,4 @@
-import type { ClientMessage, ServerMessage } from '@cuex/protocol';
+import type { ClientMessage, ServerMessage, WsAttachRole } from '@cuex/protocol';
 import { generateCorrelationId, generateIdempotencyKey } from '@/lib/api';
 
 export type WsConnectionStatus =
@@ -20,6 +20,8 @@ export interface CueXWSConnectOptions {
   token?: string | null;
   sessionId?: string;
   lastSeenSeq?: number;
+  /** 连接附着角色：主控端（primary）或只读伴随窗（companion）。 */
+  role?: WsAttachRole;
   autoReconnect?: boolean;
 }
 
@@ -48,8 +50,25 @@ export class CueXWSClient {
     this.activeSessionId = sessionId;
   }
 
+  getActiveSessionId(): string | undefined {
+    return this.activeSessionId;
+  }
+
   getLastSeenSeq(): number {
     return this.lastSeenSeq;
+  }
+
+  /** 发送显式 session.attach 附着指令，供伴随窗首次加入或重连对齐 seq。 */
+  attachSession(sessionId: string, role?: WsAttachRole, lastSeenSeq?: number): boolean {
+    this.activeSessionId = sessionId;
+    return this.send({
+      type: 'session.attach',
+      payload: {
+        sessionId,
+        lastSeenSeq: lastSeenSeq ?? this.lastSeenSeq,
+        role: role ?? this.currentOptions.role,
+      },
+    });
   }
 
   connect(optionsOrUrl?: string | CueXWSConnectOptions): void {
@@ -65,7 +84,7 @@ export class CueXWSClient {
     this.openSocket(opts, false);
   }
 
-  private buildTargetUrl(opts: CueXWSConnectOptions, isReconnect: boolean): string {
+  private buildTargetUrl(opts: CueXWSConnectOptions): string {
     const base =
       opts.serverUrl ??
       `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
@@ -73,9 +92,13 @@ export class CueXWSClient {
     if (opts.token) {
       url.searchParams.set('token', opts.token);
     }
+    // 无论首次附着（如伴随窗）还是断线重连，只要提供 sessionId 均随握手参数传递
     const resumeSessionId = opts.sessionId ?? this.activeSessionId;
-    if (isReconnect && resumeSessionId) {
+    if (resumeSessionId) {
       url.searchParams.set('sessionId', resumeSessionId);
+    }
+    if (opts.role) {
+      url.searchParams.set('role', opts.role);
     }
     if (this.lastSeenSeq > 0) {
       url.searchParams.set('lastSeenSeq', String(this.lastSeenSeq));
@@ -88,7 +111,7 @@ export class CueXWSClient {
     window.addEventListener('offline', this.handleOffline);
 
     try {
-      const targetUrl = this.buildTargetUrl(opts, isReconnect);
+      const targetUrl = this.buildTargetUrl(opts);
       const ws = new WebSocket(targetUrl);
       this.ws = ws;
 
@@ -164,8 +187,8 @@ export class CueXWSClient {
   private canAutoReconnect(closeCode?: number): boolean {
     if (this.currentOptions.autoReconnect === false) return false;
     if (!this.activeSessionId) return false;
-    // Do not retry auth or policy closures
-    if (closeCode === 4001 || closeCode === 4003 || closeCode === 1008) return false;
+    // 鉴权、只读策略或主控麦权冲突关闭时不再自动重试
+    if (closeCode === 4001 || closeCode === 4003 || closeCode === 4009 || closeCode === 1008) return false;
     return this.reconnectAttempts < this.maxReconnectAttempts;
   }
 

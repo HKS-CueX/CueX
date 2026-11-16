@@ -7,6 +7,7 @@ import {
   API_VERSION,
   WS_PROTOCOL_VERSION,
   createApiErrorResponse,
+  createWsRolePolicy,
   nowUtcIso8601,
   validateAuthSessionInput,
   validateClientMessage,
@@ -17,16 +18,21 @@ import {
   validatePresentationCompileInput,
   validatePresentationExtractInput,
   validatePresentationPackPatchInput,
+  validateWsAttachRole,
   type AsrCapabilityStatus,
   type ClientMessage,
+  type DualSystemCollaborationMetrics,
   type EventEnvelopeMeta,
   type HealthStatusResponse,
+  type LlmSubsystemHealthStatus,
   type PaymentWebhookEvent,
   type PresentationContextPack,
   type PresentationMode,
   type PresentationReflection,
   type ServerMessage,
   type UserAccount,
+  type WsAttachRole,
+  type WsAttachState,
 } from '@cuex/protocol';
 import {
   CommercialService,
@@ -87,6 +93,14 @@ import {
   type AsrStream,
 } from '../voice';
 
+interface WsSubscriber {
+  ws: WebSocket;
+  role: WsAttachRole;
+  userId: string;
+  send: (msg: ServerMessage) => void;
+  lastSeenSeq: number;
+}
+
 interface SessionEntry {
   sessionId: string;
   userId: string;
@@ -98,8 +112,15 @@ interface SessionEntry {
   reflection?: PresentationReflection;
   startedAtMs: number;
   endedAtMs?: number;
-  activeSocket?: WebSocket;
-  subscribers: Set<(msg: ServerMessage) => void>;
+  /** 会话唯一主控端连接（拥有麦克风采集与会话控制权）。 */
+  primarySubscriber?: WsSubscriber;
+  /** 会话所有在线 WebSocket 订阅者（主控端 + 0..N 伴随窗）。 */
+  subscribers: Set<WsSubscriber>;
+  /** 会话级 ASR 流与心跳定时器（由 SessionEntry 持有，伴随窗断开绝不销毁）。 */
+  asrStream?: AsrStream;
+  tickTimer?: ReturnType<typeof setInterval>;
+  /** 会话级异步串行任务队列，确保跨连接指令与 ASR/Tick 时序一致。 */
+  serializeChain: Promise<void>;
 }
 
 export interface GatewayServerOptions {
@@ -199,12 +220,13 @@ export class CueXGatewayServer {
     this.packStore = opts.packStore ?? new PresentationPackStore(this.repo);
     this.memoryStore = opts.memoryStore ?? new MemoryStore(this.repo);
     this.asrEngine = opts.asrEngine ?? defaultAsrEngine(opts.config);
-    const shouldInitCpa = opts.config.system1Mode === 'real' || opts.config.system2Mode === 'real';
+    // CPA 仅服务 System 2 / Compiler / Reflection；System 1 real 模式严格直连 Colab / 本地 JEV 模型。
+    const shouldInitCpa = opts.config.system2Mode === 'real';
     const resolvedCpa = !opts.cpaClient && shouldInitCpa ? resolveCpaConfig() : null;
     this.cpaClient = opts.cpaClient ?? (resolvedCpa ? new CpaClient(resolvedCpa) : undefined);
     this.fastDecision =
       opts.fastDecision ??
-      createFastDecisionProvider(opts.config.system1Mode, process.env, { cpaClient: this.cpaClient });
+      createFastDecisionProvider(opts.config.system1Mode, process.env);
     this.slowReasoning =
       opts.slowReasoning ??
       createSlowReasoningProvider(opts.config.system2Mode, {
@@ -298,6 +320,8 @@ export class CueXGatewayServer {
 
   async stop(): Promise<void> {
     for (const entry of this.sessions.values()) {
+      this.stopSessionTickTimer(entry);
+      this.closeSessionAsrStream(entry);
       try {
         entry.runtime?.end(this.config.defaultUtilityLambda);
       } catch {
@@ -446,6 +470,89 @@ export class CueXGatewayServer {
           this.probeAsrCapability(),
         ]);
         const repoOk = this.repo.ping();
+        const s1Subsystem: LlmSubsystemHealthStatus = {
+          backend: this.fastDecision.backend,
+          mode: this.fastDecision.mode,
+          healthy: s1Health.ok,
+          detail: s1Health.detail,
+          ...(s1Health.provider ? { provider: s1Health.provider } : {}),
+          ...(s1Health.model ? { model: s1Health.model } : {}),
+          ...(s1Health.degraded !== undefined ? { degraded: s1Health.degraded } : {}),
+          ...(s1Health.fallbackActive !== undefined ? { fallbackActive: s1Health.fallbackActive } : {}),
+          ...(s1Health.fallbackReason ? { fallbackReason: s1Health.fallbackReason } : {}),
+          ...(s1Health.promptFormat ? { promptFormat: s1Health.promptFormat } : {}),
+          ...(s1Health.calibrated !== undefined ? { calibrated: s1Health.calibrated } : {}),
+          ...(s1Health.lastHealthCheckAt ? { lastHealthCheckAt: s1Health.lastHealthCheckAt } : {}),
+        };
+        const s2Subsystem: LlmSubsystemHealthStatus = {
+          backend: this.slowReasoning.backend,
+          mode: this.slowReasoning.mode,
+          healthy: s2Health.ok,
+          detail: s2Health.detail,
+          ...(s2Health.provider ? { provider: s2Health.provider } : {}),
+          ...(s2Health.model ? { model: s2Health.model } : {}),
+          ...(s2Health.degraded !== undefined ? { degraded: s2Health.degraded } : {}),
+          ...(s2Health.fallbackActive !== undefined ? { fallbackActive: s2Health.fallbackActive } : {}),
+          ...(s2Health.fallbackReason ? { fallbackReason: s2Health.fallbackReason } : {}),
+          ...(s2Health.reasoningEffort ? { reasoningEffort: s2Health.reasoningEffort } : {}),
+          ...(s2Health.lastHealthCheckAt ? { lastHealthCheckAt: s2Health.lastHealthCheckAt } : {}),
+        };
+        const compilerModel = s2Health.compilerModel ?? this.cpaClient?.config.compilerModel ?? 'local_compiler';
+        const reflectionModel = s2Health.reflectionModel ?? this.cpaClient?.config.reflectionModel ?? 'local_reflection';
+        const cpaReal = Boolean(this.cpaClient && this.config.system2Mode === 'real');
+        const compilerSubsystem: LlmSubsystemHealthStatus = cpaReal
+          ? {
+              backend: 'cpa_responses',
+              mode: 'real',
+              healthy: s2Health.ok,
+              detail: s2Health.fallbackActive
+                ? `Compiler fallback active (${s2Health.fallbackReason ?? s2Health.detail}).`
+                : `CPA compiler ready (model=${compilerModel}, effort=${s2Health.reasoningEffort ?? this.cpaClient!.config.system2ReasoningEffort}).`,
+              provider: this.cpaClient!.config.providerLabel,
+              model: compilerModel,
+              degraded: Boolean(s2Health.degraded),
+              fallbackActive: Boolean(s2Health.fallbackActive ?? !s2Health.ok),
+              ...(s2Health.fallbackReason ? { fallbackReason: s2Health.fallbackReason } : {}),
+              reasoningEffort: s2Health.reasoningEffort ?? this.cpaClient!.config.system2ReasoningEffort,
+              ...(s2Health.lastHealthCheckAt ? { lastHealthCheckAt: s2Health.lastHealthCheckAt } : {}),
+            }
+          : {
+              backend: 'local_compiler',
+              mode: 'local_fallback',
+              healthy: true,
+              detail: 'Deterministic local grounded presentation pack compiler.',
+              provider: 'local_compiler',
+              model: compilerModel,
+              fallbackActive: false,
+              ...(s2Health.lastHealthCheckAt ? { lastHealthCheckAt: s2Health.lastHealthCheckAt } : {}),
+            };
+        const reflectionSubsystem: LlmSubsystemHealthStatus = cpaReal
+          ? {
+              backend: 'cpa_responses',
+              mode: 'real',
+              healthy: s2Health.ok,
+              detail: s2Health.fallbackActive
+                ? `Reflection fallback active (${s2Health.fallbackReason ?? s2Health.detail}).`
+                : `CPA reflection ready (model=${reflectionModel}, effort=${s2Health.reasoningEffort ?? this.cpaClient!.config.system2ReasoningEffort}).`,
+              provider: this.cpaClient!.config.providerLabel,
+              model: reflectionModel,
+              degraded: Boolean(s2Health.degraded),
+              fallbackActive: Boolean(s2Health.fallbackActive ?? !s2Health.ok),
+              ...(s2Health.fallbackReason ? { fallbackReason: s2Health.fallbackReason } : {}),
+              reasoningEffort: s2Health.reasoningEffort ?? this.cpaClient!.config.system2ReasoningEffort,
+              ...(s2Health.lastHealthCheckAt ? { lastHealthCheckAt: s2Health.lastHealthCheckAt } : {}),
+            }
+          : {
+              backend: 'local_reflection',
+              mode: 'local_fallback',
+              healthy: true,
+              detail: 'Deterministic local presentation reflection & rehearsal engine.',
+              provider: 'local_reflection',
+              model: reflectionModel,
+              fallbackActive: false,
+              ...(s2Health.lastHealthCheckAt ? { lastHealthCheckAt: s2Health.lastHealthCheckAt } : {}),
+            };
+
         const health: HealthStatusResponse = {
           ok: repoOk,
           service: 'cuex-server',
@@ -454,26 +561,11 @@ export class CueXGatewayServer {
           wsProtocolVersion: WS_PROTOCOL_VERSION,
           timestamp: nowUtcIso8601(),
           asr: asrStatus,
-          system1: {
-            backend: this.fastDecision.backend,
-            mode: this.fastDecision.mode,
-            healthy: s1Health.ok,
-            detail: s1Health.detail,
-            ...(s1Health.provider ? { provider: s1Health.provider } : {}),
-            ...(s1Health.model ? { model: s1Health.model } : {}),
-            ...(s1Health.degraded !== undefined ? { degraded: s1Health.degraded } : {}),
-            ...(s1Health.lastHealthCheckAt ? { lastHealthCheckAt: s1Health.lastHealthCheckAt } : {}),
-          },
-          system2: {
-            backend: this.slowReasoning.backend,
-            mode: this.slowReasoning.mode,
-            healthy: s2Health.ok,
-            detail: s2Health.detail,
-            ...(s2Health.provider ? { provider: s2Health.provider } : {}),
-            ...(s2Health.model ? { model: s2Health.model } : {}),
-            ...(s2Health.degraded !== undefined ? { degraded: s2Health.degraded } : {}),
-            ...(s2Health.lastHealthCheckAt ? { lastHealthCheckAt: s2Health.lastHealthCheckAt } : {}),
-          },
+          system1: s1Subsystem,
+          system2: s2Subsystem,
+          compiler: compilerSubsystem,
+          reflection: reflectionSubsystem,
+          dualSystemMetrics: this.buildHealthDualSystemMetrics(),
         };
         this.writeJson(res, repoOk ? 200 : 503, health, correlationId);
         return;
@@ -1084,6 +1176,201 @@ export class CueXGatewayServer {
     });
   }
 
+  private buildHealthDualSystemMetrics(): DualSystemCollaborationMetrics {
+    let latestActive: SessionEntry | undefined;
+    let latestAny: SessionEntry | undefined;
+    for (const entry of this.sessions.values()) {
+      if (entry.runtime) {
+        latestAny = entry;
+        if (!entry.endedAtMs) {
+          latestActive = entry;
+        }
+      }
+    }
+    const target = latestActive ?? latestAny;
+    if (target?.runtime) {
+      return target.runtime.state.getDualSystemMetrics();
+    }
+    return {
+      s1Evaluations: 0,
+      s1Escalations: 0,
+      s2AsyncDispatches: 0,
+      s2Completed: 0,
+      s2CancelledAsStale: 0,
+      s2Coalesced: 0,
+      guidanceRevisionsIssued: 0,
+      guidanceAppliedCount: 0,
+      guidanceExpiredOrOverridden: 0,
+    };
+  }
+
+  private enqueueSessionTask(entry: SessionEntry, task: () => Promise<void>): void {
+    entry.serializeChain = entry.serializeChain
+      .then(task)
+      .then(() => undefined)
+      .catch(() => undefined);
+  }
+
+  private stopSessionTickTimer(entry: SessionEntry): void {
+    if (entry.tickTimer) {
+      clearInterval(entry.tickTimer);
+      entry.tickTimer = undefined;
+    }
+  }
+
+  private ensureSessionTickTimer(entry: SessionEntry): void {
+    if (entry.tickTimer || !entry.runtime || entry.endedAtMs) {
+      return;
+    }
+    entry.tickTimer = setInterval(() => {
+      if (!entry.runtime || entry.endedAtMs) {
+        this.stopSessionTickTimer(entry);
+        return;
+      }
+      this.enqueueSessionTask(entry, async () => {
+        if (entry.runtime && !entry.endedAtMs) {
+          await entry.runtime.processTick();
+        }
+      });
+    }, 1000);
+  }
+
+  private closeSessionAsrStream(entry: SessionEntry): void {
+    if (entry.asrStream) {
+      try {
+        entry.asrStream.end();
+      } catch {
+        // Ignore close failures
+      }
+      entry.asrStream = undefined;
+    }
+  }
+
+  private broadcastToSession(entry: SessionEntry, msg: ServerMessage): void {
+    for (const sub of entry.subscribers) {
+      sub.send(msg);
+      if (typeof msg.serverSeq === 'number' && msg.serverSeq > sub.lastSeenSeq) {
+        sub.lastSeenSeq = msg.serverSeq;
+      }
+    }
+  }
+
+  private buildAttachState(
+    entry: SessionEntry,
+    role: WsAttachRole,
+    lastSeenSeq: number,
+  ): WsAttachState {
+    const activePrimaryConnected = Boolean(
+      entry.primarySubscriber && entry.primarySubscriber.ws.readyState === entry.primarySubscriber.ws.OPEN,
+    );
+    const companionCount = Array.from(entry.subscribers).filter(
+      (sub) => sub.role === 'companion' && sub.ws.readyState === sub.ws.OPEN,
+    ).length;
+    const rolePolicy = createWsRolePolicy(role);
+    return {
+      sessionId: entry.sessionId,
+      lastSeenSeq,
+      role,
+      activePrimaryConnected,
+      canCaptureMic: rolePolicy.canCaptureMic,
+      rolePolicy,
+      companionCount,
+    };
+  }
+
+  private broadcastAttachState(entry: SessionEntry, excludeSub?: WsSubscriber): void {
+    for (const sub of entry.subscribers) {
+      if (sub === excludeSub || sub.ws.readyState !== sub.ws.OPEN) {
+        continue;
+      }
+      sub.send({
+        type: 'session.attach_state',
+        payload: this.buildAttachState(entry, sub.role, sub.lastSeenSeq),
+      });
+    }
+  }
+
+  private async openSessionAsrStream(
+    entry: SessionEntry,
+    initialAsrStatus: AsrCapabilityStatus,
+    correlationId?: string,
+  ): Promise<void> {
+    if (!entry.runtime || this.asrEngine instanceof TextOnlyAsr) {
+      return;
+    }
+    this.closeSessionAsrStream(entry);
+    const shouldOpenColab = !(this.asrEngine instanceof ColabAsrProvider) || initialAsrStatus.available;
+    if (!shouldOpenColab) {
+      this.stateDegradeAsrNotice(entry.runtime, initialAsrStatus.detail);
+      return;
+    }
+    const transcriptSource =
+      this.asrEngine instanceof ColabAsrProvider
+        ? 'external_asr'
+        : this.asrEngine instanceof RemoteSherpaAsr
+          ? 'remote_sherpa'
+          : 'local_sherpa';
+    try {
+      entry.asrStream = await this.asrEngine.open(
+        { sampleRate: 16_000 },
+        {
+          onPartial: (text) => {
+            const fixed = correctAsrText(text, SAMPLE_ASR_CORRECTIONS);
+            if (!fixed.trim() || !entry.runtime || entry.endedAtMs) return;
+            this.enqueueSessionTask(entry, async () => {
+              if (!entry.runtime || entry.endedAtMs) return;
+              await entry.runtime.ingestSpeech({
+                speaker: 'presenter',
+                text: fixed,
+                isFinal: false,
+                source: transcriptSource,
+              });
+            });
+          },
+          onFinal: (text) => {
+            const fixed = correctAsrText(text, SAMPLE_ASR_CORRECTIONS);
+            if (!fixed.trim() || !entry.runtime || entry.endedAtMs) return;
+            this.enqueueSessionTask(entry, async () => {
+              if (!entry.runtime || entry.endedAtMs) return;
+              await entry.runtime.ingestSpeech({
+                speaker: 'presenter',
+                text: fixed,
+                isFinal: true,
+                source: transcriptSource,
+              });
+            });
+          },
+          onError: (err) => {
+            if (!entry.runtime) return;
+            this.stateDegradeAsrNotice(entry.runtime, err.message);
+            this.broadcastToSession(entry, {
+              type: 'asr.status',
+              correlationId,
+              payload: this.getAsrCapability(),
+            });
+            this.broadcastToSession(entry, {
+              type: 'session.error',
+              ...(correlationId ? { correlationId } : {}),
+              payload: { code: 'ASR_ERROR', message: err.message, sessionId: entry.sessionId },
+            });
+          },
+        },
+      );
+    } catch (err) {
+      this.stateDegradeAsrNotice(entry.runtime, (err as Error).message);
+      this.broadcastToSession(entry, {
+        type: 'asr.status',
+        correlationId,
+        payload: this.getAsrCapability(),
+      });
+      this.broadcastToSession(entry, {
+        type: 'session.error',
+        ...(correlationId ? { correlationId } : {}),
+        payload: { code: 'ASR_ERROR', message: (err as Error).message, sessionId: entry.sessionId },
+      });
+    }
+  }
+
   private attachWsConnection(
     ws: WebSocket,
     _req: IncomingMessage,
@@ -1093,15 +1380,21 @@ export class CueXGatewayServer {
     const reconnectSessionId = url.searchParams.get('sessionId')?.trim();
     const lastSeenSeqRaw = url.searchParams.get('lastSeenSeq');
     const lastSeenSeq = lastSeenSeqRaw ? Math.max(0, Number.parseInt(lastSeenSeqRaw, 10) || 0) : 0;
+    const roleRaw = url.searchParams.get('role')?.trim();
+
+    let connectionRole: WsAttachRole = 'primary';
+    let invalidHandshakeRole: string | undefined;
+    if (roleRaw) {
+      const roleCheck = validateWsAttachRole(roleRaw);
+      if (!roleCheck.ok) {
+        invalidHandshakeRole = roleRaw;
+      } else {
+        connectionRole = roleCheck.value;
+      }
+    }
 
     this.liveSockets.add(ws);
     this.metrics.recordWsConnect(Boolean(reconnectSessionId));
-
-    let activeRuntime: CognitiveRuntimeSession<unknown, PresentationReflection> | undefined;
-    let activePlugin: PresentationRuntimePlugin | undefined;
-    let asrStream: AsrStream | undefined;
-    let tickTimer: ReturnType<typeof setInterval> | undefined;
-    let serializeChain = Promise.resolve();
 
     const sendRaw = (msg: ServerMessage) => {
       if (ws.readyState === ws.OPEN) {
@@ -1117,101 +1410,185 @@ export class CueXGatewayServer {
       });
     };
 
-    const stopTimers = () => {
-      if (tickTimer) {
-        clearInterval(tickTimer);
-        tickTimer = undefined;
+    if (invalidHandshakeRole) {
+      sendError(
+        'VALIDATION_ERROR',
+        `无效的 WebSocket 连接角色 "${invalidHandshakeRole}"，仅支持 primary 或 companion。`,
+      );
+      ws.on('close', () => {
+        this.liveSockets.delete(ws);
+        this.metrics.recordWsDisconnect();
+      });
+      return;
+    }
+
+    const COMPANION_ALLOWED_COMMANDS = new Set<ClientMessage['type']>([
+      'session.attach',
+      'ping',
+      'intervention.request_help',
+      'intervention.dismiss',
+      'intervention.feedback',
+    ]);
+
+    let attachedEntry: SessionEntry | undefined;
+    let socketChain = Promise.resolve();
+    const subscriber: WsSubscriber = {
+      ws,
+      role: connectionRole,
+      userId: user.userId,
+      send: sendRaw,
+      lastSeenSeq,
+    };
+
+    const detachCurrentSubscriber = (reason: 'switch' | 'close') => {
+      if (!attachedEntry) {
+        return;
       }
-    };
-
-    const closeAsrStream = () => {
-      if (asrStream) {
-        try {
-          asrStream.end();
-        } catch {
-          // Ignore close failures
-        }
-        asrStream = undefined;
-      }
-    };
-
-    const startTickLoop = (runtime: CognitiveRuntimeSession<unknown, PresentationReflection>) => {
-      stopTimers();
-      tickTimer = setInterval(() => {
-        serializeChain = serializeChain
-          .then(() => runtime.processTick())
-          .then(() => undefined)
-          .catch(() => undefined);
-      }, 1000);
-    };
-
-    const bindSubscriber = (entry: SessionEntry) => {
-      entry.activeSocket = ws;
-      entry.subscribers.add(sendRaw);
-    };
-
-    const unbindSubscribers = () => {
-      for (const entry of this.sessions.values()) {
-        entry.subscribers.delete(sendRaw);
-        if (entry.activeSocket === ws) {
-          entry.activeSocket = undefined;
-        }
-      }
-    };
-
-    // Optional reconnect hydration: /ws?token=...&sessionId=...&lastSeenSeq=...
-    if (reconnectSessionId) {
-      const existing = this.sessions.get(reconnectSessionId);
-      if (existing && existing.userId !== user.userId && user.role !== 'admin') {
-        sendError('FORBIDDEN', 'Cannot reconnect to a session owned by another user.', reconnectSessionId);
-      } else if (existing?.runtime && existing.plugin) {
-        activeRuntime = existing.runtime;
-        activePlugin = existing.plugin;
-        // Reconcile TTL/state first before attaching this socket so withdrawals land in session_events
-        // and replay once in seq order right after session.ready.
-        activeRuntime.reconcileBeforeReconnect();
-        const nowMs = this.clock.now();
-        const stateSnap = activeRuntime.state.snapshot({
-          recentObservations: activeRuntime.context.getRecentObservations(),
-          recentSegments: activeRuntime.context.getRecentSegments(),
-          now: nowMs,
-        });
-        const presState = activePlugin.getProjection(stateSnap, nowMs);
-        sendRaw({
-          type: 'session.ready',
-          payload: {
-            session: { ...activeRuntime.context.session },
-            serverTime: nowUtcIso8601(),
-            scenario: this.scenarios.assertRunnable('presentation'),
-            asrStatus: this.getAsrCapability(),
-            initialState: stateSnap,
-            presentationState: presState,
-          },
-        });
-
-        // Replay only un-seen events whose shown intervention is still active.
-        const currentActiveIntId = stateSnap.activeIntervention?.interventionId;
-        const missed = this.repo.listSessionEventsSince(reconnectSessionId, lastSeenSeq, 'ws_server');
-        let replayedCount = 0;
-        for (const ev of missed) {
-          if (ev.eventType === 'intervention.shown') {
-            const p = ev.payload as { intervention?: { interventionId?: string } };
-            if (p.intervention?.interventionId !== currentActiveIntId) {
-              continue;
-            }
+      const prevEntry = attachedEntry;
+      const wasPrimary = prevEntry.primarySubscriber === subscriber;
+      prevEntry.subscribers.delete(subscriber);
+      if (wasPrimary) {
+        prevEntry.primarySubscriber = undefined;
+        if (reason === 'close') {
+          // 主控端断线释放其麦克风采集流；若已无任何订阅端在线，再停止会话心跳。
+          this.closeSessionAsrStream(prevEntry);
+          if (prevEntry.subscribers.size === 0) {
+            this.stopSessionTickTimer(prevEntry);
           }
-          replayedCount += 1;
-          sendRaw({
-            type: ev.eventType,
-            serverSeq: ev.serverSeq,
-            correlationId: ev.correlationId,
-            payload: ev.payload,
-          } as ServerMessage);
         }
-        this.metrics.recordWsReplayed(replayedCount);
-        bindSubscriber(existing);
-        startTickLoop(activeRuntime);
       }
+      // 伴随窗断开绝不停止主控端 ASR 流或心跳定时器，仅更新在线计数。
+      attachedEntry = undefined;
+      this.broadcastAttachState(prevEntry);
+    };
+
+    const attachToSession = (opts: {
+      sessionId: string;
+      lastSeenSeq: number;
+      requestedRole?: WsAttachRole;
+      correlationId?: string;
+      emitAttachEventToSelf: boolean;
+    }): boolean => {
+      const existing = this.sessions.get(opts.sessionId);
+      if (!existing) {
+        sendError('NOT_FOUND', `会话 ${opts.sessionId} 不存在或已过期。`, opts.sessionId, opts.correlationId);
+        return false;
+      }
+      if (existing.userId !== user.userId && user.role !== 'admin') {
+        sendError(
+          'FORBIDDEN',
+          'Cannot reconnect or attach to a session owned by another user.',
+          opts.sessionId,
+          opts.correlationId,
+        );
+        return false;
+      }
+      if (!existing.runtime || !existing.plugin) {
+        sendError('NO_ACTIVE_SESSION', '目标会话运行时尚未就绪。', opts.sessionId, opts.correlationId);
+        return false;
+      }
+
+      const resolvedRole = opts.requestedRole ?? connectionRole;
+      if (
+        resolvedRole === 'primary' &&
+        existing.primarySubscriber &&
+        existing.primarySubscriber !== subscriber &&
+        existing.primarySubscriber.ws.readyState === existing.primarySubscriber.ws.OPEN
+      ) {
+        sendError(
+          'PRIMARY_MIC_CONFLICT',
+          '当前会话已有在线主控端占用麦克风与会话控制权，请使用 companion 模式接入或先断开原主控端。',
+          opts.sessionId,
+          opts.correlationId,
+        );
+        return false;
+      }
+
+      if (attachedEntry && attachedEntry !== existing) {
+        detachCurrentSubscriber('switch');
+      }
+
+      connectionRole = resolvedRole;
+      subscriber.role = resolvedRole;
+      subscriber.lastSeenSeq = opts.lastSeenSeq;
+
+      // 先执行 TTL 与状态对账，确保过期退出事件落入 session_events 后按序补播。
+      existing.runtime.reconcileBeforeReconnect();
+      const nowMs = this.clock.now();
+      const stateSnap = existing.runtime.state.snapshot({
+        recentObservations: existing.runtime.context.getRecentObservations(),
+        recentSegments: existing.runtime.context.getRecentSegments(),
+        now: nowMs,
+      });
+      const presState = existing.plugin.getProjection(stateSnap, nowMs);
+
+      existing.subscribers.add(subscriber);
+      if (resolvedRole === 'primary') {
+        existing.primarySubscriber = subscriber;
+      }
+      attachedEntry = existing;
+      if (!existing.endedAtMs) {
+        this.ensureSessionTickTimer(existing);
+      }
+
+      const attachState = this.buildAttachState(existing, resolvedRole, opts.lastSeenSeq);
+      sendRaw({
+        type: 'session.ready',
+        ...(opts.correlationId ? { correlationId: opts.correlationId } : {}),
+        payload: {
+          session: { ...existing.runtime.context.session },
+          serverTime: nowUtcIso8601(),
+          scenario: this.scenarios.assertRunnable('presentation'),
+          asrStatus: this.getAsrCapability(),
+          initialState: stateSnap,
+          presentationState: presState,
+          attachState,
+        },
+      });
+
+      const currentActiveIntId = stateSnap.activeIntervention?.interventionId;
+      const missed = this.repo.listSessionEventsSince(opts.sessionId, opts.lastSeenSeq, 'ws_server');
+      let replayedCount = 0;
+      for (const ev of missed) {
+        // 已向当前连接下发带实时快照与 attachState 的 session.ready，跳过历史 session.ready 避免覆盖伴随角色。
+        if (ev.eventType === 'session.ready') {
+          continue;
+        }
+        if (ev.eventType === 'intervention.shown') {
+          const p = ev.payload as { intervention?: { interventionId?: string } };
+          if (p.intervention?.interventionId !== currentActiveIntId) {
+            continue;
+          }
+        }
+        replayedCount += 1;
+        if (ev.serverSeq > subscriber.lastSeenSeq) {
+          subscriber.lastSeenSeq = ev.serverSeq;
+        }
+        sendRaw({
+          type: ev.eventType,
+          serverSeq: ev.serverSeq,
+          correlationId: ev.correlationId,
+          payload: ev.payload,
+        } as ServerMessage);
+      }
+      this.metrics.recordWsReplayed(replayedCount);
+
+      if (opts.emitAttachEventToSelf) {
+        this.broadcastAttachState(existing);
+      } else {
+        this.broadcastAttachState(existing, subscriber);
+      }
+      return true;
+    };
+
+    // 可选握手附着：/ws?token=...&sessionId=...&lastSeenSeq=...&role=primary|companion
+    if (reconnectSessionId) {
+      attachToSession({
+        sessionId: reconnectSessionId,
+        lastSeenSeq,
+        requestedRole: connectionRole,
+        emitAttachEventToSelf: false,
+      });
     }
 
     const startPresentationSession = async (
@@ -1285,7 +1662,7 @@ export class CueXGatewayServer {
         pack = this.packStore.getDefaultPack(user.userId);
       }
 
-      unbindSubscribers();
+      detachCurrentSubscriber('switch');
 
       const nowMs = this.clock.now();
       const plugin = new PresentationRuntimePlugin({
@@ -1297,6 +1674,9 @@ export class CueXGatewayServer {
         initialChapterId: params.rehearsalTarget?.chapterId ?? pack.progressNodes[0]?.chapterId,
       });
 
+      subscriber.role = 'primary';
+      subscriber.lastSeenSeq = 0;
+
       const entry: SessionEntry = {
         sessionId,
         userId: user.userId,
@@ -1305,10 +1685,12 @@ export class CueXGatewayServer {
         packTitle: pack.title,
         plugin,
         startedAtMs: nowMs,
-        subscribers: new Set([sendRaw]),
-        activeSocket: ws,
+        primarySubscriber: subscriber,
+        subscribers: new Set([subscriber]),
+        serializeChain: Promise.resolve(),
       };
       this.sessions.set(sessionId, entry);
+      attachedEntry = entry;
 
       const fanout = (msg: ServerMessage) => {
         if (msg.type === 'system1.verdict') {
@@ -1336,9 +1718,7 @@ export class CueXGatewayServer {
           this.metrics.updateSessionTelemetry(msg.payload);
         }
 
-        for (const sub of entry.subscribers) {
-          sub(msg);
-        }
+        this.broadcastToSession(entry, msg);
       };
 
       const initialAsrStatus = await this.probeAsrCapability();
@@ -1374,12 +1754,11 @@ export class CueXGatewayServer {
         memoryStore: this.memoryStore,
         clock: this.clock,
         pipeline: this.pipeline,
+        asyncSystem2: true,
         emitMessage: fanout,
       });
 
       entry.runtime = runtime;
-      activeRuntime = runtime;
-      activePlugin = plugin;
 
       this.repo.saveSession({
         session: { ...runtime.context.session },
@@ -1388,75 +1767,7 @@ export class CueXGatewayServer {
       });
 
       this.metrics.recordFunnelEvent('session_started');
-
-      if (!(this.asrEngine instanceof TextOnlyAsr)) {
-        closeAsrStream();
-        const shouldOpenColab = !(this.asrEngine instanceof ColabAsrProvider) || initialAsrStatus.available;
-        if (!shouldOpenColab) {
-          this.stateDegradeAsrNotice(runtime, initialAsrStatus.detail);
-        } else {
-          const transcriptSource =
-            this.asrEngine instanceof ColabAsrProvider
-              ? 'external_asr'
-              : this.asrEngine instanceof RemoteSherpaAsr
-                ? 'remote_sherpa'
-                : 'local_sherpa';
-          try {
-            asrStream = await this.asrEngine.open(
-              { sampleRate: 16_000 },
-              {
-                onPartial: (text) => {
-                  const fixed = correctAsrText(text, SAMPLE_ASR_CORRECTIONS);
-                  if (!fixed.trim()) return;
-                  serializeChain = serializeChain
-                    .then(() =>
-                      runtime.ingestSpeech({
-                        speaker: 'presenter',
-                        text: fixed,
-                        isFinal: false,
-                        source: transcriptSource,
-                      }),
-                    )
-                    .then(() => undefined)
-                    .catch(() => undefined);
-                },
-                onFinal: (text) => {
-                  const fixed = correctAsrText(text, SAMPLE_ASR_CORRECTIONS);
-                  if (!fixed.trim()) return;
-                  serializeChain = serializeChain
-                    .then(() =>
-                      runtime.ingestSpeech({
-                        speaker: 'presenter',
-                        text: fixed,
-                        isFinal: true,
-                        source: transcriptSource,
-                      }),
-                    )
-                    .then(() => undefined)
-                    .catch(() => undefined);
-                },
-                onError: (err) => {
-                  this.stateDegradeAsrNotice(runtime, err.message);
-                  sendRaw({
-                    type: 'asr.status',
-                    correlationId,
-                    payload: this.getAsrCapability(),
-                  });
-                  sendError('ASR_ERROR', err.message, sessionId, correlationId);
-                },
-              },
-            );
-          } catch (err) {
-            this.stateDegradeAsrNotice(runtime, (err as Error).message);
-            sendRaw({
-              type: 'asr.status',
-              correlationId,
-              payload: this.getAsrCapability(),
-            });
-            sendError('ASR_ERROR', (err as Error).message, sessionId, correlationId);
-          }
-        }
-      }
+      await this.openSessionAsrStream(entry, initialAsrStatus, correlationId);
 
       const stateSnap = runtime.state.snapshot({
         recentObservations: runtime.context.getRecentObservations(),
@@ -1476,6 +1787,7 @@ export class CueXGatewayServer {
           asrStatus: this.getAsrCapability(),
           initialState: stateSnap,
           presentationState: presState,
+          attachState: this.buildAttachState(entry, 'primary', 0),
         },
         sessionId,
         tenantId: user.tenantId,
@@ -1484,7 +1796,7 @@ export class CueXGatewayServer {
         persistCategory: 'ws_server',
       });
 
-      sendRaw({
+      this.broadcastToSession(entry, {
         type: 'session.ready',
         serverSeq: trackedReady.serverSeq,
         correlationId: trackedReady.envelope.correlationId,
@@ -1517,10 +1829,14 @@ export class CueXGatewayServer {
         });
       }
 
-      startTickLoop(runtime);
+      this.ensureSessionTickTimer(entry);
     };
 
     const handleMessage = async (msg: ClientMessage) => {
+      const currentEntry = attachedEntry;
+      const activeRuntime = currentEntry?.runtime;
+      const activePlugin = currentEntry?.plugin;
+
       const idempotencyScope =
         msg.type === 'session.start' || msg.type === 'rehearsal.start'
           ? `ws_start:${user.userId}`
@@ -1543,12 +1859,34 @@ export class CueXGatewayServer {
 
       const correlationId = msg.correlationId ?? randomUUID();
 
+      // 伴随窗安全隔离边界：禁止麦克风采集、会话启停/暂停/静默/wipe、章节/上限/视图篡改。
+      if (connectionRole === 'companion' && !COMPANION_ALLOWED_COMMANDS.has(msg.type)) {
+        sendError(
+          'COMPANION_READ_ONLY',
+          `伴随窗（companion）无权执行控制或采集指令 "${msg.type}"；仅允许求助、忽略、反馈与重连附着。`,
+          activeRuntime?.sessionId,
+          correlationId,
+        );
+        return;
+      }
+
       switch (msg.type) {
         case 'ping': {
           sendRaw({
             type: 'pong',
             correlationId,
             payload: { t: msg.payload.t, serverTime: nowUtcIso8601() },
+          });
+          return;
+        }
+
+        case 'session.attach': {
+          attachToSession({
+            sessionId: msg.payload.sessionId,
+            lastSeenSeq: Math.max(0, msg.payload.lastSeenSeq ?? 0),
+            requestedRole: msg.payload.role,
+            correlationId,
+            emitAttachEventToSelf: true,
           });
           return;
         }
@@ -1612,7 +1950,7 @@ export class CueXGatewayServer {
         }
 
         case 'audio.chunk': {
-          if (!activeRuntime) {
+          if (!currentEntry || !activeRuntime) {
             sendError('NO_ACTIVE_SESSION', '请先启动会话再发送音频帧。', undefined, correlationId);
             return;
           }
@@ -1625,7 +1963,7 @@ export class CueXGatewayServer {
             );
             return;
           }
-          if (!asrStream) {
+          if (!currentEntry.asrStream) {
             const st = this.getAsrCapability();
             sendError(
               'ASR_UNAVAILABLE',
@@ -1649,7 +1987,7 @@ export class CueXGatewayServer {
               nowMs: this.clock.now(),
             });
           }
-          asrStream.write(pcm);
+          currentEntry.asrStream.write(pcm);
           return;
         }
 
@@ -1678,7 +2016,11 @@ export class CueXGatewayServer {
         }
 
         case 'intervention.request_help': {
-          await activeRuntime?.requestManualHelp({
+          if (!activeRuntime) {
+            sendError('NO_ACTIVE_SESSION', '请先连接或启动会话后再请求实时协助。', undefined, correlationId);
+            return;
+          }
+          await activeRuntime.requestManualHelp({
             preferredLevel: msg.payload.preferredLevel,
             question: msg.payload.question,
             correlationId,
@@ -1687,7 +2029,13 @@ export class CueXGatewayServer {
         }
 
         case 'intervention.dismiss': {
-          activeRuntime?.dismissIntervention(msg.payload, correlationId);
+          if (!activeRuntime) {
+            if (connectionRole === 'companion') {
+              sendError('NO_ACTIVE_SESSION', '请先附着会话后再忽略提示卡。', undefined, correlationId);
+            }
+            return;
+          }
+          activeRuntime.dismissIntervention(msg.payload, correlationId);
           return;
         }
 
@@ -1697,7 +2045,13 @@ export class CueXGatewayServer {
         }
 
         case 'intervention.feedback': {
-          activeRuntime?.recordFeedback(msg.payload.interventionId, msg.payload.feedback, correlationId);
+          if (!activeRuntime) {
+            if (connectionRole === 'companion') {
+              sendError('NO_ACTIVE_SESSION', '请先附着会话后再提交提示卡反馈。', undefined, correlationId);
+            }
+            return;
+          }
+          activeRuntime.recordFeedback(msg.payload.interventionId, msg.payload.feedback, correlationId);
           return;
         }
 
@@ -1724,9 +2078,9 @@ export class CueXGatewayServer {
 
         case 'session.stop':
         case 'session.end': {
-          if (!activeRuntime) return;
-          stopTimers();
-          closeAsrStream();
+          if (!currentEntry || !activeRuntime) return;
+          this.stopSessionTickTimer(currentEntry);
+          this.closeSessionAsrStream(currentEntry);
           const result = activeRuntime.end(this.config.defaultUtilityLambda, correlationId);
           if (this.cpaClient && this.config.system2Mode === 'real') {
             try {
@@ -1748,15 +2102,12 @@ export class CueXGatewayServer {
             }
           }
           const endedMs = isoToMs(result.endedAt, this.clock.now());
-          const entry = this.sessions.get(activeRuntime.sessionId);
-          if (entry) {
-            entry.reflection = result.reflection;
-            entry.endedAtMs = endedMs;
-          }
+          currentEntry.reflection = result.reflection;
+          currentEntry.endedAtMs = endedMs;
 
           this.repo.saveSession({
             session: { ...activeRuntime.context.session },
-            packTitle: entry?.packTitle,
+            packTitle: currentEntry.packTitle,
             elapsedSec: Math.round(result.durationMs / 1000),
             durationMs: result.durationMs,
             utilityScore: result.outcome.utilityScore,
@@ -1798,7 +2149,7 @@ export class CueXGatewayServer {
             persistCategory: 'ws_server',
           });
 
-          sendRaw({
+          this.broadcastToSession(currentEntry, {
             type: 'session.ended',
             serverSeq: trackedEnded.serverSeq,
             correlationId: trackedEnded.envelope.correlationId,
@@ -1818,23 +2169,29 @@ export class CueXGatewayServer {
             sendError('FORBIDDEN', '无权擦除其他用户的会话数据。', targetId, correlationId);
             return;
           }
-          stopTimers();
-          closeAsrStream();
+          if (targetEntry) {
+            this.stopSessionTickTimer(targetEntry);
+            this.closeSessionAsrStream(targetEntry);
+          }
           this.commercial.wipeSession(user, targetId);
-          const wipedAt = activeRuntime?.wipe().wipedAt ?? nowUtcIso8601();
+          const wipedAt = targetEntry?.runtime?.wipe().wipedAt ?? nowUtcIso8601();
+          const wipedMsg: ServerMessage = {
+            type: 'session.wiped',
+            correlationId,
+            payload: { sessionId: targetId, wipedAt },
+          };
+          if (targetEntry && targetEntry.subscribers.size > 0) {
+            this.broadcastToSession(targetEntry, wipedMsg);
+          } else {
+            sendRaw(wipedMsg);
+          }
           this.sessions.delete(targetId);
           this.metrics.removeSessionTelemetry(targetId);
           this.metrics.recordFunnelEvent('session_wiped');
           this.pipeline.clearSession(targetId);
-          if (activeRuntime?.sessionId === targetId) {
-            activeRuntime = undefined;
-            activePlugin = undefined;
+          if (attachedEntry?.sessionId === targetId) {
+            attachedEntry = undefined;
           }
-          sendRaw({
-            type: 'session.wiped',
-            correlationId,
-            payload: { sessionId: targetId, wipedAt },
-          });
           return;
         }
       }
@@ -1854,31 +2211,39 @@ export class CueXGatewayServer {
         sendError(
           'VALIDATION_ERROR',
           `无效的 WebSocket 客户端指令: ${validated.issues.map((e) => e.message).join('; ')}`,
-          activeRuntime?.sessionId,
+          attachedEntry?.sessionId,
         );
         return;
       }
 
       const parsed = validated.value;
-      serializeChain = serializeChain
-        .then(() => handleMessage(parsed))
-        .catch((error) => {
-          const errCode = error instanceof HttpServiceError ? error.code : 'MESSAGE_ERROR';
-          sendError(
-            errCode,
-            error instanceof Error ? error.message : String(error),
-            activeRuntime?.sessionId,
-            parsed.correlationId,
-          );
-        });
+      const reportMsgError = (error: unknown) => {
+        const errCode = error instanceof HttpServiceError ? error.code : 'MESSAGE_ERROR';
+        sendError(
+          errCode,
+          error instanceof Error ? error.message : String(error),
+          attachedEntry?.sessionId,
+          parsed.correlationId,
+        );
+      };
+
+      socketChain = socketChain.then(() => {
+        if (attachedEntry) {
+          const targetEntry = attachedEntry;
+          const task = targetEntry.serializeChain
+            .then(() => handleMessage(parsed))
+            .catch(reportMsgError);
+          targetEntry.serializeChain = task.then(() => undefined);
+          return task;
+        }
+        return handleMessage(parsed).catch(reportMsgError);
+      });
     });
 
     ws.on('close', () => {
       this.liveSockets.delete(ws);
       this.metrics.recordWsDisconnect();
-      unbindSubscribers();
-      stopTimers();
-      closeAsrStream();
+      detachCurrentSubscriber('close');
     });
   }
 

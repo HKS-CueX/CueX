@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://cuex.ai/schemas/ws-attach-state.v2.schema.json",
+  "title": "WsAttachState",
+  "description": "WebSocket primary vs companion multi-subscriber attach state and role policy.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "sessionId",
+    "lastSeenSeq",
+    "role",
+    "activePrimaryConnected",
+    "canCaptureMic",
+    "rolePolicy"
+  ],
+  "properties": {
+    "sessionId": { "type": "string", "minLength": 1 },
+    "lastSeenSeq": { "type": "integer", "minimum": 0 },
+    "role": { "type": "string", "enum": ["primary", "companion"] },
+    "activePrimaryConnected": { "type": "boolean" },
+    "canCaptureMic": { "type": "boolean" },
+    "companionCount": { "type": "integer", "minimum": 0 },
+    "rolePolicy": {
+      "type": "object",
+      "required": ["role", "canCaptureMic", "canControlSession", "canModifyContext", "canViewInspector"],
+      "properties": {
+        "role": { "type": "string", "enum": ["primary", "companion"] },
+        "canCaptureMic": { "type": "boolean" },
+        "canControlSession": { "type": "boolean" },
+        "canModifyContext": { "type": "boolean" },
+        "canViewInspector": { "type": "boolean" },
+        "canInteractWithCues": { "type": "boolean" }
+      }
+    }
+  }
+}

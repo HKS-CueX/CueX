@@ -1,0 +1,22 @@
+{
+  "turnSeq": 7,
+  "observedAtMs": 1763265599420,
+  "observedAt": "2026-11-16T03:59:59.420Z",
+  "decisionType": "noul",
+  "selectedSlot": 4,
+  "label": "question_detected",
+  "calibratedConfidence": 0.64,
+  "margin": 0.14,
+  "entropy": 0.91,
+  "escalationReason": "live_qa_low_margin",
+  "escalatedToS2": true,
+  "latencyMs": 38.4,
+  "degraded": false,
+  "providerKind": "colab_jev",
+  "model": "autotrust/JEV-27B",
+  "promptFormat": "jev-v1",
+  "calibrated": true,
+  "guidanceAppliedRevision": 2,
+  "cognitiveState": "answering_question",
+  "interventionNeed": "prepare_candidate"
+}

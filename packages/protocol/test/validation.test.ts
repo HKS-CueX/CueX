@@ -5,15 +5,26 @@ import {
   AsrCapabilityStatusSchema,
   COLAB_ASR_LIFECYCLE_STATES,
   ColabAsrLifecycleStateSchema,
+  DualSystemCollaborationMetricsSchema,
   EVIDENCE_SCHEMA_VERSION,
+  HealthStatusResponseSchema,
   MEMORY_SCHEMA_VERSION,
   PACK_SCHEMA_VERSION,
   ProviderUsageRecordSchema,
+  S1ObservationSnapshotSchema,
+  ServerEventSchema,
+  System2GuidanceSchema,
+  WS_ATTACH_ROLES,
+  WsAttachRoleSchema,
+  WsAttachStateSchema,
+  createWsRolePolicy,
   validateAsrCapabilityStatus,
   validateAuthSessionInput,
   validateClientMessage,
   validateContextPack,
+  validateDualSystemCollaborationMetrics,
   validateEvidence,
+  validateHealthStatusResponse,
   validateMemoryConfirmInput,
   validateMemoryItem,
   validateMemoryPatchInput,
@@ -24,8 +35,12 @@ import {
   validatePresentationExtractInput,
   validatePresentationPackPatchInput,
   validateProviderUsageRecord,
+  validateS1ObservationSnapshot,
+  validateServerEvent,
+  validateSystem2Guidance,
   validateTelemetryUsage,
   validateUsageRecord,
+  validateWsAttachState,
 } from '#src/index';
 
 const NOW = '2026-11-16T04:00:00.000Z';
@@ -433,4 +448,207 @@ test('Phase 3 schemas validate Colab GPU ASR lifecycle/capability and honest pro
     }).ok,
     true,
   );
+});
+
+test('v2.2.0 双系统协同黑板、脱敏健康归因与 Companion 多订阅契约校验', () => {
+  const validGuidance = {
+    guidanceId: 'guid_1',
+    sessionId: 'sess_1',
+    revision: 2,
+    contextVersion: 1,
+    basedOnTurnSeq: 4,
+    staleAfterTurnSeq: 9,
+    issuedAtMs: 1763265600000,
+    expiresAtMs: 1763265630000,
+    issuedAt: NOW,
+    expiresAt: '2026-11-16T04:00:30.000Z',
+    targetChapterId: 'ch_1',
+    targetChapterTitle: '核心架构',
+    focusDirective: '回应评委关于延迟拆解的问题后再回到主线。',
+    strategyHints: ['仅引用已验证实测数据'],
+    recommendedBias: 'qa_grounding',
+    preferredLevel: 'L2',
+    evidenceAnchors: ['ev_1'],
+    grounded: true,
+    reasoningEffort: 'medium',
+    provider: 'cpa',
+    model: 'gemini-4-hydrogen',
+  };
+  assert.equal(validateSystem2Guidance(validGuidance).ok, true);
+  assert.equal(System2GuidanceSchema.safeParse(validGuidance).success, true);
+  assert.equal(
+    System2GuidanceSchema.safeParse({ ...validGuidance, revision: 0 }).success,
+    false,
+  );
+  assert.equal(
+    System2GuidanceSchema.safeParse({
+      ...validGuidance,
+      expiresAtMs: validGuidance.issuedAtMs - 10,
+    }).success,
+    false,
+  );
+
+  const validObs = {
+    turnSeq: 4,
+    observedAtMs: 1763265599800,
+    observedAt: NOW,
+    decisionType: 'noul',
+    selectedSlot: 3,
+    label: 'question_detected',
+    calibratedConfidence: 0.78,
+    margin: 0.21,
+    entropy: 0.62,
+    escalationReason: 'live_qa_low_margin',
+    escalatedToS2: true,
+    latencyMs: 36.5,
+    degraded: false,
+    providerKind: 'colab_jev',
+    model: 'autotrust/JEV-27B',
+    promptFormat: 'jev-v1',
+    calibrated: true,
+    guidanceAppliedRevision: 1,
+  };
+  assert.equal(validateS1ObservationSnapshot(validObs).ok, true);
+  assert.equal(S1ObservationSnapshotSchema.safeParse(validObs).success, true);
+  assert.equal(
+    S1ObservationSnapshotSchema.safeParse({ ...validObs, calibratedConfidence: 1.4 }).success,
+    false,
+  );
+
+  const validMetrics = {
+    s1Evaluations: 12,
+    s1Escalations: 3,
+    s2AsyncDispatches: 3,
+    s2Completed: 2,
+    s2CancelledAsStale: 1,
+    s2Coalesced: 1,
+    guidanceRevisionsIssued: 2,
+    guidanceAppliedCount: 8,
+    guidanceExpiredOrOverridden: 1,
+    s1P50LatencyMs: 32.0,
+    s2P95LatencyMs: 1620,
+    updatedAt: NOW,
+  };
+  assert.equal(validateDualSystemCollaborationMetrics(validMetrics).ok, true);
+  assert.equal(DualSystemCollaborationMetricsSchema.safeParse(validMetrics).success, true);
+  assert.equal(
+    DualSystemCollaborationMetricsSchema.safeParse({ ...validMetrics, s2Completed: -1 }).success,
+    false,
+  );
+
+  assert.deepEqual(WS_ATTACH_ROLES, ['primary', 'companion']);
+  assert.equal(WsAttachRoleSchema.safeParse('companion').success, true);
+  assert.equal(WsAttachRoleSchema.safeParse('spectator').success, false);
+
+  const companionPolicy = createWsRolePolicy('companion');
+  assert.equal(companionPolicy.canCaptureMic, false);
+  assert.equal(companionPolicy.canControlSession, false);
+  assert.equal(companionPolicy.canViewInspector, true);
+  assert.equal(companionPolicy.canInteractWithCues, true);
+  assert.equal(createWsRolePolicy('primary').canInteractWithCues, true);
+
+  const attachState = {
+    sessionId: 'sess_1',
+    lastSeenSeq: 19,
+    role: 'companion',
+    activePrimaryConnected: true,
+    canCaptureMic: false,
+    companionCount: 1,
+    rolePolicy: companionPolicy,
+  };
+  assert.equal(validateWsAttachState(attachState).ok, true);
+  assert.equal(WsAttachStateSchema.safeParse(attachState).success, true);
+  assert.equal(
+    WsAttachStateSchema.safeParse({
+      ...attachState,
+      rolePolicy: { ...companionPolicy, canInteractWithCues: 'yes' },
+    }).success,
+    false,
+  );
+
+  assert.equal(
+    validateClientMessage({
+      type: 'session.attach',
+      payload: { sessionId: 'sess_1', lastSeenSeq: 19, role: 'companion' },
+    }).ok,
+    true,
+  );
+  assert.equal(
+    validateClientMessage({
+      type: 'session.attach',
+      payload: { sessionId: 'sess_1', role: 'invalid_role' },
+    }).ok,
+    false,
+  );
+
+  const guidanceEvent = {
+    type: 'system2.guidance',
+    serverSeq: 20,
+    correlationId: 'corr_s2_1',
+    payload: validGuidance,
+  };
+  assert.equal(validateServerEvent(guidanceEvent).ok, true);
+  assert.equal(ServerEventSchema.safeParse(guidanceEvent).success, true);
+  assert.equal(
+    validateServerEvent({
+      type: 'session.attach_state',
+      serverSeq: 21,
+      payload: attachState,
+    }).ok,
+    true,
+  );
+  assert.equal(
+    ServerEventSchema.safeParse({
+      type: 'system2.guidance',
+      payload: { guidanceId: '' },
+    }).success,
+    false,
+  );
+
+  const healthPayload = {
+    ok: true,
+    service: 'cuex-server',
+    version: '2.2.0',
+    apiVersion: '2026-11',
+    wsProtocolVersion: '2.0',
+    timestamp: NOW,
+    asr: {
+      backend: 'colab-gpu-asr',
+      mode: 'colab_gpu',
+      available: true,
+      streaming: true,
+      detail: 'SenseVoiceSmall + FSMN-VAD ready',
+      lifecycleState: 'ready',
+      modelId: 'iic/SenseVoiceSmall + FSMN-VAD',
+      fallbackActive: false,
+    },
+    system1: {
+      backend: 'colab-jev-s1',
+      mode: 'real',
+      healthy: true,
+      provider: 'colab-jev',
+      model: 'autotrust/JEV-27B',
+      promptFormat: 'jev-v1',
+      calibrated: true,
+      fallbackActive: false,
+      degraded: false,
+      lastHealthCheckAt: NOW,
+    },
+    system2: {
+      backend: 'cpa-gateway',
+      mode: 'real',
+      healthy: true,
+      provider: 'cpa',
+      model: 'gemini-4-hydrogen',
+      reasoningEffort: 'medium',
+      compilerModel: 'gemini-4-hydrogen',
+      reflectionModel: 'gemini-4-hydrogen',
+      fallbackActive: false,
+      degraded: false,
+      lastHealthCheckAt: NOW,
+    },
+    dualSystemMetrics: validMetrics,
+  };
+  assert.equal(validateHealthStatusResponse(healthPayload).ok, true);
+  assert.equal(HealthStatusResponseSchema.safeParse(healthPayload).success, true);
 });

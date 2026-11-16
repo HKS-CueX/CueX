@@ -51,6 +51,8 @@ interface CompilerViewProps {
   onPackChange: (pack: PresentationContextPack) => void;
   privacyAccepted: boolean;
   onPrivacyChange: (accepted: boolean) => void;
+  /** 鉴权初始化完成标识，避免深链接首屏抢跑 /api/presentation/packs 触发 401。 */
+  authReady?: boolean;
   onLaunchStage: (options: {
     pack: PresentationContextPack;
     mode: PresentationMode;
@@ -74,6 +76,7 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
   onPackChange,
   privacyAccepted,
   onPrivacyChange,
+  authReady = true,
   onLaunchStage,
 }) => {
   const [savedPacks, setSavedPacks] = useState<PresentationPackSummary[]>([]);
@@ -116,12 +119,13 @@ export const CompilerView: React.FC<CompilerViewProps> = ({
   const [launchMaxLevel, setLaunchMaxLevel] = useState<InterventionLevel>('L3');
 
   useEffect(() => {
+    if (!authReady) return;
     void listPresentationPacks()
       .then((packs) => setSavedPacks(packs))
       .catch(() => {
         // Ignore silent failure on initial pack list fetch
       });
-  }, [activePack?.packId]);
+  }, [activePack?.packId, authReady]);
 
   // Sync form fields when activePack updates externally (e.g. demo pack load)
   useEffect(() => {

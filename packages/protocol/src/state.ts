@@ -4,6 +4,11 @@
 
 import type { InterventionLevel, TelemetryUsage } from '#src/common';
 import type {
+  DualSystemCollaborationMetrics,
+  S1ObservationSnapshot,
+  System2Guidance,
+} from '#src/dual-system';
+import type {
   Candidate,
   Intervention,
   Observation,
@@ -53,5 +58,14 @@ export interface SharedCognitiveState {
   suppressions: SuppressionEntry[];
   /** Scenario-specific runtime state projection when available. */
   scenarioState?: Record<string, unknown>;
+  /** 共享黑板当前生效的 System 2 异步指导指令（无或已过期时为 null）。 */
+  system2Guidance?: System2Guidance | null;
+  /** 最近一次 System 1 实时评估观测快照。 */
+  latestS1Observation?: S1ObservationSnapshot | null;
+  /** 双系统异步协同实时指标。 */
+  dualSystemMetrics?: DualSystemCollaborationMetrics;
   telemetry: TelemetryUsage;
 }
+
+/** SharedCognitiveState 兼容别名。 */
+export type CognitiveSnapshot = SharedCognitiveState;

@@ -7,6 +7,7 @@ export * from '#src/controller';
 export * from '#src/entities';
 export * from '#src/state';
 export * from '#src/reasoning';
+export * from '#src/dual-system';
 export * from '#src/audio';
 export * from '#src/presentation';
 export * from '#src/commercial';

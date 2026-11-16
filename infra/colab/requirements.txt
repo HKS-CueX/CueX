@@ -1,9 +1,12 @@
-# CueX Colab GPU ASR Service Dependencies
-# Note: Google Colab G4 runtime already provides PyTorch + CUDA 13.0 (torch / torchaudio).
-# Install these packages without downgrading torch.
+# CueX Colab GPU 共享推理环境依赖（Port 10086 ASR + Port 10010 JEV-27B System 1）
+# 说明：Google Colab G4 运行时已预装 PyTorch + CUDA 13.0（torch / torchaudio），安装下列依赖时切勿降级 torch。
 funasr>=1.4.0
 modelscope>=1.40.0
-transformers>=4.46.0
+transformers>=5.16.1
+peft>=0.21.0
+accelerate>=1.15.0
+safetensors>=0.8.0
+huggingface-hub>=1.30.0
 faster-whisper>=1.2.0
 ctranslate2>=4.9.0
 fastapi>=0.115.0

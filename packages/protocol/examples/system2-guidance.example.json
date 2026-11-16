@@ -1,0 +1,28 @@
+{
+  "guidanceId": "guid_01j2k9",
+  "sessionId": "sess_demo_01",
+  "revision": 3,
+  "contextVersion": 2,
+  "basedOnTurnSeq": 7,
+  "staleAfterTurnSeq": 12,
+  "issuedAtMs": 1763265600000,
+  "expiresAtMs": 1763265630000,
+  "issuedAt": "2026-11-16T04:00:00.000Z",
+  "expiresAt": "2026-11-16T04:00:30.000Z",
+  "targetChapterId": "ch_architecture",
+  "targetChapterTitle": "系统一与系统二异步协同",
+  "focusDirective": "优先回应评委对延迟归因的追问，再切回商业化与配额闭环。",
+  "strategyHints": [
+    "仅引用已验证实测数据，不展开未确认假设",
+    "L2 关键词提示保持在 8 字以内"
+  ],
+  "recommendedBias": "qa_grounding",
+  "preferredLevel": "L2",
+  "evidenceAnchors": ["ev_perf_01", "ev_arch_02"],
+  "grounded": true,
+  "reasoningEffort": "medium",
+  "triggerKind": "live_qa",
+  "provider": "cpa",
+  "model": "gemini-4-hydrogen",
+  "correlationId": "corr_s2_003"
+}

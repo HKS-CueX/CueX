@@ -6,6 +6,7 @@ import {
   type ProviderUsageRecord,
   type SlowReasoningCandidateRequest,
   type SlowReasoningCandidateResult,
+  type System2Guidance,
 } from '@cuex/protocol';
 import { clampSpoken } from '../../system2/spoken';
 import { isoToMs, msToIso } from '../time';
@@ -55,7 +56,11 @@ export class LocalSlowReasoningProvider implements SlowReasoningProvider {
       ok: true,
       detail: 'Local grounded candidate synthesizer ready (0 tokens).',
       provider: this.backend,
+      model: 'rule_zero',
       degraded: false,
+      fallbackActive: false,
+      compilerModel: 'local_compiler',
+      reflectionModel: 'local_reflection',
       lastHealthCheckAt: nowUtcIso8601(),
     };
   }
@@ -107,6 +112,29 @@ export class LocalSlowReasoningProvider implements SlowReasoningProvider {
         triggerReason: 'Audience question has no matching verified Evidence.',
         targetChapterId: request.activeChapterId,
       };
+      const localGuidance: System2Guidance = {
+        guidanceId: `guid_local_${requestMs}`,
+        sessionId: request.sessionId,
+        revision: 1,
+        contextVersion: request.contextVersion,
+        basedOnTurnSeq: request.basedOnTurnSeq ?? 0,
+        staleAfterTurnSeq: (request.basedOnTurnSeq ?? 0) + 3,
+        issuedAtMs: requestMs,
+        expiresAtMs: requestMs + 25_000,
+        issuedAt: request.timestamp,
+        expiresAt: msToIso(requestMs + 25_000),
+        ...(request.activeChapterId ? { targetChapterId: request.activeChapterId } : {}),
+        ...(request.activeChapterTitle ? { targetChapterTitle: request.activeChapterTitle } : {}),
+        focusDirective: '资料库未收录该数据，引导讲者坦诚留白并聚焦已核验事实。',
+        strategyHints: ['不编造数字，会后依据正式文档补充核对。'],
+        recommendedBias: 'qa_grounding',
+        preferredLevel: candidate.level,
+        evidenceAnchors: [],
+        grounded: false,
+        triggerKind: request.triggerKind,
+        provider: this.backend,
+        model: 'rule_zero',
+      };
       return {
         requestId: request.requestId,
         sessionId: request.sessionId,
@@ -114,6 +142,7 @@ export class LocalSlowReasoningProvider implements SlowReasoningProvider {
         timestamp: request.timestamp,
         status: 'insufficient_evidence',
         candidate,
+        guidance: localGuidance,
         evidenceIds: [],
         grounded: false,
         ungroundedNotice: notice,
@@ -207,6 +236,37 @@ export class LocalSlowReasoningProvider implements SlowReasoningProvider {
       ...(primaryPoint ? { targetKeyPointId: primaryPoint.id } : {}),
     };
 
+    const localGuidance: System2Guidance = {
+      guidanceId: `guid_local_${requestMs}`,
+      sessionId: request.sessionId,
+      revision: 1,
+      contextVersion: request.contextVersion,
+      basedOnTurnSeq: request.basedOnTurnSeq ?? 0,
+      staleAfterTurnSeq: (request.basedOnTurnSeq ?? 0) + 3,
+      issuedAtMs: requestMs,
+      expiresAtMs: requestMs + 25_000,
+      issuedAt: request.timestamp,
+      expiresAt: msToIso(requestMs + 25_000),
+      ...(request.activeChapterId ? { targetChapterId: request.activeChapterId } : {}),
+      ...(request.activeChapterTitle ? { targetChapterTitle: request.activeChapterTitle } : {}),
+      focusDirective: cueText,
+      strategyHints: bullets?.length ? bullets : [cueText],
+      recommendedBias:
+        request.triggerKind === 'live_qa'
+          ? 'qa_grounding'
+          : level === 'L3'
+            ? 'prefer_l3'
+            : level === 'L2'
+              ? 'prefer_l2'
+              : 'prefer_l1',
+      preferredLevel: level,
+      evidenceAnchors: evidenceIds,
+      grounded: true,
+      triggerKind: request.triggerKind,
+      provider: this.backend,
+      model: 'rule_zero',
+    };
+
     return {
       requestId: request.requestId,
       sessionId: request.sessionId,
@@ -214,6 +274,7 @@ export class LocalSlowReasoningProvider implements SlowReasoningProvider {
       timestamp: request.timestamp,
       status: 'synthesized',
       candidate,
+      guidance: localGuidance,
       evidenceIds,
       grounded: true,
       rationale: `Locally synthesized ${level} candidate grounded in ${evidenceIds.length} evidence item(s).`,
@@ -247,13 +308,24 @@ export class FallbackSlowReasoningProvider implements SlowReasoningProvider {
 
   async health(): Promise<ProviderHealthStatus> {
     const primaryHealth = await this.primary.health();
-    if (primaryHealth.ok && !this.lastDegraded) return primaryHealth;
+    if (primaryHealth.ok && !this.lastDegraded) {
+      return {
+        ...primaryHealth,
+        fallbackActive: false,
+      };
+    }
+    const reason = primaryHealth.fallbackReason ?? primaryHealth.detail ?? this.lastErrorMessage ?? 'primary unavailable';
     return {
       ok: false,
-      detail: `Degraded to ${this.fallback.backend}: ${primaryHealth.detail ?? this.lastErrorMessage ?? 'primary unavailable'}`,
+      detail: `Degraded to ${this.fallback.backend}: ${reason}`,
       provider: primaryHealth.provider ?? this.fallback.backend,
       model: primaryHealth.model,
+      reasoningEffort: primaryHealth.reasoningEffort,
+      compilerModel: primaryHealth.compilerModel,
+      reflectionModel: primaryHealth.reflectionModel,
       degraded: true,
+      fallbackActive: true,
+      fallbackReason: reason,
       lastHealthCheckAt: primaryHealth.lastHealthCheckAt ?? nowUtcIso8601(),
     };
   }
@@ -311,7 +383,12 @@ class DegradedConfigSlowReasoningProvider implements SlowReasoningProvider {
       ok: false,
       detail: this.missingDetail,
       provider: this.backend,
+      model: 'rule_zero',
       degraded: true,
+      fallbackActive: true,
+      fallbackReason: this.missingDetail,
+      compilerModel: 'local_compiler',
+      reflectionModel: 'local_reflection',
       lastHealthCheckAt: nowUtcIso8601(),
     };
   }

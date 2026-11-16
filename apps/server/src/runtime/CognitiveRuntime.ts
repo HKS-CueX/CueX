@@ -9,6 +9,7 @@ import {
   type InterventionLevel,
   type Outcome,
   type PresentationMode,
+  type S1ObservationSnapshot,
   type ServerMessage,
   type Session,
   type SlowReasoningTriggerKind,
@@ -24,7 +25,8 @@ import { CognitiveEventBus } from './EventBus';
 import { InterventionController, type ControllerSignalContext } from './InterventionController';
 import type { MemoryStore } from './MemoryStore';
 import { SharedCognitiveStateStore } from './SharedCognitiveStateStore';
-import { isoToMs, msToIso } from './time';
+import { System2TaskCoordinator } from './System2TaskCoordinator';
+import { msToIso } from './time';
 import {
   systemClock,
   type FastDecisionProvider,
@@ -61,6 +63,8 @@ export interface CognitiveRuntimeSessionOptions<TState = Record<string, unknown>
   clock?: RuntimeClock;
   pipeline?: PipelineTracker;
   emitMessage?: (msg: ServerMessage) => void;
+  /** 是否开启异步非阻塞 System 2 协同调度（默认 real 模式下为 true，S1 绝不阻塞等待慢思考）。 */
+  asyncSystem2?: boolean;
 }
 
 /**
@@ -85,9 +89,11 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
   private readonly pipeline?: PipelineTracker;
   private readonly emitMessage?: (msg: ServerMessage) => void;
   private readonly asrStatus: AsrCapabilityStatus;
+  private readonly asyncSystem2: boolean;
+  private readonly s2Coordinator: System2TaskCoordinator<TState, TReflection>;
 
   private s2Seq = 0;
-  private inFlightAbort?: AbortController;
+  private s1InFlightAbort?: AbortController;
   private lastEvaluatedSilenceSegId?: string;
 
   constructor(opts: CognitiveRuntimeSessionOptions<TState, TReflection>) {
@@ -104,6 +110,7 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
     this.pipeline = opts.pipeline;
     this.emitMessage = opts.emitMessage;
     this.asrStatus = opts.asrStatus;
+    this.asyncSystem2 = opts.asyncSystem2 ?? opts.slowReasoning.mode === 'real';
 
     const nowMs = this.clock.now();
     const startedIso = msToIso(nowMs);
@@ -161,6 +168,19 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
       maxInterventionLevel: opts.maxInterventionLevel,
       asrProvider: opts.asrStatus.backend,
       now: nowMs,
+    });
+
+    this.s2Coordinator = new System2TaskCoordinator<TState, TReflection>({
+      sessionId: this.sessionId,
+      clock: this.clock,
+      state: this.state,
+      context: this.context,
+      controller: this.controller,
+      plugin: this.plugin,
+      slowReasoning: this.slowReasoning,
+      send: (msg, meta) => this.send(msg, meta),
+      onOutcome: (outcome, tsMs, corr) => this.dispatchControllerOutcome(outcome, tsMs, corr),
+      onEmitState: (tsMs, corr) => this.emitStateAndProjection(tsMs, corr),
     });
 
     const correlationId = randomUUID();
@@ -437,6 +457,7 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
       if (pluginResult.contextBumped) {
         this.state.bumpContextVersion(nowMs);
       }
+      this.s2Coordinator.cancelStale('chapter_changed', nowMs);
       const chEvt = this.eventBus.emit({
         sessionId: this.sessionId,
         eventType: 'chapter.change',
@@ -484,6 +505,7 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
           now: nowMs,
         });
         if (partialWithdraw) {
+          this.s2Coordinator.cancelStale('user_recovered', nowMs);
           this.dispatchWithdrawalIfAny(partialWithdraw, nowMs, correlationId);
           this.emitStateAndProjection(nowMs, correlationId);
           return { segment, decision: partialWithdraw };
@@ -493,12 +515,14 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
       return { segment };
     }
 
-    if (this.inFlightAbort) {
-      this.inFlightAbort.abort();
+    if (this.s1InFlightAbort) {
+      this.s1InFlightAbort.abort();
     }
-    this.inFlightAbort = new AbortController();
-    const signal = this.inFlightAbort.signal;
+    this.s1InFlightAbort = new AbortController();
+    const s1Signal = this.s1InFlightAbort.signal;
 
+    const turnSeq = this.state.nextTurnSeq(nowMs);
+    const activeGuidance = this.state.getActiveGuidance(nowMs, turnSeq);
     const targetCtx = this.plugin.getTargetContextSnapshot();
     const expectedPoints = this.plugin.getExpectedPoints();
     let verdict;
@@ -518,8 +542,10 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
           silenceDurationMs: 0,
           activeCandidate: this.state.getActiveCandidate() ?? undefined,
           activeIntervention: this.state.getActiveIntervention() ?? undefined,
+          turnSeq,
+          activeGuidance,
         },
-        signal,
+        s1Signal,
       );
     } catch (error) {
       if ((error as Error)?.name === 'AbortError') {
@@ -540,14 +566,6 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
       verdict.backend,
       postS1NowMs,
     );
-    this.send(
-      { type: 'system1.verdict', payload: verdictWithCorr },
-      { stage: 'fast_decision', correlationId, occurredAt: postS1NowIso },
-    );
-    this.send(
-      { type: 'telemetry.updated', payload: telemetryAfterS1 },
-      { stage: 'fast_decision', correlationId, occurredAt: postS1NowIso },
-    );
 
     const effectiveRecovery = verdict.recoveryDetected || Boolean(pluginResult.directRecoveryDetected);
     const effectiveDrift = verdict.driftDetected || Boolean(pluginResult.topicDriftTopic);
@@ -556,6 +574,53 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
       verdict.signals.semanticOmission ||
       verdict.cognitiveState === 'omitting_key_point' ||
       verdict.cognitiveState === 'hesitating';
+
+    // 构建或补充 System 1 本轮观测快照写入共享黑板（保留提供方的校准分与边缘信息）。
+    const escalatedToS2 =
+      verdict.interventionNeed !== 'none' ||
+      Boolean(effectiveQuestion) ||
+      Boolean(effectiveDrift) ||
+      Boolean(pluginResult.preferredTriggerKind);
+    const s1Obs: S1ObservationSnapshot = verdict.observation
+      ? {
+          ...verdict.observation,
+          turnSeq,
+          observedAtMs: postS1NowMs,
+          observedAt: postS1NowIso,
+          escalatedToS2: escalatedToS2 && !effectiveRecovery,
+        }
+      : {
+          turnSeq,
+          observedAtMs: postS1NowMs,
+          observedAt: postS1NowIso,
+          decisionType: 'unknown',
+          selectedSlot: -1,
+          label: verdict.cognitiveState,
+          calibratedConfidence: verdict.confidence,
+          margin: 1,
+          entropy: 0,
+          escalatedToS2: escalatedToS2 && !effectiveRecovery,
+          latencyMs: verdict.latencyMs,
+          degraded: Boolean(verdict.usage?.degraded),
+          providerKind: verdict.usage?.usageSource === 'local_rule_zero' ? 'local_rule_zero' : 'colab_jev',
+          cognitiveState: verdict.cognitiveState,
+          interventionNeed: verdict.interventionNeed,
+        };
+    this.state.recordS1Observation(s1Obs, postS1NowMs);
+
+    // 突发提问/自愈可覆盖已失效的黑板指导，避免 S1 被过时 stay_silent 锁死；在发送遥测前计数更新。
+    if (effectiveRecovery || (effectiveQuestion && activeGuidance?.recommendedBias === 'stay_silent')) {
+      this.state.invalidateGuidance(postS1NowMs);
+    }
+
+    this.send(
+      { type: 'system1.verdict', payload: { ...verdictWithCorr, observation: s1Obs } },
+      { stage: 'fast_decision', correlationId, occurredAt: postS1NowIso },
+    );
+    this.send(
+      { type: 'telemetry.updated', payload: this.state.getTelemetry() },
+      { stage: 'fast_decision', correlationId, occurredAt: postS1NowIso },
+    );
 
     const attentionSignal = effectiveRecovery
       ? 'recovering'
@@ -597,9 +662,20 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
       now: postS1NowMs,
     });
     if (withdrawnDecision) {
+      const withdrawReason = withdrawnDecision.withdrawalReason;
+      if (withdrawReason === 'user_recovered') {
+        this.s2Coordinator.cancelStale('user_recovered', postS1NowMs);
+      }
       this.dispatchWithdrawalIfAny(withdrawnDecision, postS1NowMs, correlationId);
-      this.emitStateAndProjection(postS1NowMs, correlationId);
-      return { segment, decision: withdrawnDecision };
+      const hasFreshNeed =
+        Boolean(effectiveQuestion) ||
+        Boolean(effectiveDrift) ||
+        verdict.interventionNeed !== 'none' ||
+        Boolean(pluginResult.preferredTriggerKind);
+      if (withdrawReason === 'user_recovered' || !hasFreshNeed) {
+        this.emitStateAndProjection(postS1NowMs, correlationId);
+        return { segment, decision: withdrawnDecision };
+      }
     }
 
     if (
@@ -646,88 +722,45 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
       this.plugin.onQuestionEvidence?.(segment.segmentId, effectiveQuestion, retrieved);
     }
 
-    const preS2NowMs = this.clock.now();
-    const preS2NowIso = msToIso(preS2NowMs);
-    let s2Result;
-    try {
-      s2Result = await this.slowReasoning.synthesize(
-        {
-          requestId: `s2_${++this.s2Seq}_${preS2NowMs}`,
-          sessionId: this.sessionId,
-          scenarioId: this.plugin.scenarioId,
-          contextVersion: this.state.getContextVersion(),
-          timestamp: preS2NowIso,
-          triggerKind,
-          requestedLevel,
-          activeGoal: targetCtx.goal,
-          activeChapterId: targetCtx.chapterId,
-          activeChapterTitle: targetCtx.chapterTitle,
-          questionText: effectiveQuestion,
-          missingPoints: expectedPoints
-            .filter((p) => verdict.missingPointIds.includes(p.id))
-            .map(({ id, label }) => ({ id, label })),
-          recentSegments: this.context.getRecentSegments(6),
-          retrievedEvidence: retrieved.map((r) => r.evidence),
-          constraints: targetCtx.constraints,
-          forbiddenClaims: targetCtx.forbiddenClaims,
-          basedOnSegmentId: segment.segmentId,
-        },
-        signal,
-      );
-    } catch (error) {
-      if ((error as Error)?.name === 'AbortError') {
-        return { segment };
-      }
-      throw error;
-    }
-
-    const postS2NowMs = this.clock.now();
-    const postS2NowIso = msToIso(postS2NowMs);
-    this.pipeline?.recordStageDuration('slow_reasoning', s2Result.latencyMs, postS2NowIso);
-    const anchoredCandidate = s2Result.candidate
-      ? this.reanchorCandidateLifetime(s2Result.candidate, preS2NowMs, postS2NowMs)
-      : undefined;
-    const s2Usage = s2Result.usage ? { ...s2Result.usage, correlationId } : undefined;
-    const s2ResultWithCorr = {
-      ...s2Result,
-      ...(anchoredCandidate ? { candidate: anchoredCandidate } : {}),
-      ...(s2Usage ? { usage: s2Usage } : {}),
-    };
-    const telemetryAfterS2 = this.state.recordTelemetry(
-      'system2',
-      s2Result.latencyMs,
-      s2Usage,
-      s2Result.backend,
-      postS2NowMs,
-    );
-    this.send(
-      { type: 'system2.candidate', payload: s2ResultWithCorr },
-      { stage: 'slow_reasoning', correlationId, occurredAt: postS2NowIso },
-    );
-    this.send(
-      { type: 'telemetry.updated', payload: telemetryAfterS2 },
-      { stage: 'slow_reasoning', correlationId, occurredAt: postS2NowIso },
-    );
-
-    let finalDecision: ControllerDecision | undefined;
-    if (anchoredCandidate) {
-      this.state.upsertCandidate(anchoredCandidate, postS2NowMs);
-      this.plugin.onCandidatePrepared?.(anchoredCandidate);
-      const outcome = this.controller.evaluateCandidates({
+    const s2Promise = this.s2Coordinator.schedule({
+      turnSeq,
+      correlationId,
+      signals,
+      request: {
+        requestId: `s2_${++this.s2Seq}_${postS1NowMs}`,
         sessionId: this.sessionId,
-        state: this.state,
-        context: this.context,
-        candidates: [anchoredCandidate, ...this.state.getPendingCandidates()],
-        signals,
-        now: postS2NowMs,
-      });
-      this.dispatchControllerOutcome(outcome, postS2NowMs, correlationId);
-      finalDecision = outcome.decision;
-      this.lastEvaluatedSilenceSegId = segment.segmentId;
+        scenarioId: this.plugin.scenarioId,
+        contextVersion: this.state.getContextVersion(),
+        timestamp: postS1NowIso,
+        triggerKind,
+        requestedLevel,
+        activeGoal: targetCtx.goal,
+        activeChapterId: targetCtx.chapterId,
+        activeChapterTitle: targetCtx.chapterTitle,
+        questionText: effectiveQuestion,
+        missingPoints: expectedPoints
+          .filter((p) => verdict.missingPointIds.includes(p.id))
+          .map(({ id, label }) => ({ id, label })),
+        recentSegments: this.context.getRecentSegments(6),
+        retrievedEvidence: retrieved.map((r) => r.evidence),
+        constraints: targetCtx.constraints,
+        forbiddenClaims: targetCtx.forbiddenClaims,
+        basedOnSegmentId: segment.segmentId,
+        basedOnTurnSeq: turnSeq,
+      },
+    });
+    this.lastEvaluatedSilenceSegId = segment.segmentId;
+
+    if (!this.asyncSystem2) {
+      const finalDecision = await s2Promise;
+      void telemetryAfterS1;
+      return { segment, ...(finalDecision ? { decision: finalDecision } : {}) };
     }
 
-    this.emitStateAndProjection(postS2NowMs, correlationId);
-    return { segment, ...(finalDecision ? { decision: finalDecision } : {}) };
+    // 异步双向协作模式：S1 立即返回现场控制权与快照，S2 后台完成后经 `system2.guidance` 与 `intervention.shown` 推送。
+    void s2Promise;
+    this.emitStateAndProjection(postS1NowMs, correlationId);
+    return { segment };
   }
 
   /**
@@ -806,6 +839,8 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
 
     let verdict;
     if (needsFastEval) {
+      const tickTurnSeq = this.state.getTurnSeq();
+      const tickGuidance = this.state.getActiveGuidance(nowMs, tickTurnSeq) ?? undefined;
       verdict = await this.fastDecision.evaluate({
         sessionId: this.sessionId,
         scenarioId: this.plugin.scenarioId,
@@ -820,15 +855,21 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
         silenceDurationMs: computedSilence,
         activeCandidate: this.state.getActiveCandidate() ?? undefined,
         activeIntervention: this.state.getActiveIntervention() ?? undefined,
+        turnSeq: tickTurnSeq,
+        activeGuidance: tickGuidance,
       });
+      const tickPostMs = this.clock.now();
       const tickVerdictUsage = verdict.usage ? { ...verdict.usage, correlationId } : undefined;
       const tickVerdictWithCorr = tickVerdictUsage ? { ...verdict, usage: tickVerdictUsage } : verdict;
+      if (verdict.observation) {
+        this.state.recordS1Observation(verdict.observation, tickPostMs);
+      }
       const telemetry = this.state.recordTelemetry(
         'system1',
         verdict.latencyMs,
         tickVerdictUsage,
         verdict.backend,
-        nowMs,
+        tickPostMs,
       );
       this.send(
         { type: 'system1.verdict', payload: tickVerdictWithCorr },
@@ -875,9 +916,10 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
       }
       const hasSemanticTrigger =
         verdict.signals.semanticOmission || verdict.signals.topicDrift || verdict.signals.openQuestion;
-      const probeCandidates: Candidate[] = hasSemanticTrigger
-        ? []
-        : [
+      const probeCandidates: Candidate[] =
+        hasSemanticTrigger || Boolean(this.state.getActiveIntervention())
+          ? []
+          : [
             {
               candidateId: `cand_probe_pause_${nowMs}`,
               sessionId: this.sessionId,
@@ -1008,118 +1050,67 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
     });
 
     const requestedLevel = this.capLevel(input.preferredLevel ?? 'L2');
-    const s2Result = await this.slowReasoning.synthesize({
-      requestId: `s2_${++this.s2Seq}_${nowMs}`,
-      sessionId: this.sessionId,
-      scenarioId: this.plugin.scenarioId,
-      contextVersion: this.state.getContextVersion(),
-      timestamp: nowIso,
-      triggerKind: input.question ? 'live_qa' : 'manual_help',
-      requestedLevel,
-      activeGoal: targetCtx.goal,
-      activeChapterId: targetCtx.chapterId,
-      activeChapterTitle: targetCtx.chapterTitle,
-      questionText: input.question,
-      missingPoints: missingPoints.map(({ id, label }) => ({ id, label })),
-      recentSegments: this.context.getRecentSegments(6),
-      retrievedEvidence: retrieved.map((r) => r.evidence),
-      constraints: targetCtx.constraints,
-      forbiddenClaims: targetCtx.forbiddenClaims,
-      basedOnSegmentId: this.context.getLastSegmentId(),
+    const turnSeq = this.state.nextTurnSeq(nowMs);
+    const manualSignals: ControllerSignalContext = {
+      silenceMs: 0,
+      semanticGap: true,
+      drift: false,
+      openQuestion: Boolean(input.question),
+      manualHelp: true,
+      recovery: false,
+    };
+
+    const decision = await this.s2Coordinator.schedule({
+      turnSeq,
+      correlationId,
+      signals: manualSignals,
+      request: {
+        requestId: `s2_${++this.s2Seq}_${nowMs}`,
+        sessionId: this.sessionId,
+        scenarioId: this.plugin.scenarioId,
+        contextVersion: this.state.getContextVersion(),
+        timestamp: nowIso,
+        triggerKind: input.question ? 'live_qa' : 'manual_help',
+        requestedLevel,
+        activeGoal: targetCtx.goal,
+        activeChapterId: targetCtx.chapterId,
+        activeChapterTitle: targetCtx.chapterTitle,
+        questionText: input.question,
+        missingPoints: missingPoints.map(({ id, label }) => ({ id, label })),
+        recentSegments: this.context.getRecentSegments(6),
+        retrievedEvidence: retrieved.map((r) => r.evidence),
+        constraints: targetCtx.constraints,
+        forbiddenClaims: targetCtx.forbiddenClaims,
+        basedOnSegmentId: this.context.getLastSegmentId(),
+        basedOnTurnSeq: turnSeq,
+      },
     });
 
-    const postS2NowMs = this.clock.now();
-    const postS2NowIso = msToIso(postS2NowMs);
-    const anchoredCandidate = s2Result.candidate
-      ? this.reanchorCandidateLifetime(s2Result.candidate, nowMs, postS2NowMs)
-      : undefined;
-    const manualS2Usage = s2Result.usage ? { ...s2Result.usage, correlationId } : undefined;
-    const manualS2WithCorr = {
-      ...s2Result,
-      ...(anchoredCandidate ? { candidate: anchoredCandidate } : {}),
-      ...(manualS2Usage ? { usage: manualS2Usage } : {}),
-    };
-    const telemetry = this.state.recordTelemetry(
-      'system2',
-      s2Result.latencyMs,
-      manualS2Usage,
-      s2Result.backend,
-      postS2NowMs,
-    );
-    this.send(
-      { type: 'system2.candidate', payload: manualS2WithCorr },
-      { stage: 'slow_reasoning', correlationId, occurredAt: postS2NowIso },
-    );
-    this.send(
-      { type: 'telemetry.updated', payload: telemetry },
-      { stage: 'slow_reasoning', correlationId, occurredAt: postS2NowIso },
-    );
-
-    if (!anchoredCandidate) {
-      const outcome = this.controller.evaluateCandidates({
-        sessionId: this.sessionId,
-        state: this.state,
-        context: this.context,
-        candidates: [],
-        signals: {
-          silenceMs: 0,
-          semanticGap: false,
-          drift: false,
-          openQuestion: Boolean(input.question),
-          manualHelp: true,
-          recovery: false,
-        },
-        now: postS2NowMs,
-      });
-      this.send(
-        { type: 'controller.decision', payload: outcome.decision },
-        { stage: 'controller', correlationId, occurredAt: postS2NowIso },
-      );
-      this.emitStateAndProjection(postS2NowMs, correlationId);
-      return outcome.decision;
+    if (decision) {
+      return decision;
     }
 
-    this.state.upsertCandidate(anchoredCandidate, postS2NowMs);
+    const fallbackNowMs = this.clock.now();
+    const fallbackNowIso = msToIso(fallbackNowMs);
     const outcome = this.controller.evaluateCandidates({
       sessionId: this.sessionId,
       state: this.state,
       context: this.context,
-      candidates: [anchoredCandidate],
-      signals: {
-        silenceMs: 0,
-        semanticGap: true,
-        drift: false,
-        openQuestion: Boolean(input.question),
-        manualHelp: true,
-        recovery: false,
-      },
-      now: postS2NowMs,
+      candidates: [],
+      signals: manualSignals,
+      now: fallbackNowMs,
     });
-    this.dispatchControllerOutcome(outcome, postS2NowMs, correlationId);
-    this.emitStateAndProjection(postS2NowMs, correlationId);
+    this.send(
+      { type: 'controller.decision', payload: outcome.decision },
+      { stage: 'controller', correlationId, occurredAt: fallbackNowIso },
+    );
+    this.emitStateAndProjection(fallbackNowMs, correlationId);
     return outcome.decision;
   }
 
-  /**
-   * Shifts newly synthesized candidate TTL forward by async System 2 inference latency so a slow
-   * remote LLM call never returns an already-expired candidate while preserving ManualClock tests.
-   */
-  private reanchorCandidateLifetime(
-    candidate: Candidate,
-    preSynthesisMs: number,
-    postSynthesisMs: number,
-  ): Candidate {
-    const elapsedMs = Math.max(0, postSynthesisMs - preSynthesisMs);
-    if (elapsedMs === 0) return candidate;
-    const createdMs = isoToMs(candidate.createdAt, preSynthesisMs);
-    const expiresMs = isoToMs(candidate.expiresAt, 0);
-    if (expiresMs <= createdMs) return candidate;
-    const ttlMs = candidate.ttlMs > 0 ? candidate.ttlMs : expiresMs - createdMs;
-    return {
-      ...candidate,
-      createdAt: msToIso(postSynthesisMs),
-      expiresAt: msToIso(postSynthesisMs + ttlMs),
-    };
+  /** 等待所有异步排队的 System 2 任务完成（供集成测试与显式同步检查使用）。 */
+  async waitForSystem2Idle(timeoutMs = 15_000): Promise<void> {
+    await this.s2Coordinator.waitForIdle(timeoutMs);
   }
 
   setChapter(chapterId: string, correlationId?: string): void {
@@ -1128,6 +1119,7 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
     const info = this.plugin.onChapterChange?.(chapterId, nowMs);
     this.context.updateChapter(chapterId, info?.chapterTitle, nowMs);
     this.state.setChapter(chapterId, info?.chapterTitle, nowMs, info?.contextBumped ?? true);
+    this.s2Coordinator.cancelStale('chapter_changed', nowMs);
     const withdrawal = this.controller.checkWithdrawals({
       sessionId: this.sessionId,
       state: this.state,
@@ -1164,6 +1156,7 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
     const nowMs = this.clock.now();
     const nowIso = msToIso(nowMs);
     const nextVersion = this.state.bumpContextVersion(nowMs);
+    this.s2Coordinator.cancelStale('context_changed', nowMs);
     this.context.taskContext.contextVersion = nextVersion;
     this.context.taskContext.updatedAt = nowIso;
     const withdrawal = this.controller.checkWithdrawals({
@@ -1428,7 +1421,8 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
   } {
     const nowMs = this.clock.now();
     const nowIso = msToIso(nowMs);
-    this.inFlightAbort?.abort();
+    this.s1InFlightAbort?.abort();
+    this.s2Coordinator.dispose(nowMs);
     this.context.session.status = 'ended';
     this.context.session.endedAt = nowIso;
     this.state.setSessionStatus('ended', nowMs);
@@ -1479,7 +1473,8 @@ export class CognitiveRuntimeSession<TState = Record<string, unknown>, TReflecti
   wipe(): { wipedAt: UtcIso8601; deletedMemoryCount: number } {
     const nowMs = this.clock.now();
     const nowIso = msToIso(nowMs);
-    this.inFlightAbort?.abort();
+    this.s1InFlightAbort?.abort();
+    this.s2Coordinator.dispose(nowMs);
     this.context.wipeEphemeralData();
     this.eventBus.clearSession(this.sessionId);
     const deletedMemoryCount = this.memoryStore.wipeSession(this.sessionId, this.userId);

@@ -9,6 +9,7 @@ export {
   verifyCandidateGrounding,
 } from './RetrievalProvider';
 export { SharedCognitiveStateStore } from './SharedCognitiveStateStore';
+export { System2TaskCoordinator, type S2StaleCancelReason } from './System2TaskCoordinator';
 export { CognitiveRuntimeSession } from './CognitiveRuntime';
 export {
   HeuristicFastDecisionProvider,

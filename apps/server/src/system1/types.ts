@@ -1,3 +1,5 @@
+import type { System1PromptFormat } from '@cuex/protocol';
+
 export type DecisionQuestion =
   | { kind: 'noul'; question: string }
   | { kind: 'score'; question: string }
@@ -8,6 +10,10 @@ export interface DecisionAnswer {
   probabilities: Record<string, number>;
   value: number;
   top: string;
+  /** 校准后最高概率与次高概率之差及分布香农熵（用于黑板观测与升级判定）。 */
+  margin?: number;
+  entropy?: number;
+  selectedSlot?: number;
 }
 
 export interface TokenUsageSample {
@@ -22,11 +28,28 @@ export interface TokenDecisionResult {
   latencyMs: number;
   backend: string;
   usage: TokenUsageSample;
+  model?: string;
+  promptFormat?: System1PromptFormat;
+  calibrated?: boolean;
+}
+
+export interface TokenDecisionHealth {
+  ok: boolean;
+  detail?: string;
+  provider?: string;
+  model?: string;
+  promptFormat?: System1PromptFormat;
+  calibrated?: boolean;
+  degraded?: boolean;
 }
 
 export interface TokenDecisionClient {
   readonly backend: string;
-  health?(): Promise<{ ok: boolean; detail?: string }>;
+  readonly model?: string;
+  readonly promptFormat?: System1PromptFormat;
+  readonly calibrated?: boolean;
+  readonly providerKind?: 'colab_jev' | 'local_jev';
+  health?(): Promise<TokenDecisionHealth>;
   decide(
     state: string,
     questions: Record<string, DecisionQuestion>,

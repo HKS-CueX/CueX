@@ -2,10 +2,15 @@ import { describe, expect, it } from 'vitest';
 import type {
   ControllerDecision,
   DataDeletionReceipt,
+  DualSystemCollaborationMetrics,
   Intervention,
+  S1ObservationSnapshot,
   ServerMessage,
   SharedCognitiveState,
+  System2Guidance,
+  WsAttachState,
 } from '@cuex/protocol';
+import { createWsRolePolicy } from '@cuex/protocol';
 import {
   initialPresentationSessionState,
   presentationSessionReducer,
@@ -339,5 +344,146 @@ describe('presentationSessionReducer (Protocol v2.0)', () => {
     });
     expect(afterReceipt.deletionReceipt?.receiptId).toBe('rcpt-1');
     expect(afterReceipt.wipedAt).toBe(T2);
+  });
+
+  // 验证 @cuex/protocol v2.2.0 双向异步协同与伴随窗状态同步
+  it('tracks system2.guidance monotonic revisions, S1 observations, dualSystem metrics, and session.attach_state', () => {
+    const attachState: WsAttachState = {
+      sessionId: 'sess-1',
+      lastSeenSeq: 1,
+      role: 'companion',
+      activePrimaryConnected: true,
+      canCaptureMic: false,
+      rolePolicy: createWsRolePolicy('companion'),
+      companionCount: 1,
+    };
+
+    let state = applyMsg(initialPresentationSessionState, {
+      type: 'session.attach_state',
+      serverSeq: 1,
+      payload: attachState,
+    });
+    expect(state.attachState?.role).toBe('companion');
+    expect(state.attachState?.canCaptureMic).toBe(false);
+    expect(state.attachState?.rolePolicy.canInteractWithCues).toBe(true);
+
+    const gRev2: System2Guidance = {
+      guidanceId: 'guid-2',
+      sessionId: 'sess-1',
+      revision: 2,
+      contextVersion: 1,
+      basedOnTurnSeq: 4,
+      staleAfterTurnSeq: 7,
+      issuedAtMs: 1_700_000_002_000,
+      expiresAtMs: 1_700_000_020_000,
+      focusDirective: '先回应提问再回切净效用公式',
+      strategyHints: ['仅引用已确认事实 F-04'],
+      recommendedBias: 'qa_grounding',
+      preferredLevel: 'L2',
+      evidenceAnchors: ['ev-4'],
+      grounded: true,
+      reasoningEffort: 'medium',
+      model: 'gemini-4-hydrogen',
+    };
+    const gStaleRev1: System2Guidance = {
+      ...gRev2,
+      guidanceId: 'guid-1',
+      revision: 1,
+      focusDirective: '旧修订不应覆盖 r2',
+    };
+
+    state = applyMsg(state, { type: 'system2.guidance', serverSeq: 2, payload: gRev2 });
+    state = applyMsg(state, { type: 'system2.guidance', serverSeq: 3, payload: gStaleRev1 });
+    expect(state.system2Guidance?.revision).toBe(2);
+    expect(state.system2Guidance?.focusDirective).toBe('先回应提问再回切净效用公式');
+    expect(state.guidanceHistory).toHaveLength(2);
+
+    const obs: S1ObservationSnapshot = {
+      turnSeq: 5,
+      observedAtMs: 1_700_000_003_000,
+      decisionType: 'noul',
+      selectedSlot: 3,
+      label: 'omitting_key_point',
+      calibratedConfidence: 0.91,
+      margin: 0.42,
+      entropy: 0.28,
+      escalatedToS2: true,
+      escalationReason: 'omission_with_open_gap',
+      latencyMs: 88,
+      degraded: false,
+      providerKind: 'colab_jev',
+      model: 'autotrust/JEV-27B',
+      promptFormat: 'jev-v1',
+      calibrated: true,
+      guidanceAppliedRevision: 2,
+    };
+    const metrics: DualSystemCollaborationMetrics = {
+      s1Evaluations: 5,
+      s1Escalations: 2,
+      s2AsyncDispatches: 2,
+      s2Completed: 1,
+      s2CancelledAsStale: 1,
+      s2Coalesced: 1,
+      guidanceRevisionsIssued: 2,
+      guidanceAppliedCount: 1,
+      guidanceExpiredOrOverridden: 0,
+      s1P50LatencyMs: 85,
+      s1P95LatencyMs: 112,
+      s2P50LatencyMs: 2100,
+      s2P95LatencyMs: 3200,
+    };
+
+    state = applyMsg(state, {
+      type: 'system1.verdict',
+      serverSeq: 4,
+      payload: {
+        requestId: 'req-s1-5',
+        sessionId: 'sess-1',
+        contextVersion: 1,
+        timestamp: T1,
+        cognitiveState: 'omitting_key_point',
+        speakerIntent: 'presenting',
+        interventionNeed: 'trigger_l1',
+        recommendedLevel: 'L1',
+        recoveryDetected: false,
+        confidence: 0.91,
+        coveredPointIds: [],
+        missingPointIds: ['p-2'],
+        driftDetected: false,
+        reason: 'Omission detected with calibrated S1 margin',
+        signals: {
+          silenceMs: 0,
+          semanticOmission: true,
+          topicDrift: false,
+          openQuestion: false,
+          recovery: false,
+        },
+        latencyMs: 88,
+        backend: 'colab-jev-s1',
+        observation: obs,
+      },
+    });
+    expect(state.latestS1Observation?.model).toBe('autotrust/JEV-27B');
+    expect(state.latestS1Observation?.guidanceAppliedRevision).toBe(2);
+
+    state = applyMsg(state, {
+      type: 'telemetry.updated',
+      serverSeq: 5,
+      payload: {
+        ...baseState.telemetry,
+        dualSystem: metrics,
+      },
+    });
+    expect(state.dualSystemMetrics?.s2CancelledAsStale).toBe(1);
+
+    state = applyMsg(state, {
+      type: 'session.error',
+      serverSeq: 6,
+      payload: {
+        code: 'COMPANION_READ_ONLY',
+        message: '伴随窗禁止写入音频分片',
+      },
+    });
+    expect(state.error).toContain('COMPANION_READ_ONLY');
   });
 });

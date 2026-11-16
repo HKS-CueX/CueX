@@ -2,7 +2,8 @@
  * Protocol & Schema Version Constants and Fundamental Time/Money Primitives.
  */
 
-export const PROTOCOL_PACKAGE_VERSION = '2.1.0' as const;
+/** 协议包语义化版本号（v2.2.0 新增双系统协同黑板、脱敏模型归因与 Companion 多订阅协议）。 */
+export const PROTOCOL_PACKAGE_VERSION = '2.2.0' as const;
 export const API_VERSION = '2026-11' as const;
 export const WS_PROTOCOL_VERSION = '2.0' as const;
 export const PACK_SCHEMA_VERSION = 2 as const;

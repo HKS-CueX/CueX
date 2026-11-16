@@ -61,6 +61,7 @@ a477ce23c5b8bd63a23e613311d1d0eff070bc59817bda0c4fadf4f4a778e355  mandatory/ai-e
 ab3a09996defd5d66426872b73b7058f939e1e0837fe1cd9616f62af08b055dd  mandatory/ai-employee-demo/demo-script.md
 27d88ca7ed1e84a8c9d06a986c476b8045884d1d14788a4f668cb5b38ef763d6  mandatory/ai-employee-demo/evidence/colab-asr-report.json
 a49fc43a6a2d8506b35e1d79ee51b8c602ae5f50fe142d24595f5fa4045b7dde  mandatory/ai-employee-demo/evidence/cpa-llm-report.json
+13dde0468c28a60df2fd1ad901efe8317bb4e88219b0e2725b5cc03d95a238d1  mandatory/ai-employee-demo/evidence/dual-system-real-validation.json
 99e0d2817e1a44d6709fbf235d2da62066c8c463bfa678edc55f6de2598148f8  mandatory/ai-employee-demo/evidence/real-e2e-validation.json
 c5206962ebd2dc4b75cb8e7a7742ce87d4856e3a95587a59d0dc0fbf22019188  mandatory/ai-employee-demo/evidence/ui-compiler-facts-1440.png
 b978a8a620c501b2637356f47fc1fbb9efb6dddda1708d8bbc906d129e14d97e  mandatory/ai-employee-demo/evidence/ui-qa-degraded-inspector-1440.png

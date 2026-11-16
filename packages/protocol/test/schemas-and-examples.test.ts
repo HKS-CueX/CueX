@@ -8,13 +8,17 @@ import {
   validateAsrCapabilityStatus,
   validateClientMessage,
   validateContextPack,
+  validateDualSystemCollaborationMetrics,
   validateEventEnvelope,
   validateEvidence,
   validateMemoryItem,
   validatePresentationContextPack,
   validateProviderUsageRecord,
+  validateS1ObservationSnapshot,
+  validateSystem2Guidance,
   validateTelemetryUsage,
   validateUsageRecord,
+  validateWsAttachState,
 } from '#src/index';
 
 const ROOT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -65,6 +69,22 @@ test('all canonical JSON examples parse and pass corresponding v2 runtime valida
   );
   assert.equal(
     validateProviderUsageRecord(readExample('provider-usage-record.example.json')).ok,
+    true,
+  );
+  assert.equal(
+    validateSystem2Guidance(readExample('system2-guidance.example.json')).ok,
+    true,
+  );
+  assert.equal(
+    validateS1ObservationSnapshot(readExample('s1-observation-snapshot.example.json')).ok,
+    true,
+  );
+  assert.equal(
+    validateDualSystemCollaborationMetrics(readExample('dual-system-metrics.example.json')).ok,
+    true,
+  );
+  assert.equal(
+    validateWsAttachState(readExample('ws-attach-state.example.json')).ok,
     true,
   );
 });
