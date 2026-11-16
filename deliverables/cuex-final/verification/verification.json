@@ -1,12 +1,13 @@
 {
   "schemaVersion": "cuex-phase3-qa-verification-v1",
-  "verifiedAt": "2026-11-16T00:05:30.000Z",
+  "verifiedAt": "2026-11-16T00:25:30.000Z",
   "branch": "refactor/universal-runtime-presentation",
   "baseMainCommit": "96cd742523d5b0fea5aafdb65944d421938a0a43",
   "priorCommits": [
     "e2cb6370a8df68f77440d6d0a09adaf4fa98d66f",
     "6804f5a2788f809f3c8f466c612cdf1f5e65bfb4",
-    "7ad6ccb1caf4d8c6743bc0c22a3dcd981c719d04"
+    "7ad6ccb1caf4d8c6743bc0c22a3dcd981c719d04",
+    "99e9314afe07f40435e06a3dced65f07f4e402a6"
   ],
   "verifier": "qa-verifier",
   "silentValidationOnly": true,
@@ -177,7 +178,7 @@
       "sbomCommand": "node scripts/generate-sbom.mjs",
       "sbomWorkspaces": 5,
       "sbomComponents": 751,
-      "sbomArtifacts": 151,
+      "sbomArtifacts": 155,
       "evidencePath": "deliverables/cuex-final/sbom-and-checksums.json"
     },
     "dependencyAudit": {

@@ -929,19 +929,24 @@ export function renderTokenProofHtml(metrics, assets) {
             <img src="${assets.uiStageInspector}" style="width:100%; height:228px; object-fit:cover; object-position:top center; display:block;" />
           </div>
 
-          <div style="background:#161922; color:#E8E6DF; border-radius:10px; padding:12px 13px; font-family:'CueXMono',monospace; font-size:10.8px; line-height:1.48; overflow:hidden;">
-            <div style="color:#FFA048; font-weight:700; margin-bottom:4px;">// Sanitized Evidence Excerpt (Keys/Host Redacted)</div>
-            <div>"schemaVersion": "cpa-llm-report.v2",</div>
-            <div>"gateway": "cpa:&lt;redacted-host&gt;",</div>
-            <div>"primaryModel": "gemini-4-hydrogen",</div>
-            <div>"requests": { "ok": 18, "negGuard": 3 },</div>
-            <div>"mainPipeline12Calls": {</div>
-            <div>&nbsp;&nbsp;"input": 5904, "output": 9495,</div>
-            <div>&nbsp;&nbsp;"reasoningTokens": 7126,</div>
-            <div>&nbsp;&nbsp;"usageSource": "provider_reported",</div>
-            <div>&nbsp;&nbsp;"costFen": 0 <span style="color:#9BA1B0;">// no fake billing</span></div>
-            <div>},</div>
-            <div>"colabSenseVoice": { "rtf": 0.00327, "p95": 89.59 }</div>
+          <div style="background:${C.tint}; border:1px solid ${C.hairline}; border-radius:10px; overflow:hidden; display:flex; flex-direction:column;">
+            <div style="padding:5px 10px; background:${C.bg}; border-bottom:1px solid ${C.hairline}; font-family:'CueXMono',monospace; font-size:10.5px; font-weight:700; color:${C.ink}; display:flex; justify-content:space-between;">
+              <span>Sanitized Evidence Excerpt</span>
+              <span style="color:${C.amber};">Keys/Host Redacted</span>
+            </div>
+            <div style="padding:10px 12px; font-family:'CueXMono',monospace; font-size:10.8px; line-height:1.48; color:${C.ink}; flex:1; overflow:hidden;">
+              <div>"schemaVersion": <span style="color:${C.violet}; font-weight:700;">"cpa-llm-report.v2"</span>,</div>
+              <div>"gateway": <span style="color:${C.amber}; font-weight:700;">"cpa:&lt;redacted-host&gt;"</span>,</div>
+              <div>"primaryModel": <span style="color:${C.violet}; font-weight:700;">"gemini-4-hydrogen"</span>,</div>
+              <div>"requests": { "ok": <span style="color:${C.violet}; font-weight:700;">18</span>, "negGuard": <span style="color:${C.amber}; font-weight:700;">3</span> },</div>
+              <div>"mainPipeline12Calls": {</div>
+              <div>&nbsp;&nbsp;"input": <span style="color:${C.violet}; font-weight:700;">5904</span>, "output": <span style="color:${C.violet}; font-weight:700;">9495</span>,</div>
+              <div>&nbsp;&nbsp;"reasoningTokens": <span style="color:${C.amber}; font-weight:700;">7126</span>,</div>
+              <div>&nbsp;&nbsp;"usageSource": <span style="color:${C.violet}; font-weight:700;">"provider_reported"</span>,</div>
+              <div>&nbsp;&nbsp;"costFen": <span style="color:${C.amber}; font-weight:700;">0</span> <span style="color:${C.muted};">// no fake billing</span></div>
+              <div>},</div>
+              <div>"colabSenseVoice": { "rtf": <span style="color:${C.violet}; font-weight:700;">0.00327</span>, "p95": <span style="color:${C.amber}; font-weight:700;">89.59</span> }</div>
+            </div>
           </div>
         </div>
       </div>

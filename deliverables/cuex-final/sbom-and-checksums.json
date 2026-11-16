@@ -1,9 +1,9 @@
 {
   "schemaVersion": "cuex-sbom-v1",
   "bomFormat": "CycloneDX-compatible-JSON",
-  "generatedAt": "2026-11-16T00:04:24.815Z",
+  "generatedAt": "2026-11-16T00:25:26.729Z",
   "provenance": {
-    "commitSha": "7ad6ccb1caf4d8c6743bc0c22a3dcd981c719d04",
+    "commitSha": "99e9314afe07f40435e06a3dced65f07f4e402a6",
     "branch": "refactor/universal-runtime-presentation",
     "workingTreeDirty": true,
     "nodeVersion": "v26.13.0",
@@ -5577,8 +5577,8 @@
     },
     {
       "path": "CueX-Universal-Presentation-Final.zip",
-      "sha256": "8bac26846776d1403ec54f6c5d260c47a69f8057ec3397257821db10d1d4f7cc",
-      "bytes": 20072292
+      "sha256": "3c701d02a6e3a7b1b109692f31eeaec50d1c8c342ba4310e34e37a8cb7ae0494",
+      "bytes": 41649006
     },
     {
       "path": "apps/web/dist/assets/index-CQC4VBVK.css",
@@ -5659,6 +5659,11 @@
       "path": "apps/web/dist/index.html",
       "sha256": "8e733a65a044e9c335ac8dcd61bf26425de954e273b4f4fca6d0fb1383b2aede",
       "bytes": 831
+    },
+    {
+      "path": "deliverables/cuex-final/CueX-Universal-Presentation-Final.zip",
+      "sha256": "3c701d02a6e3a7b1b109692f31eeaec50d1c8c342ba4310e34e37a8cb7ae0494",
+      "bytes": 41649006
     },
     {
       "path": "deliverables/cuex-final/README.md",
@@ -5772,17 +5777,17 @@
     },
     {
       "path": "deliverables/cuex-final/business/CueX-AI-Employee-Job-Spec.pdf",
-      "sha256": "466f52d9a02f05f42635382fb0fc927294813c72432e1bf64d4364996f0590f3",
+      "sha256": "be8b249ff9a045d78b37e7a33475486e25f7aec5f14ea47a5e0346ce739c7dc2",
       "bytes": 674965
     },
     {
       "path": "deliverables/cuex-final/business/CueX-BMC-and-Unit-Economics.pdf",
-      "sha256": "abff6f511b52e16e83d66bafeeec04bf24b9a31c762034da73c67eefe59f02a9",
+      "sha256": "958ab233236dcc78b5de93061958a87b43bc4e211c203b620293bd2fb4a53073",
       "bytes": 730871
     },
     {
       "path": "deliverables/cuex-final/business/CueX-Business-Model-Canvas.pdf",
-      "sha256": "d65c5819954f3b9cf066b0298999e32873a9819fa4a490fc56020d0c6cfe1a62",
+      "sha256": "25a5c7ccdbdf8e22b58a273e35538bddd07bf60ac0dd4120e205289da972bf12",
       "bytes": 530162
     },
     {
@@ -5792,8 +5797,8 @@
     },
     {
       "path": "deliverables/cuex-final/business/CueX-Business-Plan.pdf",
-      "sha256": "1f2ae69d0d21aab2a4600a53de35000f4ce476c58886e67f1195b2a0c94adaf4",
-      "bytes": 7086946
+      "sha256": "afe08a50d0f9ee490e6e1f3f3dcc96397b73b5fd540e8578705f6521efd23898",
+      "bytes": 7087223
     },
     {
       "path": "deliverables/cuex-final/business/CueX-Competitive-Analysis.html",
@@ -5807,7 +5812,7 @@
     },
     {
       "path": "deliverables/cuex-final/business/CueX-Competitive-Analysis.pdf",
-      "sha256": "868d04e752283c588f279aa10f7271aaf8c6276ba3b432a2ccd3cf717f398471",
+      "sha256": "082da22100d6b957d6dbbf739a7b605fcc449b2af99d5d4283feba3d8039ec99",
       "bytes": 3581128
     },
     {
@@ -5822,7 +5827,7 @@
     },
     {
       "path": "deliverables/cuex-final/business/CueX-Unit-Economics.pdf",
-      "sha256": "2b78b402cf940d0074717730efe1997c2253bf1affc12514617b4ffb30e3049f",
+      "sha256": "61bfb5e11a95a362e97a29ef5db051528b2818d6ba25f468cb9c8cfbda6ce4a3",
       "bytes": 550512
     },
     {
@@ -5842,8 +5847,8 @@
     },
     {
       "path": "deliverables/cuex-final/demo/token-usage-proof.png",
-      "sha256": "815305e3ed8c5e7c4452678e2e1b5c7135b34997b8c3e00e9620b5ee118239a6",
-      "bytes": 331905
+      "sha256": "9e6699277cee61793c575f7d3752b447494f14c004c185ecc0c47bc8c391a795",
+      "bytes": 332264
     },
     {
       "path": "deliverables/cuex-final/evidence/evaluation-results.md",
@@ -5852,12 +5857,12 @@
     },
     {
       "path": "deliverables/cuex-final/evidence/token-usage-proof.png",
-      "sha256": "815305e3ed8c5e7c4452678e2e1b5c7135b34997b8c3e00e9620b5ee118239a6",
-      "bytes": 331905
+      "sha256": "9e6699277cee61793c575f7d3752b447494f14c004c185ecc0c47bc8c391a795",
+      "bytes": 332264
     },
     {
       "path": "deliverables/cuex-final/evidence/verification.json",
-      "sha256": "b8b85ec371f7444cdc257c595085c4f48d9a06a066f89e96f2d944d42156d6f2",
+      "sha256": "6633e688f4707453649f34f937f44a977162d83daefcb318ba8d64192731fc37",
       "bytes": 2013
     },
     {
@@ -6012,7 +6017,7 @@
     },
     {
       "path": "deliverables/cuex-final/mandatory/ai-employee-job-spec/CueX-AI-Employee-Job-Specification.pdf",
-      "sha256": "51a959ad04912889c5c30950992dd103d3eeb640af8ca702f6c103a5012ab487",
+      "sha256": "f343510e833ea35f923430e1322be7bcd2b7668220d913b90fc4dcc2e8633bcd",
       "bytes": 2312103
     },
     {
@@ -6032,7 +6037,7 @@
     },
     {
       "path": "deliverables/cuex-final/mandatory/business-model-canvas/CueX-Business-Model-Canvas.pdf",
-      "sha256": "447bf94c7b760d7d811c3f6df49af92963779f8a5e1fd8bcc21afc357337c569",
+      "sha256": "c5f7cd3de159897cdc301b23625aab532295c09d8e7e52f65774c697e0aac865",
       "bytes": 3948792
     },
     {
@@ -6057,8 +6062,8 @@
     },
     {
       "path": "deliverables/cuex-final/pitch/CueX-BP.pdf",
-      "sha256": "1f2ae69d0d21aab2a4600a53de35000f4ce476c58886e67f1195b2a0c94adaf4",
-      "bytes": 7086946
+      "sha256": "afe08a50d0f9ee490e6e1f3f3dcc96397b73b5fd540e8578705f6521efd23898",
+      "bytes": 7087223
     },
     {
       "path": "deliverables/cuex-final/pitch/CueX-Demo-Script.md",
@@ -6102,8 +6107,8 @@
     },
     {
       "path": "deliverables/cuex-final/previews/bp-p4.png",
-      "sha256": "b5ef01ea73fd4b6a4ff5d39cb5dac24bdd0f99b0c84e64dee699fe34710e829f",
-      "bytes": 623551
+      "sha256": "8cd1c7d58dda7862ffbd6ab903355381a94326eff1c93d5b876d81d9cf7f65b8",
+      "bytes": 623376
     },
     {
       "path": "deliverables/cuex-final/previews/bp-p5.png",
@@ -6139,6 +6144,21 @@
       "path": "deliverables/cuex-final/previews/unit-economics-p1.png",
       "sha256": "05db4afa91e860bb07cf929e68c73585ddee8a8ca11566935ae8680cbf06155a",
       "bytes": 603968
+    },
+    {
+      "path": "deliverables/cuex-final/verification/SHA256SUMS.txt",
+      "sha256": "a46566c4ce7d7d7f2fd9e0762b27784ebfd408e0e660db4fc029daf4a640f144",
+      "bytes": 10910
+    },
+    {
+      "path": "deliverables/cuex-final/verification/test-report.md",
+      "sha256": "a299fb89b840d90526885f33888657486f9df2e66f135b6d04bc35cfeb536958",
+      "bytes": 7453
+    },
+    {
+      "path": "deliverables/cuex-final/verification/verification.json",
+      "sha256": "da17e6dbe3a38c90fd78dc77c0a3405be9b8622e03eae91b4b9795507256072d",
+      "bytes": 8613
     },
     {
       "path": "package.json",
@@ -6332,6 +6352,6 @@
     "pnpmComponentCount": 381,
     "pptComponentCount": 370,
     "importerDependencyCount": 35,
-    "hashedArtifactCount": 151
+    "hashedArtifactCount": 155
   }
 }
