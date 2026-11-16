@@ -2,22 +2,20 @@ import React, { useCallback, useEffect, useState } from 'react';
 import type {
   AccountUsageSummary,
   AuthSessionResponse,
-  BillingAuditRecord,
   DataDeletionReceipt,
   Entitlement,
   PaymentChannel,
   PaymentCheckoutPreviewResult,
   PlanDefinition,
-  UsageRecord,
 } from '@cuex/protocol';
 import {
   AlertTriangle,
   Building2,
+  ChevronDown,
   CreditCard,
   Download,
   ExternalLink,
   History,
-  KeyRound,
   RefreshCw,
   ShieldAlert,
   ShieldCheck,
@@ -43,9 +41,9 @@ import {
   formatApiError,
   formatBytes,
   formatDateTime,
+  formatDuration,
   formatMoneyFen,
   PLAN_CYCLE_LABELS,
-  USAGE_TYPE_LABELS,
 } from '@/lib/format';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -60,20 +58,21 @@ interface AccountPanelProps {
   onClose?: () => void;
 }
 
-const DELETION_SCOPE_LABELS: Record<string, string> = {
-  sessions: '演讲会话记录',
-  packs: '场前编译包',
-  memories: '个人记忆条目',
-  reflections: '场后复盘报告',
-  telemetry: '实时遥测记录',
-  usage_records: '用量账本记录',
-  auth_tokens: '历史认证令牌',
+const PLAN_LABELS: Record<string, string> = {
+  free: '免费体验版',
+  event: '单场冲刺包',
+  pro: '个人专业版',
+  team: '团队协作版',
 };
 
-const PAYMENT_CHANNEL_LABELS: Record<PaymentChannel, string> = {
-  sandbox: '本地沙盒估算',
-  wechat_pay: '微信支付（预览）',
-  alipay: '支付宝（预览）',
+const DELETION_SCOPE_LABELS: Record<string, string> = {
+  sessions: '演讲记录',
+  packs: '讲稿提纲',
+  memories: '演讲偏好',
+  reflections: '复盘报告',
+  telemetry: '运行记录',
+  usage_records: '额度记录',
+  auth_tokens: '登录凭证',
 };
 
 function triggerBrowserDownload(filename: string, content: string, mime: string): void {
@@ -101,31 +100,25 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  // Switch profile form
   const [switchName, setSwitchName] = useState(authSession?.user.displayName ?? '');
   const [switchEmail, setSwitchEmail] = useState(authSession?.user.email ?? '');
   const [switchTenant, setSwitchTenant] = useState(authSession?.user.tenantId ?? 'tenant_default');
   const [switchingAuth, setSwitchingAuth] = useState(false);
 
-  // Plans & Usage
   const [plans, setPlans] = useState<PlanDefinition[]>([]);
   const [usageSummary, setUsageSummary] = useState<AccountUsageSummary | null>(
     authSession?.usageSummary ?? null
   );
-  const [usageRecords, setUsageRecords] = useState<UsageRecord[]>([]);
   const [entitlements, setEntitlements] = useState<Entitlement[]>(authSession?.entitlements ?? []);
-  const [paymentChannel, setPaymentChannel] = useState<PaymentChannel>('sandbox');
+  const [paymentChannel] = useState<PaymentChannel>('wechat_pay');
   const [proCycle, setProCycle] = useState<'monthly' | 'annual'>('monthly');
   const [checkoutPreview, setCheckoutPreview] = useState<PaymentCheckoutPreviewResult | null>(null);
   const [previewLoadingPlan, setPreviewLoadingPlan] = useState<string | null>(null);
 
-  // Sessions history
   const [sessions, setSessions] = useState<SessionHistoryItem[]>([]);
   const [sessionDeletionReceipt, setSessionDeletionReceipt] =
     useState<DataDeletionReceipt | null>(null);
 
-  // Privacy / Export / Audit / Account Wipe
-  const [billingAudit, setBillingAudit] = useState<BillingAuditRecord[]>([]);
   const [exportResult, setExportResult] = useState<AccountExportResult | null>(null);
   const [exportingFormat, setExportingFormat] = useState<'json' | 'markdown' | null>(null);
   const [confirmWipeChecked, setConfirmWipeChecked] = useState(false);
@@ -141,7 +134,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
       if (!switchEmail && authSession.user.email) setSwitchEmail(authSession.user.email);
       if (authSession.user.tenantId) setSwitchTenant(authSession.user.tenantId);
     }
-  }, [authSession]);
+  }, [authSession]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const refreshPanelData = useCallback(async () => {
     setLoading(true);
@@ -153,7 +146,6 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
         listSessionsHistory(),
       ]);
       setPlans(plansData);
-      setUsageRecords(usageData.records);
       setUsageSummary(usageData.summary);
       if (usageData.entitlements) {
         setEntitlements(usageData.entitlements);
@@ -170,10 +162,10 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
     void refreshPanelData();
   }, [refreshPanelData, authSession?.user.userId]);
 
-  const handleSwitchProfile = async (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!switchName.trim()) {
-      setError('请输入用于创建或切换身份的显示名称');
+      setError('请填写你的称呼');
       return;
     }
     setSwitchingAuth(true);
@@ -191,7 +183,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
         tenantId: switchTenant.trim() || undefined,
       });
       onAuthChanged(next);
-      setNotice(`已切换认证身份为「${next.user.displayName}」（租户 ${next.user.tenantId}）`);
+      setNotice(`已更新个人资料：${next.user.displayName}`);
     } catch (err) {
       setError(formatApiError(err));
     } finally {
@@ -206,7 +198,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
       await logoutAuthSession();
       const fresh = await ensureAuthSession();
       onAuthChanged(fresh);
-      setNotice('已吊销旧令牌并签发新的 Bearer 会话令牌。');
+      setNotice('已刷新登录会话。');
     } catch (err) {
       setError(formatApiError(err));
     } finally {
@@ -246,10 +238,9 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
       if (res.receipt) {
         setSessionDeletionReceipt(res.receipt);
       }
-      setNotice(`会话 ${sessionId} 已从个人空间销毁。`);
+      setNotice('已删除该场演讲记录。');
       void fetchAccountUsage()
         .then((u) => {
-          setUsageRecords(u.records);
           setUsageSummary(u.summary);
         })
         .catch(() => {});
@@ -264,15 +255,12 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
     try {
       const res = await exportAccountData(format);
       setExportResult(res);
-      if (res.bundle?.billingAuditRecords) {
-        setBillingAudit(res.bundle.billingAuditRecords);
-      }
       triggerBrowserDownload(
         res.filename,
         res.content,
         format === 'json' ? 'application/json;charset=utf-8' : 'text/markdown;charset=utf-8'
       );
-      setNotice(`已生成 ${res.filename}（${formatBytes(res.content.length)}）。`);
+      setNotice(`已导出文件 ${res.filename}（${formatBytes(res.content.length)}）。`);
     } catch (err) {
       setError(formatApiError(err));
     } finally {
@@ -291,14 +279,13 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
       setSessions([]);
       setExportResult(null);
 
-      // Re-issue a fresh empty session token so the UI remains usable cleanly.
       const fresh = await createAuthSession({
-        displayName: authSession?.user.displayName ?? 'CueX 演示演讲者',
+        displayName: authSession?.user.displayName ?? '我的账户',
         tenantId: authSession?.user.tenantId,
       });
       onAccountWiped?.(receipt, fresh);
       onAuthChanged(fresh);
-      setNotice('个人业务数据已按主权协议销毁，保留不可删除的合规审计回执。');
+      setNotice('个人讲稿、演讲记录与偏好已清空。');
     } catch (err) {
       setError(formatApiError(err));
     } finally {
@@ -306,33 +293,25 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
     }
   };
 
+  const activePlanId = usageSummary?.activePlanId ?? 'free';
+
   return (
     <div className="space-y-4" data-testid="account-panel">
-      {/* Header Status Summary */}
+      {/* Header Summary */}
       <div className="rounded border border-line bg-ground p-3.5 flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-1 min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <UserCheck className="w-4 h-4 text-violet shrink-0" />
             <span className="text-sm font-semibold text-ink truncate" data-testid="account-user-name">
-              {authSession?.user.displayName ?? '未登录会话'}
+              {authSession?.user.displayName ?? '我的账户'}
             </span>
             <Badge variant="violet">
-              套餐: {usageSummary?.activePlanId?.toUpperCase() ?? 'FREE'}
-            </Badge>
-            <Badge variant="secondary">
-              租户: {authSession?.user.tenantId ?? 'tenant_default'}
+              {PLAN_LABELS[activePlanId] ?? activePlanId.toUpperCase()}
             </Badge>
           </div>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-ink-3">
-            <span className="font-mono break-all">
-              userId: {authSession?.user.userId ?? '-'}
-            </span>
-            {authSession?.sessionTokenExpiresAt && (
-              <span className="num">
-                令牌有效期至 {formatDateTime(authSession.sessionTokenExpiresAt)}
-              </span>
-            )}
-          </div>
+          {authSession?.user.email && (
+            <p className="text-xs text-ink-3 truncate">{authSession.user.email}</p>
+          )}
         </div>
 
         <Button
@@ -344,7 +323,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
           data-testid="account-refresh-btn"
         >
           <RefreshCw className={`w-3.5 h-3.5 mr-1 ${loading ? 'animate-spin' : ''}`} />
-          刷新状态
+          刷新
         </Button>
       </div>
 
@@ -352,10 +331,10 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
       <div className="flex flex-wrap gap-1.5 border-b border-line pb-2.5">
         {(
           [
-            { key: 'account', label: '账户与隔离', icon: KeyRound },
-            { key: 'plans', label: '套餐与用量', icon: Wallet },
-            { key: 'sessions', label: `会话历史 (${sessions.length})`, icon: History },
-            { key: 'privacy', label: '数据导出与销毁', icon: ShieldAlert },
+            { key: 'account', label: '个人资料', icon: UserCheck },
+            { key: 'plans', label: '会员方案', icon: Wallet },
+            { key: 'sessions', label: `演讲记录 (${sessions.length})`, icon: History },
+            { key: 'privacy', label: '数据管理', icon: ShieldAlert },
           ] as Array<{ key: AccountTab; label: string; icon: React.ComponentType<{ className?: string }> }>
         ).map((item) => {
           const Icon = item.icon;
@@ -399,100 +378,103 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
         </div>
       )}
 
-      {/* TAB 1: ACCOUNT & MULTI-TENANT SWITCH */}
+      {/* TAB 1: PROFILE & QUOTA */}
       {tab === 'account' && (
         <div className="space-y-4">
           <div className="rounded border border-line bg-surface p-4 space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="space-y-0.5">
-                <h4 className="text-sm font-semibold text-ink">
-                  多用户 / 租户隔离认证 (Bearer Token)
-                </h4>
-                <p className="text-xs text-ink-3">
-                  不同用户与租户拥有严格隔离的 ContextPack、会话记录与个人记忆；切换后立即可验证跨用户隔离。
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="quiet"
-                size="sm"
-                onClick={() => void handleRotateToken()}
-                disabled={switchingAuth}
-                data-testid="auth-rotate-btn"
-              >
-                轮换令牌
-              </Button>
-            </div>
+            <h4 className="text-sm font-semibold text-ink">基本信息</h4>
 
             <form
-              onSubmit={(e) => void handleSwitchProfile(e)}
-              className="grid sm:grid-cols-3 gap-3 pt-1"
+              onSubmit={(e) => void handleSaveProfile(e)}
+              className="space-y-3"
               data-testid="auth-switch-form"
             >
-              <div>
-                <label htmlFor="auth-switch-name" className="block text-xs text-ink-2 font-medium mb-1">
-                  演讲者昵称 *
-                </label>
-                <input
-                  id="auth-switch-name"
-                  type="text"
-                  value={switchName}
-                  onChange={(e) => setSwitchName(e.target.value)}
-                  placeholder="例如 李明 / 演示演讲者"
-                  data-testid="auth-switch-name"
-                  className="w-full h-9 px-2.5 text-xs rounded border border-line-strong bg-ground text-ink focus:outline-none focus:border-ink"
-                />
-              </div>
-              <div>
-                <label htmlFor="auth-switch-email" className="block text-xs text-ink-2 font-medium mb-1">
-                  邮箱（可选）
-                </label>
-                <input
-                  id="auth-switch-email"
-                  type="email"
-                  value={switchEmail}
-                  onChange={(e) => setSwitchEmail(e.target.value)}
-                  placeholder="可选邮箱（用于身份标识）"
-                  data-testid="auth-switch-email"
-                  className="w-full h-9 px-2.5 text-xs rounded border border-line-strong bg-ground text-ink focus:outline-none focus:border-ink"
-                />
-              </div>
-              <div>
-                <label htmlFor="auth-switch-tenant" className="block text-xs text-ink-2 font-medium mb-1">
-                  租户 ID（隔离域）
-                </label>
-                <input
-                  id="auth-switch-tenant"
-                  type="text"
-                  value={switchTenant}
-                  onChange={(e) => setSwitchTenant(e.target.value)}
-                  placeholder="tenant_default"
-                  data-testid="auth-switch-tenant"
-                  className="w-full h-9 px-2.5 text-xs rounded border border-line-strong bg-ground text-ink focus:outline-none focus:border-ink"
-                />
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div>
+                  <label htmlFor="auth-switch-name" className="block text-xs text-ink-2 font-medium mb-1">
+                    称呼 / 昵称 *
+                  </label>
+                  <input
+                    id="auth-switch-name"
+                    type="text"
+                    value={switchName}
+                    onChange={(e) => setSwitchName(e.target.value)}
+                    placeholder="例如：林同学 / 陈创始人"
+                    data-testid="auth-switch-name"
+                    className="w-full h-9 px-2.5 text-xs rounded border border-line-strong bg-ground text-ink focus:outline-none focus:border-ink"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="auth-switch-email" className="block text-xs text-ink-2 font-medium mb-1">
+                    联系邮箱（选填）
+                  </label>
+                  <input
+                    id="auth-switch-email"
+                    type="email"
+                    value={switchEmail}
+                    onChange={(e) => setSwitchEmail(e.target.value)}
+                    placeholder="用于接收复盘报告或通知"
+                    data-testid="auth-switch-email"
+                    className="w-full h-9 px-2.5 text-xs rounded border border-line-strong bg-ground text-ink focus:outline-none focus:border-ink"
+                  />
+                </div>
               </div>
 
-              <div className="sm:col-span-3 flex flex-wrap items-center justify-between gap-2 pt-1">
-                <span className="text-xs text-ink-3">
-                  当前认证模式: <code className="font-mono text-ink-2">{authSession?.user.authMode ?? 'session_token'}</code>
-                </span>
+              {/* Advanced workspace switcher folded away from everyday consumer view */}
+              <details
+                className="group border border-line rounded bg-ground/60 px-3 py-2 text-xs"
+                data-testid="advanced-workspace-details"
+              >
+                <summary className="cursor-pointer list-none flex items-center justify-between text-ink-3 hover:text-ink select-none">
+                  <span>高级选项：切换独立工作空间</span>
+                  <ChevronDown className="w-3.5 h-3.5 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="pt-2.5 flex flex-wrap items-end justify-between gap-3">
+                  <div className="flex-1 min-w-[200px]">
+                    <label htmlFor="auth-switch-tenant" className="block text-xs text-ink-2 mb-1">
+                      工作空间标识
+                    </label>
+                    <input
+                      id="auth-switch-tenant"
+                      type="text"
+                      value={switchTenant}
+                      onChange={(e) => setSwitchTenant(e.target.value)}
+                      placeholder="default"
+                      data-testid="auth-switch-tenant"
+                      className="w-full h-8 px-2.5 text-xs rounded border border-line bg-surface text-ink focus:outline-none focus:border-ink"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    variant="quiet"
+                    size="sm"
+                    onClick={() => void handleRotateToken()}
+                    disabled={switchingAuth}
+                    data-testid="auth-rotate-btn"
+                  >
+                    刷新登录状态
+                  </Button>
+                </div>
+              </details>
+
+              <div className="flex justify-end">
                 <Button
                   type="submit"
                   size="sm"
                   disabled={switchingAuth}
                   data-testid="auth-switch-submit"
                 >
-                  {switchingAuth ? '切换中…' : '登录 / 切换身份'}
+                  {switchingAuth ? '保存中…' : '保存资料'}
                 </Button>
               </div>
             </form>
           </div>
 
-          {/* Active Entitlements */}
+          {/* Active Quota */}
           <div className="rounded border border-line bg-surface p-4 space-y-2.5">
-            <h4 className="text-sm font-semibold text-ink">当前生效权益 (Entitlements)</h4>
+            <h4 className="text-sm font-semibold text-ink">当前可用额度</h4>
             {entitlements.length === 0 ? (
-              <p className="text-xs text-ink-3">暂无权益条目，默认按 Free 额度执行。</p>
+              <p className="text-xs text-ink-3">当前使用免费体验版基础额度。</p>
             ) : (
               <div className="grid sm:grid-cols-2 gap-2.5">
                 {entitlements.map((ent) => (
@@ -501,17 +483,16 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                     className="rounded bg-ground p-3 text-xs space-y-1.5"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-semibold text-ink uppercase">{ent.planId}</span>
+                      <span className="font-semibold text-ink">
+                        {PLAN_LABELS[ent.planId] ?? ent.planId.toUpperCase()}
+                      </span>
                       <Badge variant={ent.status === 'active' ? 'resolved' : 'secondary'}>
-                        {ent.status}
+                        {ent.status === 'active' ? '生效中' : '已到期'}
                       </Badge>
                     </div>
                     <p className="text-xs text-ink-2 num">
-                      剩余场次：{ent.remainingSessions ?? '不限'} · 剩余实时时长：
+                      剩余可用场次：{ent.remainingSessions ?? '不限'} ｜ 剩余云端语音：
                       {ent.remainingLiveMinutes ?? '不限'} 分钟
-                    </p>
-                    <p className="text-xs font-mono text-ink-3 num">
-                      来源：{ent.source} · 授予：{formatDateTime(ent.grantedAt)}
                     </p>
                   </div>
                 ))}
@@ -521,81 +502,58 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
         </div>
       )}
 
-      {/* TAB 2: PLANS, CHECKOUT SANDBOX PREVIEW & USAGE LEDGER */}
+      {/* TAB 2: PLANS & USAGE */}
       {tab === 'plans' && (
         <div className="space-y-4">
-          {/* Usage Summary: Achromatic Ledger Hairline Strip */}
           {usageSummary && (
             <div
-              className="grid grid-cols-2 sm:grid-cols-4 rounded border border-line bg-surface divide-y sm:divide-y-0 sm:divide-x divide-line"
+              className="grid grid-cols-2 rounded border border-line bg-surface divide-x divide-line"
               data-testid="account-usage-summary"
             >
               <div className="p-3.5">
-                <div className="text-xs text-ink-3">本周期会话数</div>
+                <div className="text-xs text-ink-3">本周期已用场次</div>
                 <div className="text-base font-mono font-semibold text-ink mt-1 num">
                   {usageSummary.sessionsUsed}
                   <span className="text-xs text-ink-3 font-normal">
                     {' '}
-                    / {usageSummary.sessionsLimit ?? '∞'}
+                    / {usageSummary.sessionsLimit ?? '不限'}
                   </span>
                 </div>
               </div>
               <div className="p-3.5">
-                <div className="text-xs text-ink-3">实时音频时长</div>
+                <div className="text-xs text-ink-3">已用云端语音时长</div>
                 <div className="text-base font-mono font-semibold text-ink mt-1 num">
-                  {usageSummary.liveMinutesUsed}m
+                  {usageSummary.liveMinutesUsed} 分钟
                   <span className="text-xs text-ink-3 font-normal">
                     {' '}
-                    / {usageSummary.liveMinutesLimit ?? '∞'}m
+                    / {usageSummary.liveMinutesLimit ?? '不限'} 分钟
                   </span>
-                </div>
-              </div>
-              <div className="p-3.5">
-                <div className="text-xs text-ink-3">累计消耗 Token</div>
-                <div className="text-base font-mono font-semibold text-ink mt-1 num">
-                  {usageSummary.totalTokensUsed.toLocaleString()}
-                </div>
-              </div>
-              <div className="p-3.5">
-                <div className="text-xs text-ink-3">计量成本估算</div>
-                <div className="text-base font-mono font-semibold text-ink mt-1 num">
-                  {formatMoneyFen(usageSummary.totalCost ?? usageSummary.totalCostFen)}
                 </div>
               </div>
             </div>
           )}
 
-          {/* Commercial Sandbox Controls */}
-          <div className="rounded border border-amber/30 bg-amber-tint/70 p-3 flex flex-wrap items-center justify-between gap-2.5 text-xs">
-            <div className="flex items-start sm:items-center gap-2 text-ink">
-              <CreditCard className="w-4 h-4 text-amber-ink shrink-0 mt-0.5 sm:mt-0" />
-              <span>
-                <strong>商业试算声明：</strong>以下定价为 <code>isCommercialHypothesis</code>{' '}
-                假设，点击购买仅触发<strong>沙盒结算预览</strong>，不连接真实扣费。
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <select
-                value={paymentChannel}
-                onChange={(e) => setPaymentChannel(e.target.value as PaymentChannel)}
-                aria-label="选择沙盒支付方式"
-                data-testid="payment-channel-select"
-                className="h-8 px-2.5 text-xs rounded border border-line-strong bg-surface text-ink"
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+            <span className="text-ink-2">选择适合你演讲频率的方案：</span>
+            <div className="inline-flex rounded border border-line bg-ground p-0.5">
+              <button
+                type="button"
+                onClick={() => setProCycle('monthly')}
+                className={`px-2.5 py-1 rounded-sm text-xs ${
+                  proCycle === 'monthly' ? 'bg-ink text-ground font-medium' : 'text-ink-2'
+                }`}
               >
-                <option value="sandbox">{PAYMENT_CHANNEL_LABELS.sandbox}</option>
-                <option value="wechat_pay">{PAYMENT_CHANNEL_LABELS.wechat_pay}</option>
-                <option value="alipay">{PAYMENT_CHANNEL_LABELS.alipay}</option>
-              </select>
-              <select
-                value={proCycle}
-                onChange={(e) => setProCycle(e.target.value as 'monthly' | 'annual')}
-                aria-label="选择 Pro 计费周期"
-                data-testid="pro-cycle-select"
-                className="h-8 px-2.5 text-xs rounded border border-line-strong bg-surface text-ink"
+                按月
+              </button>
+              <button
+                type="button"
+                onClick={() => setProCycle('annual')}
+                className={`px-2.5 py-1 rounded-sm text-xs ${
+                  proCycle === 'annual' ? 'bg-ink text-ground font-medium' : 'text-ink-2'
+                }`}
               >
-                <option value="monthly">Pro 按月计费</option>
-                <option value="annual">Pro 按年计费</option>
-              </select>
+                按年（省 30%）
+              </button>
             </div>
           </div>
 
@@ -607,7 +565,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
               const priceText =
                 plan.planId === 'pro' && proCycle === 'annual' && plan.annualPrice
                   ? `${formatMoneyFen(plan.annualPrice)} / 年`
-                  : `${formatMoneyFen(plan.price)} · ${PLAN_CYCLE_LABELS[plan.billingCycle]}`;
+                  : `${formatMoneyFen(plan.price)}（${PLAN_CYCLE_LABELS[plan.billingCycle]}）`;
 
               return (
                 <div
@@ -616,7 +574,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                   aria-disabled={isPlanned ? 'true' : undefined}
                   className={`rounded border p-4 flex flex-col justify-between gap-3 ${
                     isPlanned
-                      ? 'border-line border-dashed bg-ground/70'
+                      ? 'border-line bg-ground/70'
                       : isCurrent
                         ? 'border-ink bg-surface'
                         : 'border-line bg-surface'
@@ -630,25 +588,20 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                       {isPlanned ? (
                         <Badge variant="secondary" data-testid={`plan-status-${plan.planId}`}>
                           <Building2 className="w-3 h-3 shrink-0" />
-                          <span>Planned · 尚未开放</span>
+                          <span>即将推出</span>
                         </Badge>
                       ) : (
                         <Badge
                           variant={isCurrent ? 'violet' : 'amber'}
                           data-testid={`plan-status-${plan.planId}`}
                         >
-                          {isCurrent ? '当前方案' : 'Available · 沙盒预览'}
+                          {isCurrent ? '当前方案' : '可选方案'}
                         </Badge>
                       )}
                     </div>
 
-                    <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <span className="text-base font-mono font-semibold text-ink num">
-                        {priceText}
-                      </span>
-                      {plan.isCommercialHypothesis && (
-                        <span className="text-xs text-ink-3">定价假设 · 沙盒试算</span>
-                      )}
+                    <div className="text-base font-mono font-semibold text-ink num">
+                      {priceText}
                     </div>
 
                     <ul className="space-y-1 text-xs text-ink-2">
@@ -656,11 +609,6 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                         <li key={idx}>• {feat}</li>
                       ))}
                     </ul>
-                    {plan.limitations.length > 0 && (
-                      <p className="text-xs text-ink-3">
-                        限制：{plan.limitations.join('；')}
-                      </p>
-                    )}
                   </div>
 
                   <div>
@@ -673,7 +621,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                         className="w-full"
                         data-testid={`preview-checkout-${plan.planId}`}
                       >
-                        企业团队版尚未开放购买 (Planned)
+                        团队版即将推出
                       </Button>
                     ) : (
                       <Button
@@ -686,8 +634,10 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                         data-testid={`preview-checkout-${plan.planId}`}
                       >
                         {previewLoadingPlan === plan.planId
-                          ? '生成沙盒预览…'
-                          : '沙盒结账预览（非真实支付）'}
+                          ? '加载方案详情…'
+                          : isCurrent
+                            ? '查看当前方案详情'
+                            : '了解升级方案'}
                       </Button>
                     )}
                   </div>
@@ -696,7 +646,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
             })}
           </div>
 
-          {/* Checkout Sandbox Result */}
+          {/* Beta Plan Details */}
           {checkoutPreview && (
             <div
               className="rounded border border-violet/35 bg-violet-tint/70 p-3.5 space-y-2 text-xs"
@@ -706,60 +656,18 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                 <div className="flex items-center gap-2 font-semibold text-ink">
                   <CreditCard className="w-4 h-4 text-violet shrink-0" />
                   <span>
-                    结账沙盒预览 ({checkoutPreview.planId.toUpperCase()} ·{' '}
-                    {PAYMENT_CHANNEL_LABELS[checkoutPreview.paymentChannel]})
+                    {PLAN_LABELS[checkoutPreview.planId] ?? checkoutPreview.planId.toUpperCase()} 方案说明
                   </span>
                 </div>
-                <Badge variant="amber">
-                  liveCheckoutAvailable: {String(checkoutPreview.liveCheckoutAvailable)} ·{' '}
-                  {checkoutPreview.mode}
-                </Badge>
+                <Badge variant="violet">公开体验期</Badge>
               </div>
-              <p className="text-ink-2">{checkoutPreview.notice}</p>
-              <div className="flex flex-wrap gap-4 font-mono text-xs text-ink num">
-                <span>小计：{formatMoneyFen(checkoutPreview.subtotal)}</span>
-                <span>折扣：{formatMoneyFen(checkoutPreview.discount)}</span>
-                <span className="font-semibold">应付预览：{formatMoneyFen(checkoutPreview.total)}</span>
-                <span className="text-ink-3">previewId: {checkoutPreview.previewId}</span>
-              </div>
+              <p className="text-ink-2 leading-relaxed">
+                当前处于公开体验阶段，核心备稿、余光提词与复盘重练功能均可直接使用；正式订阅开通后将支持微信支付与支付宝自助升级（方案标准价{' '}
+                <strong className="font-mono text-ink">{formatMoneyFen(checkoutPreview.total)}</strong>
+                ）。
+              </p>
             </div>
           )}
-
-          {/* Usage Ledger */}
-          <div className="rounded border border-line bg-surface p-3.5 space-y-2">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-semibold text-ink num">
-                用量账本明细 (UsageLedger · 最近 {usageRecords.length} 条)
-              </h4>
-            </div>
-            {usageRecords.length === 0 ? (
-              <p className="text-xs text-ink-3 py-2">当前尚无用量记录，发起编译或演讲后将自动计量。</p>
-            ) : (
-              <div
-                className="max-h-56 overflow-y-auto divide-y divide-line border border-line rounded"
-                data-testid="usage-ledger-list"
-              >
-                {usageRecords.slice(0, 30).map((rec) => (
-                  <div
-                    key={rec.id}
-                    className="px-3 py-2 flex flex-wrap items-center justify-between gap-2 text-xs"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Badge variant="secondary">{USAGE_TYPE_LABELS[rec.usageType] ?? rec.usageType}</Badge>
-                      <span className="font-mono text-ink num">
-                        {rec.quantity} {rec.unit}
-                      </span>
-                      <span className="text-ink-3 truncate">来源: {rec.source}</span>
-                    </div>
-                    <div className="flex items-center gap-3 font-mono text-ink-2 num">
-                      {typeof rec.costFen === 'number' && <span>{formatMoneyFen(rec.costFen)}</span>}
-                      <span className="text-ink-3">{formatDateTime(rec.occurredAt)}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
       )}
 
@@ -768,17 +676,12 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
         <div className="space-y-3">
           {sessionDeletionReceipt && (
             <div
-              className="rounded border border-resolved/35 bg-resolved-tint p-3 text-xs space-y-1.5"
+              className="rounded border border-resolved/35 bg-resolved-tint p-3 text-xs space-y-1"
               data-testid="history-deletion-receipt"
             >
-              <div className="font-semibold text-resolved">
-                会话数据销毁回执 ({sessionDeletionReceipt.receiptId})
-              </div>
+              <div className="font-semibold text-resolved">该场演讲记录已删除</div>
               <div className="text-xs text-ink-2 num">
-                完成时间：{formatDateTime(sessionDeletionReceipt.completedAt)} · 清除范围：
-                {sessionDeletionReceipt.deletedScopes
-                  .map((s) => `${DELETION_SCOPE_LABELS[s.scope] ?? s.scope}: ${s.deletedCount}`)
-                  .join(' · ')}
+                删除时间：{formatDateTime(sessionDeletionReceipt.completedAt)}
               </div>
             </div>
           )}
@@ -788,7 +691,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
               className="rounded border border-dashed border-line bg-ground p-6 text-center text-xs text-ink-3"
               data-testid="session-history-empty"
             >
-              当前认证身份下暂无历史会话记录。完成一次彩排或正式演讲后，可在此回看复盘与销毁数据。
+              还没有历史演讲记录。完成一次彩排或正式上台后，可以在这里随时回看复盘。
             </div>
           ) : (
             <div className="space-y-2" data-testid="session-history-list">
@@ -801,21 +704,20 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                   <div className="space-y-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-medium text-ink truncate">
-                        {item.title || `会话 ${item.sessionId.slice(0, 12)}`}
+                        {item.title || '未命名演讲'}
                       </span>
-                      <Badge variant="secondary">{item.mode === 'live' ? '正式演讲' : '彩排'}</Badge>
-                      <Badge variant={item.status === 'ended' ? 'resolved' : 'amber'}>
-                        {item.status}
+                      <Badge variant="secondary">
+                        {item.mode === 'live' ? '正式演讲' : '彩排演练'}
                       </Badge>
-                      {typeof item.utilityScore === 'number' && (
-                        <Badge variant="violet" className="num">
-                          净效用 V = {item.utilityScore.toFixed(1)}
-                        </Badge>
-                      )}
+                      <Badge variant={item.status === 'ended' ? 'resolved' : 'amber'}>
+                        {item.status === 'ended' ? '已完成' : '进行中'}
+                      </Badge>
                     </div>
-                    <p className="text-xs font-mono text-ink-3 num break-all">
-                      {item.sessionId} · 开始于 {formatDateTime(item.startedAt)}
-                      {item.elapsedSec !== undefined ? ` · 时长 ${item.elapsedSec}s` : ''}
+                    <p className="text-xs text-ink-3 num">
+                      时间：{formatDateTime(item.startedAt)}
+                      {item.elapsedSec !== undefined
+                        ? ` ｜ 时长 ${formatDuration(item.elapsedSec)}`
+                        : ''}
                     </p>
                   </div>
 
@@ -843,7 +745,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                       data-testid={`delete-session-${item.sessionId}`}
                     >
                       <Trash2 className="w-3.5 h-3.5 mr-1" />
-                      销毁
+                      删除
                     </Button>
                   </div>
                 </div>
@@ -853,29 +755,17 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
         </div>
       )}
 
-      {/* TAB 4: EXPORT & ACCOUNT DATA WIPE */}
+      {/* TAB 4: EXPORT & CLEAR DATA */}
       {tab === 'privacy' && (
         <div className="space-y-4">
-          {/* Export My Data */}
           <div className="rounded border border-line bg-surface p-4 space-y-3">
             <div>
-              <h4 className="text-sm font-semibold text-ink">导出我的完整数据 (Data Portability)</h4>
+              <h4 className="text-sm font-semibold text-ink">导出我的数据</h4>
               <p className="text-xs text-ink-3 mt-0.5">
-                一键导出当前账户名下的演讲编译包、个人记忆、复盘报告、用量账本与合规审计记录。
+                将你准备过的讲稿提纲、复盘报告与演讲偏好打包下载到本地保存。
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="quiet"
-                size="sm"
-                onClick={() => void handleExport('json')}
-                disabled={exportingFormat !== null}
-                data-testid="export-json-btn"
-              >
-                <Download className="w-3.5 h-3.5 mr-1" />
-                {exportingFormat === 'json' ? '导出中…' : '导出 JSON Bundle'}
-              </Button>
               <Button
                 type="button"
                 variant="quiet"
@@ -885,7 +775,18 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                 data-testid="export-md-btn"
               >
                 <Download className="w-3.5 h-3.5 mr-1" />
-                {exportingFormat === 'markdown' ? '导出中…' : '导出 Markdown 报告'}
+                {exportingFormat === 'markdown' ? '正在导出…' : '导出 Markdown 文档'}
+              </Button>
+              <Button
+                type="button"
+                variant="quiet"
+                size="sm"
+                onClick={() => void handleExport('json')}
+                disabled={exportingFormat !== null}
+                data-testid="export-json-btn"
+              >
+                <Download className="w-3.5 h-3.5 mr-1" />
+                {exportingFormat === 'json' ? '正在导出…' : '导出 JSON 备份'}
               </Button>
             </div>
 
@@ -900,23 +801,21 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                 </div>
                 <pre className="max-h-40 overflow-y-auto text-xs font-mono text-ink-2 whitespace-pre-wrap break-all bg-surface p-2.5 rounded border border-line">
                   {exportResult.content.slice(0, 1200)}
-                  {exportResult.content.length > 1200 ? '\n…（已截断预览，完整内容已下载）' : ''}
+                  {exportResult.content.length > 1200 ? '\n…（完整内容已下载至本地）' : ''}
                 </pre>
               </div>
             )}
           </div>
 
-          {/* Account Wipe */}
           <div className="rounded border border-alert/35 bg-alert-tint/60 p-4 space-y-3">
             <div className="flex items-start gap-2.5">
               <ShieldAlert className="w-4 h-4 text-alert shrink-0 mt-0.5" />
               <div className="space-y-1">
                 <h4 className="text-sm font-semibold text-alert">
-                  一键清空账户个人数据 (Right to Erasure)
+                  清空全部个人数据
                 </h4>
                 <p className="text-xs text-ink-2 leading-relaxed">
-                  将永久删除当前账户的演讲会话、ContextPack、个人记忆、复盘报告与用量明细分录，并吊销历史认证令牌。依法需留存的不可逆合规审计记录（如{' '}
-                  <code>billing_audit_logs</code>）将在下方销毁回执中如实披露。
+                  永久删除当前账户下的所有讲稿提纲、历史演讲记录、复盘报告与个人偏好设置，删除后无法恢复。
                 </p>
               </div>
             </div>
@@ -929,7 +828,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
                 data-testid="confirm-account-wipe-checkbox"
                 className="w-4 h-4 rounded border-line-strong accent-ink"
               />
-              <span>我确认彻底清除当前账户个人业务数据（不可恢复）</span>
+              <span>我确认清空全部个人讲稿、记录与偏好</span>
             </label>
 
             <Button
@@ -941,7 +840,7 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
               data-testid="wipe-account-data-btn"
             >
               <Trash2 className="w-3.5 h-3.5 mr-1" />
-              {wipingAccount ? '正在清除并生成回执…' : '销毁全部个人数据并获取回执'}
+              {wipingAccount ? '正在清空…' : '立即清空全部数据'}
             </Button>
 
             {accountDeletionReceipt && (
@@ -951,75 +850,22 @@ export const AccountPanel: React.FC<AccountPanelProps> = ({
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="font-semibold text-resolved">
-                    数据销毁合规回执 (DataDeletionReceipt)
+                    个人数据已清空完毕
                   </span>
-                  <span className="font-mono text-xs text-ink-3">
-                    {accountDeletionReceipt.receiptId}
+                  <span className="text-xs text-ink-3 num">
+                    {formatDateTime(accountDeletionReceipt.completedAt)}
                   </span>
                 </div>
-                <p className="text-xs text-ink-3 num">
-                  请求时间：{formatDateTime(accountDeletionReceipt.requestedAt)} · 完成时间：
-                  {formatDateTime(accountDeletionReceipt.completedAt)}
-                </p>
-
-                <div className="space-y-1">
-                  <div className="text-xs font-semibold text-ink">已清除范围：</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {accountDeletionReceipt.deletedScopes.map((entry) => (
-                      <Badge key={entry.scope} variant="secondary">
-                        {DELETION_SCOPE_LABELS[entry.scope] ?? entry.scope}: {entry.deletedCount}
-                      </Badge>
-                    ))}
-                  </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {accountDeletionReceipt.deletedScopes.map((entry) => (
+                    <Badge key={entry.scope} variant="secondary">
+                      {DELETION_SCOPE_LABELS[entry.scope] ?? entry.scope}: {entry.deletedCount}
+                    </Badge>
+                  ))}
                 </div>
-
-                {accountDeletionReceipt.preservedRecords.length > 0 && (
-                  <div className="space-y-1">
-                    <div className="text-xs font-semibold text-ink">依法保留审计项：</div>
-                    {accountDeletionReceipt.preservedRecords.map((item, idx) => (
-                      <div key={idx} className="text-xs text-ink-2 bg-ground rounded p-2">
-                        <code>{item.category}</code>（{item.count} 条）：{item.reason}（策略：
-                        {item.retentionPolicy}）
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {accountDeletionReceipt.thirdPartyCaveats.length > 0 && (
-                  <div className="space-y-1">
-                    <div className="text-xs font-semibold text-ink">第三方服务提示：</div>
-                    <ul className="text-xs text-ink-3 list-disc list-inside space-y-0.5">
-                      {accountDeletionReceipt.thirdPartyCaveats.map((c, idx) => (
-                        <li key={idx}>{c}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
               </div>
             )}
           </div>
-
-          {/* Billing Audit Trail */}
-          {billingAudit.length > 0 && (
-            <div className="rounded border border-line bg-surface p-3.5 space-y-2">
-              <h4 className="text-sm font-semibold text-ink">
-                合规审计留痕 (Billing Audit · {billingAudit.length} 条)
-              </h4>
-              <div className="space-y-1 max-h-36 overflow-y-auto divide-y divide-line">
-                {billingAudit.map((rec) => (
-                  <div
-                    key={rec.auditId}
-                    className="text-xs text-ink-2 flex flex-wrap items-center justify-between gap-2 pt-1.5 first:pt-0"
-                  >
-                    <span>
-                      <code>{rec.eventType}</code> · {rec.retentionNote}
-                    </span>
-                    <span className="font-mono text-ink-3 num">{formatDateTime(rec.occurredAt)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       )}
     </div>

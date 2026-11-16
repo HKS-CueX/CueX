@@ -7,17 +7,12 @@ import type {
   PresentationWeakSegment,
 } from '@cuex/protocol';
 import {
-  AlertTriangle,
-  ArrowRight,
   CheckCircle2,
   Clock,
   Edit3,
-  FileWarning,
   Filter,
-  HelpCircle,
   Play,
   RotateCcw,
-  ShieldAlert,
   ShieldCheck,
   Sparkles,
   Trash2,
@@ -31,11 +26,12 @@ import {
   formatApiError,
   formatDateTime,
   formatDuration,
-  formatMoneyFen,
   formatMs,
   formatTime,
+  INTERVENTION_LEVEL_LABELS,
   MEMORY_CATEGORY_LABELS,
-  USAGE_SOURCE_LABELS,
+  SPEAKER_LABELS,
+  TIMELINE_EVENT_KIND_LABELS,
   WITHDRAWAL_REASON_LABELS,
 } from '@/lib/format';
 import { cn } from '@/lib/utils';
@@ -63,6 +59,14 @@ function formatTimelineOffset(atMs: number, baseEpochMs: number | null): string 
   return formatMs(Math.max(0, atMs));
 }
 
+/** 将后端摘要中可能包含的内部公式记号转化为自然中文。 */
+function cleanSummaryCopy(summary: string): string {
+  return summary
+    .replace(/[；;]?\s*净效用\s*V\s*=[^。；;]*[。]?/gu, '')
+    .replace(/Q&A/gu, '现场提问')
+    .trim();
+}
+
 interface ReflectionViewProps {
   sessionId: string | null;
   initialReflection: PresentationReflection | null;
@@ -74,11 +78,11 @@ interface ReflectionViewProps {
 }
 
 const WEAK_REASON_LABELS: Record<PresentationWeakSegment['reason'], string> = {
-  missed_key_point: '核心要点遗漏',
+  missed_key_point: '漏讲核心要点',
   topic_drift: '话题偏离主线',
-  overtime: '章节节奏超时',
-  unanswered_qa: '现场提问缺乏实证支撑',
-  distracting_moment: '用户标记为打扰的提示时刻',
+  overtime: '章节用时超标',
+  unanswered_qa: '提问待补充数据',
+  distracting_moment: '节奏波动片段',
 };
 
 export const ReflectionView: React.FC<ReflectionViewProps> = ({
@@ -91,7 +95,6 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
   onSessionWiped,
 }) => {
   const [reflection, setReflection] = useState<PresentationReflection | null>(initialReflection);
-  const [lambda, setLambda] = useState<number>(2);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [timelineFilter, setTimelineFilter] = useState<
@@ -125,7 +128,7 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
     setLoading(true);
     setError(null);
     setDeletionReceipt(null);
-    void getSessionReflection(targetSessionId, lambda)
+    void getSessionReflection(targetSessionId, 2)
       .then((ref) => {
         setReflection(ref);
         if (!selectedWeakId && ref.weakSegments[0]) {
@@ -138,7 +141,7 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
         }
       })
       .finally(() => setLoading(false));
-  }, [sessionId, lambda]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAcceptProposal = async (
     proposal: MemoryProposal,
@@ -160,7 +163,7 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
       setEditingProposalId(null);
       setMemoryRefresh((n) => n + 1);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '写入个人记忆失败');
+      setError(err instanceof Error ? err.message : '保存演讲偏好失败');
     }
   };
 
@@ -212,11 +215,10 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
         <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-line pb-5">
           <div className="space-y-1.5">
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-ink">
-              场后复盘 · 净有效介入评估、单点重练与记忆治理
+              复盘提升
             </h1>
             <p className="text-sm text-ink-2 leading-relaxed">
-              基于真实转写、控制器裁决与用户微反馈计算{' '}
-              <span className="font-mono font-semibold text-ink">V = H - λI</span>，并支持单点重练与可控记忆落盘。
+              回顾本场要点覆盖、各章用时与现场提问表现，挑选薄弱片段随时单点重练。
             </p>
           </div>
 
@@ -231,14 +233,14 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                 data-testid="reflection-wipe-btn"
               >
                 <Trash2 className="w-3.5 h-3.5 text-amber-ink" />
-                <span>{wiping ? '清除中...' : '彻底删除本场会话数据'}</span>
+                <span>{wiping ? '清空中…' : '清空本场记录'}</span>
               </Button>
             )}
             <Button type="button" variant="quiet" size="sm" onClick={onGoToStage}>
-              返回场中协同
+              前往上台演讲
             </Button>
             <Button type="button" size="sm" onClick={onGoToCompiler}>
-              新建 / 编辑演讲包
+              编辑讲稿
             </Button>
           </div>
         </header>
@@ -251,213 +253,133 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
 
         {deletionReceipt && (
           <div
-            className="border border-resolved/40 bg-resolved-tint/60 rounded-md p-4 text-xs space-y-2"
+            className="border border-resolved/40 bg-resolved-tint/60 rounded-md p-4 text-xs space-y-1.5"
             data-testid="session-deletion-receipt"
           >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2 font-semibold text-resolved">
-                <ShieldCheck className="w-4 h-4 shrink-0" />
-                <span>会话数据销毁合规回执 (DataDeletionReceipt)</span>
-              </div>
-              <span className="font-mono text-xs text-ink-3">{deletionReceipt.receiptId}</span>
+            <div className="flex items-center gap-2 font-semibold text-resolved">
+              <ShieldCheck className="w-4 h-4 shrink-0" />
+              <span>本场演讲记录已彻底清除</span>
             </div>
-            <p className="text-xs text-ink-2 leading-relaxed">
-              完成时间：{formatDateTime(deletionReceipt.completedAt)} · 已清除范围：
-              {deletionReceipt.deletedScopes.map((s) => `${s.scope}: ${s.deletedCount}`).join(' · ')}
+            <p className="text-xs text-ink-2 leading-relaxed tabular-nums">
+              清理完成时间：{formatDateTime(deletionReceipt.completedAt)}
             </p>
-            {deletionReceipt.preservedRecords.length > 0 && (
-              <p className="text-xs text-ink-3">
-                保留合规项：
-                {deletionReceipt.preservedRecords
-                  .map((p) => `${p.category} (${p.count})`)
-                  .join('；')}
-              </p>
-            )}
           </div>
         )}
 
         {loading && !reflection && (
           <div className="border border-line bg-surface rounded-md p-8 text-center text-xs text-ink-3">
-            正在生成本次演讲复盘诊断...
+            正在整理本场复盘报告…
           </div>
         )}
 
         {!reflection && !loading ? (
           <div className="border border-line bg-surface rounded-md p-8 text-center space-y-3">
             <Clock className="w-7 h-7 text-ink-3 mx-auto" />
-            <h2 className="text-base font-semibold text-ink">暂无可复盘的已完成会话</h2>
+            <h2 className="text-base font-semibold text-ink">还没有已完成的演讲记录</h2>
             <p className="text-sm text-ink-2 max-w-md mx-auto leading-relaxed">
-              在「场中协同」完成一轮演讲并点击「结束并进入复盘」后，系统将生成真实的时间线、V = H - λI 评分与单点重练任务。
+              完成一次彩排或正式上台并点击「结束并复盘」后，这里会自动生成要点覆盖清单与单点重练建议。
             </p>
             <div className="flex justify-center gap-2 pt-1">
               <Button type="button" variant="quiet" size="sm" onClick={onGoToCompiler}>
-                先去场前编译
+                准备讲稿
               </Button>
               <Button type="button" size="sm" onClick={onGoToStage}>
-                前往场中协同
+                上台演讲
               </Button>
             </div>
           </div>
         ) : (
           reflection && (
             <>
-              {/* 1. V = H - λI & Diagnosis Summary (Natural height, zero bottom void) */}
+              {/* 1. Presenter Performance Overview First + Calm Assist Summary */}
               <section className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-                {/* V = H - λI Utility Score */}
-                <div
-                  className="lg:col-span-5 border border-ink/25 bg-surface rounded-md p-5 space-y-4"
-                  data-testid="utility-score-card"
-                >
+                {/* Primary: Presenter Delivery Overview */}
+                <div className="lg:col-span-8 border border-line bg-surface rounded-md p-5 space-y-4">
                   <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
-                    <h2 className="text-base font-bold text-ink">净有效介入评分 (V = H - λI)</h2>
-                    <label className="flex items-center gap-1.5 text-xs text-ink-2 whitespace-nowrap shrink-0">
-                      <span>惩罚系数 λ：</span>
-                      <select
-                        value={lambda}
-                        onChange={(e) => setLambda(Number(e.target.value))}
-                        data-testid="lambda-select"
-                        className="h-8 border border-line bg-ground rounded px-2 text-ink font-mono focus-visible:outline-none focus-visible:border-ink"
-                      >
-                        <option value={1}>1</option>
-                        <option value={2}>2 (默认)</option>
-                        <option value={3}>3</option>
-                      </select>
-                    </label>
-                  </div>
-
-                  <div className="flex flex-wrap items-baseline gap-5">
-                    <span
-                      className={cn(
-                        'font-mono text-5xl font-bold tabular-nums',
-                        reflection.utility.netUtilityScore >= 0 ? 'text-resolved' : 'text-amber-ink'
-                      )}
-                      data-testid="utility-net-score"
-                    >
-                      {reflection.utility.netUtilityScore}
-                    </span>
-                    <div className="text-xs text-ink-2 space-y-1 font-mono tabular-nums">
-                      <div>
-                        H (有效帮助) = {reflection.utility.helpfulCount} · 显式点赞{' '}
-                        {reflection.utility.explicitHelpfulCount}
-                      </div>
-                      <div>
-                        I (打扰次数) = {reflection.utility.distractingCount} · 显式打扰{' '}
-                        {reflection.utility.explicitDistractingCount}
-                      </div>
-                      <div className="text-resolved">
-                        主动撤回免打扰 = {reflection.utility.withdrawnBeforeDisruptionCount} · 抑制冗余{' '}
-                        {reflection.utility.suppressedCount}
-                      </div>
-                    </div>
-                  </div>
-
-                  <p
-                    className="text-xs text-ink-3 border-t border-line pt-3 leading-relaxed"
-                    data-testid="utility-formula-note"
-                  >
-                    公式口径：<strong>H</strong> = 有效帮助介入次数（非提示总次数），<strong>I</strong>{' '}
-                    = 不必要/打扰介入次数，多余打断以 λ={reflection.utility.lambda}{' '}
-                    倍惩罚；演讲者主动修复后及时撤回不计入 I。
-                  </p>
-                </div>
-
-                {/* Diagnosis Summary */}
-                <div className="lg:col-span-7 border border-line bg-surface rounded-md p-5 space-y-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
-                    <h2 className="text-base font-bold text-ink">结构化诊断摘要</h2>
-                    <div className="flex flex-wrap gap-1.5 min-w-0 max-w-full">
-                      <Badge variant="outline" className="font-mono">
-                        模式：{reflection.mode === 'rehearsal' ? '彩排' : '正式'}
+                    <h2 className="text-base font-bold text-ink">本场完成情况</h2>
+                    <div className="flex flex-wrap gap-1.5">
+                      <Badge variant={reflection.mode === 'rehearsal' ? 'violet' : 'amber'}>
+                        {reflection.mode === 'rehearsal' ? '彩排演练' : '正式演讲'}
                       </Badge>
                       <Badge variant="secondary" className="font-mono tabular-nums">
-                        时长：{formatDuration(reflection.durationMs / 1000)}
-                      </Badge>
-                      <Badge variant="outline" className="font-mono tabular-nums">
-                        Tokens：{reflection.telemetry.totalTokens} ·{' '}
-                        {formatMoneyFen(reflection.telemetry.cost ?? reflection.telemetry.costFen)}
-                      </Badge>
-                      <Badge
-                        variant="outline"
-                        className="font-mono whitespace-normal text-left max-w-full"
-                      >
-                        {USAGE_SOURCE_LABELS[reflection.telemetry.usageSource] ??
-                          (reflection.telemetry.estimation.usingLocalFallback
-                            ? '本地规则零 Token'
-                            : '模型实计')}
+                        用时 {formatDuration(reflection.durationMs / 1000)}
                       </Badge>
                     </div>
                   </div>
 
                   <p className="text-sm text-ink-2 leading-relaxed">
-                    {reflection.diagnosis.overallSummary}
+                    {cleanSummaryCopy(reflection.diagnosis.overallSummary) ||
+                      '本场演讲已完成，可参考下方漏讲要点与提问记录针对性补强。'}
                   </p>
 
-                  {/* 4-column Achromatic Ledger Metric Strip */}
+                  {/* 4 Key Presenter Metrics */}
                   <div className="border border-line bg-surface-muted/40 rounded grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-line text-xs">
-                    <div className="p-3 space-y-0.5">
+                    <div className="p-3.5 space-y-0.5">
                       <span className="text-xs text-ink-3 block">要点覆盖率</span>
-                      <span className="font-mono text-xl font-bold text-ink tabular-nums">
+                      <span className="font-mono text-2xl font-bold text-ink tabular-nums">
                         {Math.round(reflection.diagnosis.coverageRatio * 100)}%
                       </span>
                     </div>
-                    <div className="p-3 space-y-0.5">
-                      <span className="text-xs text-ink-3 block">遗漏要点</span>
-                      <span className="font-mono text-xl font-bold text-amber-ink tabular-nums">
+                    <div className="p-3.5 space-y-0.5">
+                      <span className="text-xs text-ink-3 block">漏讲要点</span>
+                      <span className="font-mono text-2xl font-bold text-amber-ink tabular-nums">
                         {reflection.diagnosis.missedPoints.length} 项
                       </span>
                     </div>
-                    <div className="p-3 space-y-0.5">
+                    <div className="p-3.5 space-y-0.5">
                       <span className="text-xs text-ink-3 block">超时章节</span>
-                      <span className="font-mono text-xl font-bold text-ink tabular-nums">
+                      <span className="font-mono text-2xl font-bold text-ink tabular-nums">
                         {reflection.diagnosis.overtimeChapters.length} 章
                       </span>
                     </div>
-                    <div className="p-3 space-y-0.5">
-                      <span className="text-xs text-ink-3 block">偏离 / 自动撤回</span>
-                      <span className="font-mono text-xl font-bold text-resolved tabular-nums">
-                        {reflection.diagnosis.driftCount} / {reflection.diagnosis.autoWithdrawCount}
+                    <div className="p-3.5 space-y-0.5">
+                      <span className="text-xs text-ink-3 block">待补充提问</span>
+                      <span className="font-mono text-2xl font-bold text-violet-ink tabular-nums">
+                        {reflection.diagnosis.unansweredQuestions.length} 个
                       </span>
                     </div>
                   </div>
 
-                  {/* Missed / Overtime / Unanswered details (unified divided row, zero stretched empty voids) */}
+                  {/* Actionable Details */}
                   <div className="border border-line bg-surface-muted/30 rounded grid grid-cols-1 md:grid-cols-3 divide-y md:divide-y-0 md:divide-x divide-line text-xs">
-                    <div className="p-3 space-y-1">
-                      <strong className="text-ink block">遗漏关键点</strong>
+                    <div className="p-3.5 space-y-1">
+                      <strong className="text-ink block">建议补讲的要点</strong>
                       {reflection.diagnosis.missedPoints.length === 0 ? (
-                        <span className="text-resolved block">全部关键要点均已覆盖</span>
+                        <span className="text-resolved block">核心要点已全部讲到</span>
                       ) : (
-                        <ul className="list-disc pl-4 text-ink-2 space-y-0.5 leading-relaxed">
+                        <ul className="list-disc pl-4 text-ink-2 space-y-1 leading-relaxed">
                           {reflection.diagnosis.missedPoints.map((mp) => (
                             <li key={mp.pointId}>
-                              [{mp.chapterTitle}] {mp.label}
+                              <span className="text-ink-3">{mp.chapterTitle}：</span>
+                              {mp.label}
                             </li>
                           ))}
                         </ul>
                       )}
                     </div>
 
-                    <div className="p-3 space-y-1">
-                      <strong className="text-ink block">超时章节</strong>
+                    <div className="p-3.5 space-y-1">
+                      <strong className="text-ink block">时间节奏提醒</strong>
                       {reflection.diagnosis.overtimeChapters.length === 0 ? (
-                        <span className="text-resolved block">无明显超时章节</span>
+                        <span className="text-resolved block">各章用时均在预算范围内</span>
                       ) : (
-                        <ul className="list-disc pl-4 text-amber-ink space-y-0.5 leading-relaxed tabular-nums">
+                        <ul className="list-disc pl-4 text-amber-ink space-y-1 leading-relaxed tabular-nums">
                           {reflection.diagnosis.overtimeChapters.map((oc) => (
                             <li key={oc.chapterId}>
-                              {oc.title}：{oc.actualSec}s / {oc.targetSec}s
+                              {oc.title}（实讲 {formatDuration(oc.actualSec)} / 预计{' '}
+                              {formatDuration(oc.targetSec)}）
                             </li>
                           ))}
                         </ul>
                       )}
                     </div>
 
-                    <div className="p-3 space-y-1">
-                      <strong className="text-ink block">未准备/缺失事实问答</strong>
+                    <div className="p-3.5 space-y-1">
+                      <strong className="text-ink block">待补充数据的追问</strong>
                       {reflection.diagnosis.unansweredQuestions.length === 0 ? (
-                        <span className="text-resolved block">暂无未覆盖提问</span>
+                        <span className="text-resolved block">现场提问均有讲稿数据支撑</span>
                       ) : (
-                        <ul className="list-disc pl-4 text-amber-ink space-y-0.5 leading-relaxed">
+                        <ul className="list-disc pl-4 text-amber-ink space-y-1 leading-relaxed">
                           {reflection.diagnosis.unansweredQuestions.map((uq) => (
                             <li key={uq.segmentId}>{uq.question}</li>
                           ))}
@@ -466,105 +388,59 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                     </div>
                   </div>
                 </div>
-              </section>
 
-              {/* 2. Timeline + Single-Point Rehearsal */}
-              <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                {/* Timeline */}
+                {/* Secondary: Calm Copilot Assist Summary */}
                 <div
-                  className="lg:col-span-7 border border-line bg-surface rounded-md p-5 space-y-4"
-                  data-testid="reflection-timeline"
+                  className="lg:col-span-4 border border-line bg-surface rounded-md p-5 space-y-4"
+                  data-testid="utility-score-card"
                 >
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
-                    <h2 className="text-base font-bold text-ink">演讲全流程时间线</h2>
-                    <div className="flex flex-wrap items-center gap-1 text-xs">
-                      <Filter className="w-3.5 h-3.5 text-ink-3 mr-1" />
-                      {(
-                        [
-                          ['all', '全部'],
-                          ['segment', '转写'],
-                          ['interventions', '提示与撤回'],
-                          ['qa', '现场问答'],
-                        ] as const
-                      ).map(([k, label]) => (
-                        <button
-                          key={k}
-                          type="button"
-                          onClick={() => setTimelineFilter(k)}
-                          className={cn(
-                            'px-2.5 py-1 min-h-8 rounded border',
-                            timelineFilter === k
-                              ? 'bg-ink text-ground border-ink font-medium'
-                              : 'bg-surface-muted/60 text-ink-2 border-line hover:bg-surface-muted'
-                          )}
-                        >
-                          {label}
-                        </button>
-                      ))}
+                  <div className="flex items-center justify-between gap-2 border-b border-line pb-3">
+                    <h2 className="text-base font-bold text-ink">临场辅助小结</h2>
+                    <Badge
+                      variant={
+                        reflection.utility.distractingCount === 0 ? 'resolved' : 'amber'
+                      }
+                    >
+                      {reflection.utility.distractingCount === 0 ? '零多余打断' : '建议调轻提示'}
+                    </Badge>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2.5 text-center">
+                    <div className="rounded bg-ground-2 p-3 space-y-1">
+                      <span
+                        className="font-mono text-2xl font-bold text-resolved tabular-nums block"
+                        data-testid="utility-net-score"
+                      >
+                        {reflection.utility.helpfulCount}
+                      </span>
+                      <span className="text-xs text-ink-2 block">关键提词</span>
+                    </div>
+                    <div className="rounded bg-ground-2 p-3 space-y-1">
+                      <span className="font-mono text-2xl font-bold text-ink tabular-nums block">
+                        {reflection.utility.withdrawnBeforeDisruptionCount}
+                      </span>
+                      <span className="text-xs text-ink-2 block">接回即收</span>
+                    </div>
+                    <div className="rounded bg-ground-2 p-3 space-y-1">
+                      <span className="font-mono text-2xl font-bold text-ink-2 tabular-nums block">
+                        {reflection.utility.distractingCount}
+                      </span>
+                      <span className="text-xs text-ink-2 block">标记打扰</span>
                     </div>
                   </div>
 
-                  {filteredTimeline.length === 0 ? (
-                    <p className="text-xs text-ink-3 py-4">当前筛选条件下暂无时间线事件。</p>
-                  ) : (
-                    <ol className="divide-y divide-line text-xs max-h-[460px] overflow-y-auto pr-1">
-                      {filteredTimeline.map((ev) => (
-                        <li key={ev.id} className="py-3 flex items-start gap-3">
-                          <span className="font-mono text-xs text-ink-3 w-20 whitespace-nowrap shrink-0 pt-0.5 tabular-nums">
-                            {formatTimelineOffset(ev.atMs, timelineBaseEpochMs)}
-                          </span>
-                          <div className="flex-1 space-y-1 min-w-0">
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <Badge
-                                variant={
-                                  ev.kind === 'intervention_withdrawn'
-                                    ? 'resolved'
-                                    : ev.kind === 'intervention_shown'
-                                      ? 'amber'
-                                      : ev.kind === 'qa_question'
-                                        ? 'violet'
-                                        : 'secondary'
-                                }
-                              >
-                                {ev.kind}
-                              </Badge>
-                              {ev.level && (
-                                <span className="font-mono text-xs text-ink-3">{ev.level}</span>
-                              )}
-                              {ev.speaker && (
-                                <span className="text-xs text-ink-3">· {ev.speaker}</span>
-                              )}
-                              {ev.userFeedback && (
-                                <Badge
-                                  variant={ev.userFeedback === 'helpful' ? 'resolved' : 'amber'}
-                                >
-                                  {ev.userFeedback === 'helpful' ? '有效 (H)' : '打扰 (I)'}
-                                </Badge>
-                              )}
-                            </div>
-                            <p
-                              className={cn(
-                                'leading-relaxed break-words',
-                                ev.kind === 'intervention_withdrawn'
-                                  ? 'text-ink-3 line-through'
-                                  : 'text-ink'
-                              )}
-                            >
-                              {ev.text}
-                            </p>
-                            {ev.withdrawalReason && (
-                              <p className="text-xs text-resolved">
-                                撤回原因：{WITHDRAWAL_REASON_LABELS[ev.withdrawalReason]}
-                              </p>
-                            )}
-                            {ev.detail && <p className="text-xs text-ink-3">{ev.detail}</p>}
-                          </div>
-                        </li>
-                      ))}
-                    </ol>
-                  )}
+                  <p
+                    className="text-xs text-ink-2 border-t border-line pt-3 leading-relaxed"
+                    data-testid="utility-formula-note"
+                  >
+                    顺畅表达与自然换气期间已自动过滤 {reflection.utility.suppressedCount}{' '}
+                    次非必要弹窗，确保你在台上不被打断视线。
+                  </p>
                 </div>
+              </section>
 
+              {/* 2. Single-Point Rehearsal + Session Timeline */}
+              <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 {/* Single-Point Rehearsal Panel */}
                 <div
                   className="lg:col-span-5 border border-line bg-surface rounded-md p-5 space-y-4"
@@ -573,16 +449,16 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                   <div className="border-b border-line pb-3">
                     <h2 className="text-base font-bold text-ink flex items-center gap-1.5">
                       <RotateCcw className="w-4 h-4 text-violet shrink-0" />
-                      <span>单点重练（针对薄弱或遗漏时刻）</span>
+                      <span>薄弱片段单点重练</span>
                     </h2>
                     <p className="text-xs text-ink-3 mt-1 leading-relaxed">
-                      选定任一薄弱片段，带着已核验事实依据重新演练并获得实时控制器反馈。
+                      不用从头重讲整份 PPT，直接挑出漏讲或卡顿的那一小段再练一遍。
                     </p>
                   </div>
 
                   {reflection.weakSegments.length === 0 ? (
                     <div className="p-4 rounded bg-resolved-tint/50 border border-resolved/30 text-xs text-resolved">
-                      本场未检测到需重点单点重练的薄弱片段，表现稳健！
+                      本场节奏与要点覆盖都很扎实，没有需要单独重练的薄弱片段。
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -605,10 +481,12 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                               <div className="flex flex-wrap items-center justify-between gap-2">
                                 <span className="font-semibold text-ink">{ws.chapterTitle}</span>
                                 <Badge variant="amber">
-                                  {WEAK_REASON_LABELS[ws.reason] ?? ws.reason}
+                                  {WEAK_REASON_LABELS[ws.reason] ?? '建议补强'}
                                 </Badge>
                               </div>
-                              <p className="text-ink-2 line-clamp-2 leading-relaxed">{ws.promptText}</p>
+                              <p className="text-ink-2 line-clamp-2 leading-relaxed">
+                                {ws.promptText}
+                              </p>
                             </button>
                           );
                         })}
@@ -618,14 +496,14 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                         <div className="border border-violet/30 bg-surface-muted/50 rounded p-4 space-y-3 text-xs">
                           <div className="space-y-1">
                             <span className="text-xs font-semibold text-violet-ink block">
-                              重练引导词
+                              练习目标
                             </span>
                             <p className="text-ink leading-relaxed">{selectedWeak.promptText}</p>
                           </div>
 
                           {selectedWeak.excerptText && (
                             <div className="space-y-1">
-                              <span className="text-xs text-ink-3 block">原场片段回放：</span>
+                              <span className="text-xs text-ink-3 block">刚才的原话回顾：</span>
                               <p className="p-2.5 bg-surface border border-line rounded text-ink-2 leading-relaxed">
                                 {selectedWeak.excerptText}
                               </p>
@@ -634,7 +512,7 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
 
                           {selectedWeak.supportingEvidence.length > 0 && (
                             <div className="space-y-1">
-                              <span className="text-xs text-ink-3 block">可用事实依据：</span>
+                              <span className="text-xs text-ink-3 block">可引用的讲稿数据：</span>
                               <ul className="space-y-1">
                                 {selectedWeak.supportingEvidence.map((ev) => (
                                   <li
@@ -647,10 +525,6 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                               </ul>
                             </div>
                           )}
-
-                          <p className="text-xs text-amber-ink">
-                            建议提示词：{selectedWeak.recommendedCue}
-                          </p>
 
                           <Button
                             type="button"
@@ -665,35 +539,131 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                             }
                           >
                             <Play className="w-3.5 h-3.5" />
-                            <span>进入场中单点重练此片段</span>
+                            <span>单独重练这一段</span>
                           </Button>
                         </div>
                       )}
                     </div>
                   )}
                 </div>
+
+                {/* Timeline */}
+                <div
+                  className="lg:col-span-7 border border-line bg-surface rounded-md p-5 space-y-4"
+                  data-testid="reflection-timeline"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
+                    <h2 className="text-base font-bold text-ink">全流程回顾</h2>
+                    <div className="flex flex-wrap items-center gap-1 text-xs">
+                      <Filter className="w-3.5 h-3.5 text-ink-3 mr-1" />
+                      {(
+                        [
+                          ['all', '全部'],
+                          ['segment', '发言记录'],
+                          ['interventions', '提词时刻'],
+                          ['qa', '现场提问'],
+                        ] as const
+                      ).map(([k, label]) => (
+                        <button
+                          key={k}
+                          type="button"
+                          onClick={() => setTimelineFilter(k)}
+                          className={cn(
+                            'px-2.5 py-1 min-h-8 rounded border',
+                            timelineFilter === k
+                              ? 'bg-ink text-ground border-ink font-medium'
+                              : 'bg-surface-muted/60 text-ink-2 border-line hover:bg-surface-muted'
+                          )}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {filteredTimeline.length === 0 ? (
+                    <p className="text-xs text-ink-3 py-4">该分类下暂无记录。</p>
+                  ) : (
+                    <ol className="divide-y divide-line text-xs max-h-[460px] overflow-y-auto pr-1">
+                      {filteredTimeline.map((ev) => (
+                        <li key={ev.id} className="py-3 flex items-start gap-3">
+                          <span className="font-mono text-xs text-ink-3 w-16 whitespace-nowrap shrink-0 pt-0.5 tabular-nums">
+                            {formatTimelineOffset(ev.atMs, timelineBaseEpochMs)}
+                          </span>
+                          <div className="flex-1 space-y-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <Badge
+                                variant={
+                                  ev.kind === 'intervention_withdrawn'
+                                    ? 'resolved'
+                                    : ev.kind === 'intervention_shown'
+                                      ? 'amber'
+                                      : ev.kind === 'qa_question'
+                                        ? 'violet'
+                                        : 'secondary'
+                                }
+                              >
+                                {TIMELINE_EVENT_KIND_LABELS[ev.kind] ?? '现场记录'}
+                              </Badge>
+                              {ev.level && (
+                                <span className="text-xs text-ink-3">
+                                  {INTERVENTION_LEVEL_LABELS[ev.level] ?? ev.level}
+                                </span>
+                              )}
+                              {ev.speaker && (
+                                <span className="text-xs text-ink-3">
+                                  {SPEAKER_LABELS[ev.speaker] ?? ev.speaker}
+                                </span>
+                              )}
+                              {ev.userFeedback && (
+                                <Badge
+                                  variant={ev.userFeedback === 'helpful' ? 'resolved' : 'amber'}
+                                >
+                                  {ev.userFeedback === 'helpful' ? '有帮助' : '嫌打扰'}
+                                </Badge>
+                              )}
+                            </div>
+                            <p
+                              className={cn(
+                                'leading-relaxed break-words',
+                                ev.kind === 'intervention_withdrawn'
+                                  ? 'text-ink-2'
+                                  : 'text-ink'
+                              )}
+                            >
+                              {ev.text}
+                            </p>
+                            {ev.withdrawalReason && (
+                              <p className="text-xs text-resolved">
+                                {WITHDRAWAL_REASON_LABELS[ev.withdrawalReason]}
+                              </p>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </div>
               </section>
 
-              {/* 3. Opt-in Proposed Memory Updates (Adaptive columns: 1 / 2 / 3 cols, zero orphan white space) */}
-              <section
-                className="border border-line bg-surface rounded-md p-5 space-y-4"
-                data-testid="memory-proposals-section"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
-                  <div>
-                    <h2 className="text-base font-bold text-ink flex items-center gap-1.5">
-                      <Sparkles className="w-4 h-4 text-amber shrink-0" />
-                      <span>待确认个人记忆更新建议（Opt-in Proposals）</span>
-                    </h2>
-                    <p className="text-xs text-ink-3 mt-1">
-                      以下记忆由本场复盘提炼，未经您点击「允许写入」前绝不会写入个人存储。
-                    </p>
+              {/* 3. Suggested Habits */}
+              {reflection.memoryProposals.length > 0 && (
+                <section
+                  className="border border-line bg-surface rounded-md p-5 space-y-4"
+                  data-testid="memory-proposals-section"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line pb-3">
+                    <div>
+                      <h2 className="text-base font-bold text-ink flex items-center gap-1.5">
+                        <Sparkles className="w-4 h-4 text-amber shrink-0" />
+                        <span>值得记住的表达习惯</span>
+                      </h2>
+                      <p className="text-xs text-ink-3 mt-1">
+                        从本场表现中提炼的提醒建议，点击「保存为偏好」后将在后续演讲中自动沿用。
+                      </p>
+                    </div>
                   </div>
-                </div>
 
-                {reflection.memoryProposals.length === 0 ? (
-                  <p className="text-xs text-ink-3">本场未产生新的个人记忆更新建议。</p>
-                ) : (
                   <div
                     className={cn(
                       'grid gap-4 text-xs',
@@ -719,7 +689,7 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                             </Badge>
                             {decision !== 'pending' && (
                               <Badge variant={decision === 'accepted' ? 'resolved' : 'outline'}>
-                                {decision === 'accepted' ? '已允许写入' : '已忽略'}
+                                {decision === 'accepted' ? '已保存' : '已跳过'}
                               </Badge>
                             )}
                           </div>
@@ -759,7 +729,7 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                                     )
                                   }
                                 >
-                                  保存并允许写入
+                                  保存偏好
                                 </Button>
                               </div>
                             </div>
@@ -767,7 +737,7 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                             <>
                               <h3 className="font-semibold text-sm text-ink">{prop.title}</h3>
                               <p className="text-ink-2 leading-relaxed">{prop.content}</p>
-                              <p className="text-xs text-ink-3">理由：{prop.rationale}</p>
+                              <p className="text-xs text-ink-3">{prop.rationale}</p>
 
                               {decision === 'pending' && (
                                 <div className="flex flex-wrap items-center gap-2 pt-2">
@@ -779,7 +749,7 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                                     data-testid={`proposal-accept-${prop.proposalId}`}
                                   >
                                     <CheckCircle2 className="w-3.5 h-3.5" />
-                                    <span>允许写入</span>
+                                    <span>保存为偏好</span>
                                   </Button>
                                   <Button
                                     type="button"
@@ -792,7 +762,7 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                                     }}
                                   >
                                     <Edit3 className="w-3.5 h-3.5" />
-                                    <span>编辑</span>
+                                    <span>修改</span>
                                   </Button>
                                   <Button
                                     type="button"
@@ -802,7 +772,7 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                                     data-testid={`proposal-reject-${prop.proposalId}`}
                                   >
                                     <X className="w-3.5 h-3.5" />
-                                    <span>忽略</span>
+                                    <span>跳过</span>
                                   </Button>
                                 </div>
                               )}
@@ -812,13 +782,13 @@ export const ReflectionView: React.FC<ReflectionViewProps> = ({
                       );
                     })}
                   </div>
-                )}
-              </section>
+                </section>
+              )}
             </>
           )
         )}
 
-        {/* 4. Memory Governance Inspector (Always accessible) */}
+        {/* 4. Personal Speaking Preferences */}
         <section className="border border-line bg-surface rounded-md p-5">
           <MemoryInspectorPanel refreshTrigger={memoryRefresh} />
         </section>

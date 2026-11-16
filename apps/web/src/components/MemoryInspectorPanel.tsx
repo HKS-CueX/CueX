@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import type { DataScope, MemoryCategory, MemoryItem, PrivacyLevel } from '@cuex/protocol';
-import { Trash2, Edit3, Check, X, RefreshCw, ShieldCheck, Plus } from 'lucide-react';
+import type { MemoryCategory, MemoryItem, PrivacyLevel } from '@cuex/protocol';
+import { Trash2, Edit3, Check, X, RefreshCw, SlidersHorizontal, Plus } from 'lucide-react';
 import {
   createMemoryItem,
   deleteMemoryItem,
@@ -16,17 +16,10 @@ interface MemoryInspectorPanelProps {
   compact?: boolean;
 }
 
-const SCOPE_LABELS: Record<DataScope, string> = {
-  global: '全局记忆',
-  scenario: '场景内',
-  session: '仅会话',
-  document: '文档级',
-};
-
 const PRIVACY_LABELS: Record<PrivacyLevel, string> = {
-  local_private: '本地私有',
-  session: '仅本场',
-  ephemeral: '临时缓存',
+  local_private: '仅自己可见',
+  session: '仅当前场次',
+  ephemeral: '临时记录',
   shared: '团队共享',
 };
 
@@ -54,7 +47,7 @@ export const MemoryInspectorPanel: React.FC<MemoryInspectorPanelProps> = ({
       const list = await listMemoryItems();
       setItems(list);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '读取记忆列表失败');
+      setError(err instanceof Error ? err.message : '读取偏好列表失败');
     } finally {
       setLoading(false);
     }
@@ -81,7 +74,7 @@ export const MemoryInspectorPanel: React.FC<MemoryInspectorPanelProps> = ({
       setItems((prev) => prev.map((it) => (it.memoryId === memoryId ? updated : it)));
       setEditingId(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '更新记忆失败');
+      setError(err instanceof Error ? err.message : '保存失败');
     }
   };
 
@@ -90,7 +83,7 @@ export const MemoryInspectorPanel: React.FC<MemoryInspectorPanelProps> = ({
       await deleteMemoryItem(memoryId);
       setItems((prev) => prev.filter((it) => it.memoryId !== memoryId));
     } catch (err) {
-      setError(err instanceof Error ? err.message : '删除记忆失败');
+      setError(err instanceof Error ? err.message : '删除失败');
     }
   };
 
@@ -112,7 +105,7 @@ export const MemoryInspectorPanel: React.FC<MemoryInspectorPanelProps> = ({
       setNewContent('');
       setShowAdd(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : '写入记忆失败');
+      setError(err instanceof Error ? err.message : '添加偏好失败');
     }
   };
 
@@ -121,12 +114,12 @@ export const MemoryInspectorPanel: React.FC<MemoryInspectorPanelProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="space-y-0.5">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-resolved" />
-            <h3 className="text-sm font-semibold text-ink">个人记忆控制面板（Opt-in Memory Store）</h3>
+            <SlidersHorizontal className="w-4 h-4 text-violet" />
+            <h3 className="text-sm font-semibold text-ink">我的演讲偏好</h3>
           </div>
           {!compact && (
             <p className="text-xs text-ink-3">
-              所有长期记忆必须经用户显式确认（userConfirmed = true）才会写入本地存储，支持随时查阅、编辑或彻底删除。
+              保存你的常用术语、语速节奏与提词习惯，后续准备讲稿和上台时会自动沿用，随时可修改或删除。
             </p>
           )}
         </div>
@@ -140,7 +133,7 @@ export const MemoryInspectorPanel: React.FC<MemoryInspectorPanelProps> = ({
             data-testid="memory-add-toggle"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span>手动添加</span>
+            <span>新增偏好</span>
           </Button>
           <Button type="button" variant="quiet" size="sm" onClick={() => void load()}>
             <RefreshCw className="w-3.5 h-3.5" />
@@ -165,15 +158,15 @@ export const MemoryInspectorPanel: React.FC<MemoryInspectorPanelProps> = ({
               type="text"
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
-              aria-label="记忆标题"
-              placeholder="记忆标题（例如：开场习惯）"
+              aria-label="偏好名称"
+              placeholder="例如：开场节奏提醒 / 专业名词写法"
               className="sm:col-span-2 border border-line bg-surface rounded px-2.5 py-1.5 text-ink"
               required
             />
             <select
               value={newCategory}
               onChange={(e) => setNewCategory(e.target.value as MemoryCategory)}
-              aria-label="记忆类别"
+              aria-label="偏好分类"
               className="border border-line bg-surface rounded px-2.5 py-1.5 text-ink"
             >
               {Object.entries(MEMORY_CATEGORY_LABELS).map(([k, label]) => (
@@ -187,8 +180,8 @@ export const MemoryInspectorPanel: React.FC<MemoryInspectorPanelProps> = ({
             rows={2}
             value={newContent}
             onChange={(e) => setNewContent(e.target.value)}
-            aria-label="记忆内容"
-            placeholder="需要 CueX 在后续场次记住的偏好、术语或边界说明..."
+            aria-label="偏好说明"
+            placeholder="写下希望 CueX 在之后每场演讲中记住的习惯或常用口径…"
             className="w-full border border-line bg-surface rounded px-2.5 py-1.5 text-ink"
             required
           />
@@ -197,7 +190,7 @@ export const MemoryInspectorPanel: React.FC<MemoryInspectorPanelProps> = ({
               取消
             </Button>
             <Button type="submit" size="sm">
-              确认写入记忆
+              保存偏好
             </Button>
           </div>
         </form>
@@ -205,16 +198,16 @@ export const MemoryInspectorPanel: React.FC<MemoryInspectorPanelProps> = ({
 
       {loading ? (
         <div className="border border-line bg-ground/60 rounded p-4 text-xs text-ink-3">
-          正在读取个人记忆存储...
+          正在加载演讲偏好…
         </div>
       ) : items.length === 0 ? (
         <div
           className="bg-surface-muted rounded p-5 text-center space-y-1"
           data-testid="memory-empty"
         >
-          <p className="text-sm font-medium text-ink-2">当前没有已写入的个人长期记忆</p>
+          <p className="text-sm font-medium text-ink-2">还没有已保存的个人演讲偏好</p>
           <p className="text-xs text-ink-3">
-            场后复盘若生成记忆建议，仅在您点击「允许写入」后才会出现在此处。
+            你可以点击右上角「新增偏好」，或在每场复盘后将推荐习惯一键保存过来。
           </p>
         </div>
       ) : (
@@ -278,9 +271,6 @@ export const MemoryInspectorPanel: React.FC<MemoryInspectorPanelProps> = ({
                         <Badge variant="secondary">
                           {MEMORY_CATEGORY_LABELS[item.category] ?? item.category}
                         </Badge>
-                        <Badge variant="outline">
-                          {SCOPE_LABELS[item.scope] ?? item.scope}
-                        </Badge>
                         <Badge variant="resolved">
                           {PRIVACY_LABELS[item.privacyLevel] ?? item.privacyLevel}
                         </Badge>
@@ -288,7 +278,7 @@ export const MemoryInspectorPanel: React.FC<MemoryInspectorPanelProps> = ({
                       <p className="text-xs text-ink-2 leading-relaxed break-words">
                         {item.content}
                       </p>
-                      <p className="text-xs font-mono text-ink-3 tabular-nums">
+                      <p className="text-xs text-ink-3 tabular-nums">
                         更新于 {new Date(item.updatedAt).toLocaleString()}
                       </p>
                     </div>

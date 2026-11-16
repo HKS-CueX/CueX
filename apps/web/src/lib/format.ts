@@ -9,10 +9,12 @@ import type {
   MemoryCategory,
   MoneyAmount,
   PlanDefinition,
+  PresentationReflection,
   PresentationSceneType,
   S1ProviderKind,
   System2GuidanceBias,
   TelemetryUsageSource,
+  TranscriptSpeaker,
   UsageType,
   UtcIso8601,
   WithdrawalReason,
@@ -88,24 +90,57 @@ export function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 }
 
+/**
+ * Extracts a crisp, peripheral-vision friendly headline and optional concise detail
+ * from an intervention cue so presenters don't have to read long prefixes on stage.
+ */
+export function extractGlanceableCue(cueText: string, fallbackTitle?: string): {
+  headline: string;
+  subline?: string;
+} {
+  const cleaned = cueText
+    .trim()
+    .replace(/^(?:回到本节重点|收束回到|准备收尾本节|回到本节|围绕|补提|聚焦本节目标)[：:]\s*/u, '')
+    .trim();
+
+  if (cleaned.length <= 16) {
+    return {
+      headline: cleaned || fallbackTitle || '关键提示',
+      subline: fallbackTitle && fallbackTitle !== cleaned ? fallbackTitle : undefined,
+    };
+  }
+
+  const clauseMatch = cleaned.split(/[；;，,。！!？?]/u).map((s) => s.trim()).filter(Boolean);
+  if (clauseMatch.length >= 2 && clauseMatch[0].length >= 4 && clauseMatch[0].length <= 18) {
+    return {
+      headline: clauseMatch[0],
+      subline: clauseMatch.slice(1).join('，'),
+    };
+  }
+
+  return {
+    headline: cleaned,
+    subline: fallbackTitle,
+  };
+}
+
 export const API_ERROR_LABELS: Record<ApiErrorCode, string> = {
-  VALIDATION_ERROR: '请求参数校验未通过',
-  UNAUTHORIZED: '当前认证凭据无效或已过期，请刷新会话或重新登录',
-  FORBIDDEN: '无权访问其他用户或租户的资源',
-  NOT_FOUND: '请求的资源不存在或已被清除',
-  RATE_LIMITED: '请求过于频繁，触发限流保护，请稍后重试',
-  PROVIDER_TIMEOUT: '推理或外部服务超时，可重试或降级使用本地规则模式',
-  PROVIDER_UNAVAILABLE: '外部推理或识别服务暂不可用',
-  QUOTA_EXCEEDED: '当前套餐可用会话或实时时长额度已耗尽',
-  SCHEMA_VERSION_UNSUPPORTED: '数据 Schema 版本不受支持',
-  SESSION_EXPIRED: '会话已过期或已结束',
-  ASR_UNAVAILABLE: '语音识别引擎暂不可用，请切换浏览器 Web Speech 或文本仿真',
-  INSUFFICIENT_EVIDENCE: '已确认资料不足以支持该回答，禁止无依据编造',
-  // 伴随窗与主控权隔离错误提示
-  COMPANION_READ_ONLY: '当前为只读演讲伴随窗（Companion），禁止采集麦克风或启停控制会话',
-  PRIMARY_MIC_CONFLICT: '主控端控制权冲突：同一会话仅允许一个主控端持有麦克风与会话写权限',
-  PAYMENT_NOT_CONFIGURED: '尚未接入真实商业支付商户（当前仅沙盒预览）',
-  INTERNAL_ERROR: '服务端内部处理异常',
+  VALIDATION_ERROR: '输入内容未通过检查，请核对后重试',
+  UNAUTHORIZED: '登录状态已失效，请刷新页面重试',
+  FORBIDDEN: '无权访问该内容',
+  NOT_FOUND: '未找到对应记录',
+  RATE_LIMITED: '操作过于频繁，请稍后再试',
+  PROVIDER_TIMEOUT: '云端响应超时，已切换本地辅助继续运行',
+  PROVIDER_UNAVAILABLE: '云端服务暂时繁忙，已切换备用辅助',
+  QUOTA_EXCEEDED: '当前套餐可用场次或语音时长已用完',
+  SCHEMA_VERSION_UNSUPPORTED: '数据格式版本不兼容',
+  SESSION_EXPIRED: '当前演讲已结束',
+  ASR_UNAVAILABLE: '语音识别暂时不可用，可切换浏览器语音或模拟输入',
+  INSUFFICIENT_EVIDENCE: '讲稿材料未包含该项数据',
+  COMPANION_READ_ONLY: '当前为提词伴随窗，麦克风与启停控制请在主舞台操作',
+  PRIMARY_MIC_CONFLICT: '主控端控制权冲突：同一场演讲仅支持一个主舞台开启麦克风',
+  PAYMENT_NOT_CONFIGURED: '当前处于公开体验期，暂未开启在线扣费',
+  INTERNAL_ERROR: '服务处理遇到异常，请稍后重试',
 };
 
 export function formatApiError(err: unknown): string {
@@ -125,145 +160,171 @@ export function formatApiError(err: unknown): string {
       parts.unshift(`[${typed.code}]`);
     }
     if (typed.retryable) parts.push('（可重试）');
-    if (typed.requestId) parts.push(`· 请求追踪 ${typed.requestId}`);
+    if (typed.requestId) parts.push(`追踪号 ${typed.requestId}`);
     return parts.join(' ');
   }
   if (err instanceof Error) return err.message;
-  return '未知请求错误';
+  return '网络请求失败，请稍后重试';
 }
 
 export const SCENE_TYPE_LABELS: Record<PresentationSceneType, string> = {
   pitch: '项目路演',
   defense: '课题答辩',
   academic: '学术汇报',
-  keynote: '正式演讲',
-  general: '通用演讲',
+  keynote: '主题演讲',
+  general: '日常汇报',
 };
 
 export const INTERVENTION_LEVEL_LABELS: Record<InterventionLevel, string> = {
-  L0: 'L0 · 静默观察',
-  L1: 'L1 · 边缘微光',
-  L2: 'L2 · 关键词胶囊',
-  L3: 'L3 · 结构化要点',
+  L0: '安静倾听',
+  L1: '边缘微光',
+  L2: '关键词提词',
+  L3: '要点卡片',
 };
 
 export const WITHDRAWAL_REASON_LABELS: Record<WithdrawalReason, string> = {
-  user_recovered: '演讲者已主动补全，系统自动撤回',
-  topic_changed: '话题已切换，原提示不再适用',
-  chapter_changed: '章节已推进，旧提示自动失效',
-  context_invalidated: '上下文版本更新，候选提示已作废',
-  candidate_expired: '候选提示已超过 TTL 有效期',
-  user_dismissed: '演讲者手动忽略',
-  superseded: '已被更高优先级干预替代',
+  user_recovered: '已接回主线，提示自动收起',
+  topic_changed: '话题已推进，提示自动收起',
+  chapter_changed: '已进入下一章，旧提示自动收起',
+  context_invalidated: '讲稿内容已更新，旧提示已收起',
+  candidate_expired: '提示停留时间已到，自动收起',
+  user_dismissed: '已手动收起',
+  superseded: '已更新为最新提示',
 };
 
 export const CONTROLLER_ACTION_LABELS: Record<ControllerAction, string> = {
-  stay_silent: '保持静默 (L0)',
-  show_l1_edge: '触发边缘微光 (L1)',
-  show_l2_keyword: '显示关键词胶囊 (L2)',
-  show_l3_scaffold: '展开要点脚手架 (L3)',
-  withdraw: '主动撤回当前提示',
+  stay_silent: '保持安静 (L0)',
+  show_l1_edge: '边缘微光提醒 (L1)',
+  show_l2_keyword: '显示关键词提词 (L2)',
+  show_l3_scaffold: '展开要点卡片 (L3)',
+  withdraw: '自动收起当前提示',
 };
 
 export const SUPPRESS_REASON_LABELS: Record<ControllerSuppressReason, string> = {
-  silent_mode: '处于静默模式 (L0)',
-  session_paused: '会话已暂停',
-  ceiling_exceeded: '超过用户设定的最大干预上限',
-  cooldown_active: '冷却窗口保护中，避免频繁打扰',
-  user_dismissed_suppression: '该类提示近期已被用户忽略',
-  candidate_expired: '候选提示已过期 (TTL)',
-  stale_context_version: '候选上下文版本过旧 (Stale contextVersion)',
-  ungrounded_evidence: '缺少已确认事实依据，已拦截未实证内容',
-  no_semantic_need: '当前表达连贯，无语义缺口',
-  pause_only_without_gap: '仅短暂停顿但无语义缺口，禁止误触发',
-  user_already_recovering: '检测到用户正在自行修正，暂不干预',
-  lower_priority: '优先级低于当前活跃提示',
+  silent_mode: '已开启免打扰模式',
+  session_paused: '已暂停监听',
+  ceiling_exceeded: '超过设定的提示详略上限',
+  cooldown_active: '冷却间隔保护中，避免频繁提示',
+  user_dismissed_suppression: '同类提示近期已被收起',
+  candidate_expired: '候选提示已逾有效期',
+  stale_context_version: '上下文已更新，旧候选跳过',
+  ungrounded_evidence: '缺少讲稿依据支撑，已过滤',
+  no_semantic_need: '表达顺畅，无需介入',
+  pause_only_without_gap: '正常换气停顿，不作打断',
+  user_already_recovering: '正在自然接回主线，暂不打扰',
+  lower_priority: '低于当前显示提示优先级',
 };
 
 export const ATTENTION_SIGNAL_LABELS: Record<AttentionSignal, string> = {
-  fluent: '流畅推进',
-  hesitating: '卡壳 / 检索中',
-  drifting: '主题偏离',
-  omission_risk: '关键点遗漏风险',
-  answering_question: '现场问答应对中',
-  recovering: '主动补正恢复中',
+  fluent: '表达顺畅',
+  hesitating: '思考停顿',
+  drifting: '略微偏题',
+  omission_risk: '有待补要点',
+  answering_question: '现场问答',
+  recovering: '正在接回主线',
 };
 
 export const ASR_MODE_LABELS: Record<AsrBackendMode, string> = {
-  colab_gpu: 'Colab GPU 云端流式 ASR',
-  local_sherpa: '本地 Sherpa 流式 ASR',
-  remote_sherpa: '远端 Sherpa 流式 ASR',
-  browser_webspeech: '浏览器 Web Speech API',
-  text_simulation: '文本仿真输入（非麦克风 ASR）',
+  colab_gpu: 'Colab GPU 云端流式语音',
+  local_sherpa: '本地流式语音',
+  remote_sherpa: '远端流式语音',
+  browser_webspeech: '浏览器语音识别',
+  text_simulation: '彩排模拟输入',
 };
 
 export const COLAB_ASR_LIFECYCLE_LABELS: Record<ColabAsrLifecycleState, string> = {
-  not_configured: '未配置 Colab ASR',
-  starting: 'Colab ASR 启动中',
-  ready: 'Colab GPU 就绪',
-  degraded: 'Colab ASR 性能降级',
-  disconnected: 'Colab ASR 连接断开',
-  restarting: 'Colab ASR 重启恢复中',
-  unavailable: 'Colab ASR 不可用',
+  not_configured: '未连接云端语音',
+  starting: '语音服务启动中',
+  ready: '云端语音就绪',
+  degraded: '语音服务降级',
+  disconnected: '语音连接已断开',
+  restarting: '语音服务重连中',
+  unavailable: '云端语音暂不可用',
 };
 
 export const PACE_STATUS_LABELS: Record<
   'on_pace' | 'slightly_fast' | 'slightly_behind' | 'overtime',
   string
 > = {
-  on_pace: '节奏稳健',
+  on_pace: '节奏适中',
   slightly_fast: '语速偏快',
-  slightly_behind: '略微滞后',
-  overtime: '章节已超时',
+  slightly_behind: '进度偏慢',
+  overtime: '本节已超时',
 };
 
 export const MEMORY_CATEGORY_LABELS: Record<MemoryCategory, string> = {
   preference: '表达偏好',
-  terminology: '专业术语',
-  fact: '确认事实',
-  pacing_habit: '节奏习惯',
-  qa_pattern: '问答策略',
-  style: '风格约束',
+  terminology: '常用术语',
+  fact: '常用数据',
+  pacing_habit: '语速与节奏',
+  qa_pattern: '问答习惯',
+  style: '表达风格',
+};
+
+export const FACT_CATEGORY_LABELS: Record<string, string> = {
+  metric: '关键数字',
+  claim: '核心观点',
+  boundary: '表达边界',
+  milestone: '重要进展',
+  definition: '关键概念',
+};
+
+export const TIMELINE_EVENT_KIND_LABELS: Record<
+  PresentationReflection['timeline'][number]['kind'],
+  string
+> = {
+  segment: '现场发言',
+  chapter_change: '切换章节',
+  intervention_shown: '弹出提示',
+  intervention_withdrawn: '自动收起',
+  intervention_dismissed: '手动收起',
+  qa_question: '观众提问',
+  feedback: '提示评价',
+};
+
+export const SPEAKER_LABELS: Record<TranscriptSpeaker, string> = {
+  presenter: '主讲人',
+  audience: '听众提问',
+  interlocutor: '互动嘉宾',
+  unknown: '现场声音',
 };
 
 export const USAGE_SOURCE_LABELS: Record<TelemetryUsageSource, string> = {
-  provider_reported: '模型商实报 (provider_reported)',
-  provider_unreported: '供应商未回传用量（非零消耗）',
-  local_rule_zero: '本地规则零 Token (local_rule_zero)',
-  estimated: '显式估算 (estimated)',
+  provider_reported: '云端模型实报',
+  provider_unreported: '云端未回传明细',
+  local_rule_zero: '本地引擎（零消耗）',
+  estimated: '按量估算',
 };
 
 export const PLAN_CYCLE_LABELS: Record<PlanDefinition['billingCycle'], string> = {
-  none: '免费永久',
-  one_time_14d: '14 天单场有效',
+  none: '长期免费',
+  one_time_14d: '14 天有效',
   monthly: '按月订阅',
   annual: '按年订阅',
 };
 
 export const USAGE_TYPE_LABELS: Record<UsageType, string> = {
-  session_started: '开启会话',
-  live_audio_ms: '实时音频时长',
-  document_extract: '文档解析',
-  context_compile: '上下文编译',
-  system1_eval: 'System 1 评估',
-  system2_synthesis: 'System 2 候选合成',
-  reflection_generated: '场后复盘生成',
-  memory_write: '个人记忆写入',
+  session_started: '开启演讲',
+  live_audio_ms: '实时语音识别',
+  document_extract: '解析讲稿文件',
+  context_compile: '生成演讲提纲',
+  system1_eval: '实时语流判断',
+  system2_synthesis: '检索提词生成',
+  reflection_generated: '生成复盘报告',
+  memory_write: '保存演讲偏好',
 };
 
-/** System 2 异步指导偏向中文标签。 */
 export const SYSTEM2_GUIDANCE_BIAS_LABELS: Record<System2GuidanceBias, string> = {
-  stay_silent: '保持静默（L0）',
-  prefer_l1: '优先 L1 边缘提醒',
-  prefer_l2: '优先 L2 关键词胶囊',
-  prefer_l3: '优先 L3 结构要点',
-  qa_grounding: '现场问答强实证锚定',
-  recovery_hold: '恢复巩固观测窗口',
+  stay_silent: '保持安静（L0）',
+  prefer_l1: '优先边缘微光',
+  prefer_l2: '优先关键词提词',
+  prefer_l3: '优先要点卡片',
+  qa_grounding: '现场问答强依据匹配',
+  recovery_hold: '接回主线观察窗口',
 };
 
-/** System 1 推理提供方归因中文标签。 */
 export const S1_PROVIDER_KIND_LABELS: Record<S1ProviderKind, string> = {
-  colab_jev: 'Colab JEV-Like 在线头',
-  local_jev: '本地 JEV 推理服务',
-  local_rule_zero: '本地规则兜底（0 Token）',
+  colab_jev: 'Colab JEV 快思考模型',
+  local_jev: '本地 JEV 快思考模型',
+  local_rule_zero: '本地快速规则',
 };
